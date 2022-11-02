@@ -1,0 +1,47 @@
+GPIOs 18-21 (pins 12, 35, 38 and 40) are used for the sound interface. You can’t use them for any other purpose.
+
+12 | 0 | ALT0 | GPIO. 1 | 1   | 18
+35 | 0 | ALT0 | GPIO.24 | 24  | 19
+38 | 1 | ALT0 | GPIO.28 | 28  | 20 
+40 | 0 | ALT0 | GPIO.29 | 29  | 21 
+
+
+Use for connections
+
+GPIO. 0 |   IN | 0 | 11
+GPIO. 2 |   IN | 0 | 13
+GPIO. 3 |  OUT | 0 | 15
+GPIO. 5 |  OUT | 0 | 18
+GPIO. 6 |  OUT | 0 | 22
+GPIO.26 |  OUT | 0 | 32
+GPIO.23 |  OUT | 0 | 33
+
+
+
+## Switch to Pi (1)
+gpio mode 0 out
+gpio write 0 0
+
+## Sub Volume Up (1)
+gpio mode 2 out
+gpio write 2 0
+
+## Sub Volume Down (1)
+gpio mode 3 out
+gpio write 3 0
+
+## Main Volume Up (1)
+gpio mode 5 out
+gpio write 5 0
+
+## Main Volume Down (1)
+gpio mode 6 out
+gpio write 6 0
+
+## Mute (1)
+gpio mode 26 out
+gpio write 26 0
+
+## Bypass EQ (1)
+gpio mode 23 out
+gpio write 23 0

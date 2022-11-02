@@ -1,0 +1,1 @@
+The circuit in the build guide is wrong only use the 'Honey Badger Sch - V2.5.4.pdf' diagram if using the original PCB, install the jumper in the C-Z position do not install the zener only use R19 68k, R18 22k, make sure R18 is attached to ground.

@@ -1,0 +1,3 @@
+R2 = 1.5k (PCM63 Internal)
+C1 = 1800pF
+R1 = 5.275Ohms

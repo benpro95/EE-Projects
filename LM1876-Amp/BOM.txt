@@ -1,0 +1,73 @@
+Partlist
+
+Exported from Amp-Rev1.brd at 8/15/2022 11:34 AM
+
+EAGLE Version 7.6.0 Copyright (c) 1988-2016 CadSoft
+
+Assembly variant: 
+
+Part     Value          Package      Library             Position (inch)       Orientation
+
+C1       22pF           C075-032X103 resistor            (3.54 3.32)           R180
+C2       22pF           C075-032X103 resistor            (3 3.24)              R0
+C3       220pF          C1210        resistor            (3.36 3.12)           MR90
+C4       0.1            C050-025X075 resistor            (2.54 3.89)           R194.1
+C5       0.1            C050-025X075 resistor            (2.57 3.75)           R0
+C6       220pF          C1210        resistor            (2.53 3.43)           MR225.5
+C7       10uF           E2,5-7       resistor            (3.8 2.68)            R0
+C8       0.1            C050-025X075 resistor            (3.74 3.02)           R270
+C9       220uF          E5-8,5       resistor            (2.21 3.83)           R270
+C10      220uF          E5-8,5       resistor            (2.09 3.48)           R0
+C11      47uF           E2,5-7       resistor            (3.04 2.91)           R90
+C12      47uF           E2,5-7       resistor            (4.05 2.84)           R359.6
+C13      0.1            C050-055X075 resistor            (2.53 2.52)           R0
+C14      0.1            C050-055X075 resistor            (3.03 2.49)           R0
+C15      22uF BP        E2,5-7       resistor            (2.23 2.63)           R180
+C16      22uF BP        E2,5-7       resistor            (3.56 2.46)           R0
+C17      10uF           E2,5-7       resistor            (3.83 3.85)           R48.3
+C18      47uF           E2,5-7       resistor            (4.45 2.59)           R180
+C19      47uF           E2,5-7       resistor            (4.6 3.73)            R0
+C20      1uF            E2,5-6       resistor            (4.24 2.35)           R180
+C21      47uF           E2,5-7       resistor            (4.78 3.5)            R90
+C22      0.1            C075-032X103 resistor            (4.68 2.52)           R270.1
+D1       4148           DO35-7       diode               (4.32 3.74)           R299.9
+D2       5v1            DO35-10      diode               (4.97 3.35)           R269.9
+IC1      LM358N         DIL08        linear              (4.48 3.02)           R90
+LED1     RED            LED3MM       led                 (1.94 2.62)           R270
+R1       J              0207/12      resistor            (3.57 3.5)            R180
+R2       47k            R1210        resistor            (3.49 3.07)           MR90
+R3       22k            0207/10      resistor            (3.54 3.4)            R180
+R4       22k            0207/10      resistor            (3 3.33)              R180
+R5       J              0207/10      resistor            (3.05 3.43)           R180
+R6       47k            M1206        resistor            (2.44 3.34)           MR225.6
+R7       J              0207/10      resistor            (2.79 3.79)           R270
+R8       1k             0207/10      resistor            (3.51 2.99)           R270
+R9       1k             0207/12      resistor            (2.42 2.95)           R270
+R10      1k             0204/7       resistor            (3.85 3.01)           R270
+R11      1k             0207/10      resistor            (3.24 3.05)           R270
+R12      J              0207/12      resistor            (3.63 2.95)           R270
+R13      4.7            0207/12      resistor            (2.64 2.94)           R270
+R14      4.7            0207/12      resistor            (2.85 2.88)           R270
+R15      J              0207/12      resistor            (3.29 2.67)           R180
+R16      J              0207/10      resistor            (2.07 2.91)           R159.8
+R18      10R+0.7H       0207/12      resistor            (2.53 2.94)           R90
+R19      10R+0.7H       0207/12      resistor            (2.75 2.93)           R270
+R20      10k            0207/10      resistor            (4.08 2.51)           R180
+R21      100k           0204/7       resistor            (3.95 3.67)           R0
+R22      10k            0204/7       resistor            (4.1 3.46)            R281.5
+R23      100k           0204/5       resistor            (4.71 2.88)           R90
+R24      10k            0207/10      resistor            (4.53 3.28)           R180
+R25      100k           0204/5       resistor            (4.52 3.37)           R0
+R26      1k             0207/10      resistor            (4.8 2.78)            R270
+R27      100            0204/7       resistor            (4.23 3.24)           R270
+R28      100k           0204/5       resistor            (4.85 3.17)           R270
+R29      10M            0207/10      resistor            (4.53 3.92)           R14.1
+R30      10             0207/10      resistor            (3.97 3.25)           R0
+R31      3k9            0309/10      resistor            (4.38 3.5)            R180
+R32      3k9            0207/10      resistor            (1.79 2.89)           R90
+U$1      LM1876         MULTIWATT-15 st-microelectronics (3.25 3.95)           R0
+U$3      2N7000         TO92-        transistor-fet      (4.1 3.84)            R270
+X1       OUT            22-23-2031   con-molex           (2.64 2.25)           R180
+X2       IN             22-23-2021   con-molex           (2.16 2.36)           R90
+X3       IN             22-23-2021   con-molex           (3.82 2.31)           R180
+X4       PWR            22-23-2031   con-molex           (2.05 3.13)           R180

@@ -1,0 +1,122 @@
+#include "SPI.h"
+// Arduino pin 10 = CS
+// Arduino pin 11 = SDI
+// Arduino pin 13 = CLK
+
+const int AttenuatorCSPin = 10;
+int attenuatorLevel = 0;
+
+// Encoder stuff
+const int encoderPowerPin = 4;
+const int encoderGroundPin = 5;
+int encoder0PinA = 6;
+int encoder0PinB = 7;
+int encoder0Pos = 0;
+int encoder0PinALast = LOW;
+int n = LOW;
+
+void setup() {
+  // set the inputSelectorCSPin as an output:
+  pinMode (AttenuatorCSPin, OUTPUT);
+  digitalWrite(AttenuatorCSPin,HIGH);
+  // Set up pins for encoder:
+  pinMode (encoder0PinA,INPUT);
+  pinMode (encoder0PinB,INPUT);
+  pinMode (encoderPowerPin, OUTPUT);
+  pinMode (encoderGroundPin, OUTPUT);
+  digitalWrite(encoderPowerPin,HIGH);
+  digitalWrite(encoderGroundPin,LOW);
+  // Serial
+  //Serial.begin (9600);
+  Serial.println ("Starting SPI..");
+  SPI.begin();
+  Serial.println ("Setting control registers..");
+  // Set IO direction to output for all bank 0 (I/O pins 0-7)
+  digitalWrite(AttenuatorCSPin,LOW);
+  SPI.transfer(B01000000); // Send Device Opcode
+  SPI.transfer(0);         // Select IODIR register for bank 0
+  SPI.transfer(0);         // Set register
+  digitalWrite(AttenuatorCSPin,HIGH);
+  // Set IO direction to output for all bank 1 (I/O pins 8-17)
+  digitalWrite(AttenuatorCSPin,LOW);
+  SPI.transfer(B01000000); // Send Device Opcode
+  SPI.transfer(1);         // Select IODIR register for bank 1
+  SPI.transfer(0);         // Set register
+  digitalWrite(AttenuatorCSPin,HIGH);
+}
+
+// Function to send data to the MCP23S17 (18 = GPIOA, 19 = GPIOB)
+int setMCP23S08 (int select_register, int register_value) {
+  digitalWrite(AttenuatorCSPin,LOW);
+  SPI.transfer(B01000000);        // Send Device Opcode
+  SPI.transfer(select_register);  // Select register
+  SPI.transfer(register_value);   // Set register
+  digitalWrite(AttenuatorCSPin,HIGH);
+}
+
+// Function to mirror and reverse a byte. This is used because the relays connected to one side of the setMCP23S08 are reversed to the other.
+int reverseAndMirrorByte (byte myByte) {
+  byte myByteReversedAndMirrored;
+  for (int reverseBit = 0; reverseBit < 8; reverseBit++) {
+    if (bitRead(myByte, reverseBit) == 1) {
+      bitWrite(myByteReversedAndMirrored, (7 - reverseBit), 0);
+    } else {
+      bitWrite(myByteReversedAndMirrored, (7 - reverseBit), 1);
+    }
+  }
+  return myByteReversedAndMirrored;
+}
+// Function to reverse a byte. This is used because the relays are connected to the setMCP23S08 in reverse order.
+int reverseByte (byte myByte) {
+  byte myByteReversed;
+  for (int reverseBit = 0; reverseBit < 8; reverseBit++) {
+    if (bitRead(myByte, reverseBit) == 1) {
+      bitWrite(myByteReversed, (7 - reverseBit), 1);
+    } else {
+      bitWrite(myByteReversed, (7 - reverseBit), 0);
+    }
+  }
+  return myByteReversed;
+}
+
+// Function to set a specific attenuator level
+int setAttenuatorLevel (byte level) {
+  byte gpioaValue = reverseByte(level);
+  byte gpiobValue = reverseAndMirrorByte(gpioaValue);
+  setMCP23S08(18, gpioaValue);
+  setMCP23S08(19, gpiobValue);
+  delay(1);
+  setMCP23S08(18, B00000000);
+  setMCP23S08(19, B00000000);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////
+int WriteAndPrintLevel() {
+  Serial.print ("Attenuator Level: ");
+  Serial.println (attenuatorLevel);
+  setAttenuatorLevel(attenuatorLevel);
+}
+int VolumeUp() {
+  if (attenuatorLevel < 255) {
+    attenuatorLevel = attenuatorLevel + 1;
+    WriteAndPrintLevel();
+  }
+}
+int VolumeDown() {
+  if (attenuatorLevel > 0) {
+    attenuatorLevel = attenuatorLevel - 1;
+    WriteAndPrintLevel();
+  }
+}
+
+void loop() {
+  n = digitalRead(encoder0PinA);
+  if ((encoder0PinALast == LOW) && (n == HIGH)) {
+    if (digitalRead(encoder0PinB) == LOW) {
+      VolumeUp();
+    } else {
+      VolumeDown();
+    }
+  }
+  encoder0PinALast = n;
+}
