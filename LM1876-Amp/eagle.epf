@@ -127,7 +127,6 @@ UsedLibrary="Z:/Documents/EAGLE/libraries/con-phoenix-smkdsp.lbr"
 UsedLibrary="Z:/Documents/EAGLE/libraries/con-ptr500.lbr"
 UsedLibrary="Z:/Documents/EAGLE/libraries/con-pulse.lbr"
 UsedLibrary="Z:/Documents/EAGLE/libraries/con-rib.lbr"
-UsedLibrary="Z:/Documents/EAGLE/libraries/con-samtec.lbr"
 UsedLibrary="Z:/Documents/EAGLE/libraries/con-shallin.lbr"
 UsedLibrary="Z:/Documents/EAGLE/libraries/con-shiua-chyuan.lbr"
 UsedLibrary="Z:/Documents/EAGLE/libraries/con-stewart.lbr"
@@ -364,7 +363,7 @@ UsedLibrary="Z:/Documents/EAGLE/libraries/zilog.lbr"
 
 [Win_1]
 Type="Control Panel"
-Loc="969 1289 1992 2387"
+Loc="1051 1609 2074 2707"
 State=2
 Number=0
 
