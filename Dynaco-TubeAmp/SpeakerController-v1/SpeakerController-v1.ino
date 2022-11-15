@@ -21,7 +21,7 @@ uint8_t lcdRows = 2;  // number of rows in the LCD
 #define lcdBacklightPin 9 // display backlight pin
 uint8_t lcdOffBrightness = 0; // standby-off LCD brightness level ***
 uint8_t lcdOnBrightness = 255; // online LCD brightness level ***
-// custom characters
+// Custom Characters
 uint8_t bar1[8] = {0x10,0x10,0x10,0x10,0x10,0x10,0x10,0x10};
 uint8_t bar2[8] = {0x18,0x18,0x18,0x18,0x18,0x18,0x18,0x18};
 uint8_t bar3[8] = {0x1C,0x1C,0x1C,0x1C,0x1C,0x1C,0x1C,0x1C};
@@ -50,7 +50,12 @@ uint8_t subButton = 0;
 uint8_t lastSubButton = 0;
 uint32_t subButtonMillis;
 
-// Power
+// Amplifier control
+#define outRelaysPin 5
+#define inRelaysPin 4
+
+// Power Control
+#define subRelayPin 6
 #define powerRelayPin 7 
 #define powerTriggerPin 0 // A0 analog input
 #define powerButtonPin 5 // on MCP chip
@@ -188,9 +193,13 @@ void irReceive()
       }   
       if (powerLock == 0) { // powered off state & not locked
         if (IrReceiver.decodedIRData.command == 0x5F) { // play/pause button
-          Serial.println("Play/pause button - powering on..."); 
           powerState = !powerState;  
           powerCycle = 1;
+          if (powerState == 1) {
+            Serial.println("powering on..."); 
+          } else {
+            Serial.println("shutting down...");  
+          }  
         }  
       }  
     }          
