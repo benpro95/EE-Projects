@@ -194,12 +194,7 @@ void irReceive()
       if (powerLock == 0) { // powered off state & not locked
         if (IrReceiver.decodedIRData.command == 0x5F) { // play/pause button
           powerState = !powerState;  
-          powerCycle = 1;
-          if (powerState == 1) {
-            Serial.println("powering on..."); 
-          } else {
-            Serial.println("shutting down...");  
-          }  
+          powerCycle = 1; 
         }  
       }  
     }          
@@ -321,9 +316,11 @@ void setPowerState() {
 	// one-shot triggers
     if (powerState == 1){
       /// runs once on boot ///
+      Serial.println("powering on..."); 
       startup();
     } else {  
       /// runs once on shutdown ///
+      Serial.println("shutting down...");  
       shutdown();
     }  
   powerCycle = 0;  
