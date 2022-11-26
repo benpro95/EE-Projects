@@ -50,8 +50,10 @@ uint8_t subButton = 0;
 uint8_t lastSubButton = 0;
 uint32_t subButtonMillis;
 
-String textA = "A";
-String textB = "B";
+String textA0 = "a";
+String textB0 = "b";
+String textA1 = "A";
+String textB1 = "B";
 String subText0 = "Sub"; 
 String subText1 = "SUB"; 
 String subText2 = "off"; 
@@ -419,10 +421,10 @@ void readFrontPanel() {
 
 void functionSelect(uint8_t updown)
 { 	
-  if (updown == 0) { 
+  if (updown == 1) { 
     selectedMode--;
   }  
-  if (updown == 1) { 
+  if (updown == 0) { 
     selectedMode++;
   } 	  
   if (selectedMode > 3) { 
@@ -479,22 +481,24 @@ void updateLCD(uint8_t func, bool mode, bool select)
   String subText = " ";
   String subStateText = " ";
   if (mode == 0) { 
-	textAB = textA;	
 	if (select == 0) { 	
+	  textAB = textA0;		
 	  subStateText = subText2;
 	} else {	
+	  textAB = textA1;	
 	  subStateText = subText4;
 	}  
   } else {	
-	textAB = textB;	
 	if (select == 0) { 	
+	  textAB = textB0;		
 	  subStateText = subText3;
 	} else {	
+	  textAB = textB1;	
 	  subStateText = subText5;
 	}  
   }
   if (func == 0) { 
-  	if (select == 0) { 	
+  	if (select == 0) { 		
   	  outText = outText0;	
  	} else {	
 	  outText = outText1;
@@ -539,6 +543,12 @@ void shutdown() {
   lcd.print("Shutting Down..."); 	
   lcdTimedBar(shutdownTime,0);	
   lcdStandby();
+  spkMode = 0;
+  inMode = 0;
+  ampMode = 0;
+  subMode = 0;
+  selectedMode = 0;
+  writeRelays = 1;
   // turn off preamp power here
   digitalWrite(powerRelayPin, LOW);  	
 }
