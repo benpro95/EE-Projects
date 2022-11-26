@@ -50,13 +50,36 @@ uint8_t subButton = 0;
 uint8_t lastSubButton = 0;
 uint32_t subButtonMillis;
 
+String textA = "A";
+String textB = "B";
+String subText0 = "Sub"; 
+String subText1 = "SUB"; 
+String subText2 = "off"; 
+String subText3 = "on "; 
+String subText4 = "OFF"; 
+String subText5 = "ON "; 
+String inText0 = "In";
+String inText1 = "IN"; 
+String outText0 = "Speaker";
+String outText1 = "SPEAKER"; 
+String ampText0 = "Amp";
+String ampText1 = "AMP"; 
+
+bool spkMode = 0;
+bool inMode = 0;
+bool ampMode = 0;
+bool subMode = 0;
+bool writeRelays = 0;
+int selectedMode = 0;
+
 // Amplifier control
-#define outRelaysPin 5
+#define outRelaysPin 3
 #define inRelaysPin 4
 
 // Power Control
-#define subRelayPin 6
-#define powerRelayPin 7 
+#define subRelayPin 5
+#define ampSelectRelayPin 6
+#define powerRelayPin 7
 #define powerTriggerPin 0 // A0 analog input
 #define powerButtonPin 5 // on MCP chip
 uint8_t powerButton = 0;
@@ -65,9 +88,9 @@ uint32_t powerButtonMillis;
 uint8_t powerTrigger = 0;
 uint8_t lastPowerTrigger = 0;
 uint32_t powerTriggerMillis;
-int startDelay = 3; // startup delay in seconds, unmutes after ***
-int shutdownTime = 3; // shutdown delay before turning off aux power ***
-int initStartDelay = 3; // delay on initial cold start
+int startDelay = 1; // startup delay in seconds, unmutes after ***
+int shutdownTime = 1; // shutdown delay before turning off aux power ***
+int initStartDelay = 1; // delay on initial cold start
 uint8_t debounceDelay = 50; // button debounce delay in ms
 bool powerLock = 0;
 bool powerCycle = 0;
@@ -169,16 +192,14 @@ void irReceive()
     // code detected
       if (powerState == 1) { // powered on state
     	  if (IrReceiver.decodedIRData.command == 0x5C) { // center button
-          lcd.setCursor(0,0);
-          lcd.print("CENTER  ");      	
+    	  	writeRelays = 1;
+            functionSelect(99);   	
     	  }      
     	  if (IrReceiver.decodedIRData.command == 0xA) { // up button
-          lcd.setCursor(0,0);
-          lcd.print("UP      "); 	 
+            functionSelect(0);
     	  }	  
     	  if (IrReceiver.decodedIRData.command == 0xC) { // down button
-          lcd.setCursor(0,0);
-          lcd.print("DOWN    "); 	 
+            functionSelect(1);
     	  }       
         if (IrReceiver.decodedIRData.command == 0x9) { // left button
           Serial.println("Left button");
@@ -396,6 +417,120 @@ void readFrontPanel() {
   }  
 }
 
+void functionSelect(uint8_t updown)
+{ 	
+  if (updown == 0) { 
+    selectedMode--;
+  }  
+  if (updown == 1) { 
+    selectedMode++;
+  } 	  
+  if (selectedMode > 3) { 
+  	selectedMode = 0;
+  }	
+  if (selectedMode < 0) { 
+  	selectedMode = 3;
+  }	
+  if (selectedMode == 0) { 
+    if (writeRelays == 1) { 
+       ampMode = !ampMode; 
+    }	
+	updateLCD(0,spkMode,0); // Speaker
+	updateLCD(1,ampMode,1); // Amp (selected)
+	updateLCD(2,inMode,0); // Inputs
+	updateLCD(3,subMode,0); // Sub 
+  }	
+  if (selectedMode == 1) { 
+    if (writeRelays == 1) { 
+       spkMode = !spkMode; 
+    }	  	
+	updateLCD(0,spkMode,1); // Speaker (selected)
+	updateLCD(1,ampMode,0); // Amp 
+	updateLCD(2,inMode,0); // Inputs
+	updateLCD(3,subMode,0); // Sub 
+  }	
+  if (selectedMode == 2) { 
+    if (writeRelays == 1) { 
+       inMode = !inMode; 
+    }	  	  	
+	updateLCD(0,spkMode,0); // Speaker
+	updateLCD(1,ampMode,0); // Amp
+	updateLCD(2,inMode,1); // Inputs (selected)
+	updateLCD(3,subMode,0); // Sub 
+  }	
+  if (selectedMode == 3) { 
+    if (writeRelays == 1) { 	
+       subMode = !subMode; 
+    }	   	
+	updateLCD(0,spkMode,0); // Speaker
+	updateLCD(1,ampMode,0); // Amp 
+	updateLCD(2,inMode,0); // Inputs
+	updateLCD(3,subMode,1); // Sub (selected)
+  }
+}
+
+// update current system status to display
+void updateLCD(uint8_t func, bool mode, bool select)
+{ 
+  String textAB = " ";
+  String outText = " ";
+  String ampText = " ";
+  String inText = " ";
+  String subText = " ";
+  String subStateText = " ";
+  if (mode == 0) { 
+	textAB = textA;	
+	if (select == 0) { 	
+	  subStateText = subText2;
+	} else {	
+	  subStateText = subText4;
+	}  
+  } else {	
+	textAB = textB;	
+	if (select == 0) { 	
+	  subStateText = subText3;
+	} else {	
+	  subStateText = subText5;
+	}  
+  }
+  if (func == 0) { 
+  	if (select == 0) { 	
+  	  outText = outText0;	
+ 	} else {	
+	  outText = outText1;
+	}    	
+    lcd.setCursor(0,0);
+    lcd.print(outText + " " + textAB);
+  }  
+  if (func == 1) { 
+  	if (select == 0) { 	
+  	  ampText = ampText0;	
+ 	} else {	
+	  ampText = ampText1;
+	}  
+    lcd.setCursor(0,1);
+    lcd.print(ampText + " " + textAB);
+  }
+  if (func == 2) { 
+  	if (select == 0) { 	
+  	  inText = inText0;	
+ 	} else {	
+	  inText = inText1;
+	}  
+    lcd.setCursor(12,0);  
+    lcd.print(inText + " " + textAB);
+  }
+  if (func == 3) { 
+  	if (select == 0) { 	
+  	  subText = subText0;	
+ 	} else {	
+	  subText = subText1;
+	}   		
+    lcd.setCursor(8,1);
+    lcd.print(subText + " " + subStateText);
+  }
+}  
+
 
 void shutdown() {	
   // shutdown animation
@@ -422,8 +557,13 @@ void startup()
   lcd.clear();
   // music icon
   lcd.createChar(0, sound);
-  lcd.setCursor(0,1);
+  lcd.setCursor(15,1);
   lcd.print(char(0));
+  // default system state
+  selectedMode = 0;
+  writeRelays = 0;
+  functionSelect(99);    
+  writeRelays = 1;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -440,9 +580,13 @@ void setup()
   // display backlight
   pinMode(lcdBacklightPin, OUTPUT);  
   analogWrite(lcdBacklightPin, lcdOffBrightness);
-  // preamp power control
+  // outputs
   pinMode(powerRelayPin, OUTPUT);  
   digitalWrite(powerRelayPin, LOW);
+  pinMode(ampSelectRelayPin, OUTPUT);
+  pinMode(outRelaysPin, OUTPUT);  
+  pinMode(inRelaysPin, OUTPUT);  
+  pinMode(subRelayPin, OUTPUT);  
   // IR remote
   IrReceiver.begin(IRpin);  
   // initial boot display
@@ -468,4 +612,12 @@ void loop()
   setPowerState();
   // respond to front panel buttons	  
   readFrontPanel();
+  // change relay states
+  if (writeRelays == 1) { 
+	digitalWrite(ampSelectRelayPin, ampMode); 
+	digitalWrite(outRelaysPin, spkMode);
+	digitalWrite(inRelaysPin, inMode);
+	digitalWrite(subRelayPin, subMode);
+    writeRelays = 0;
+  }
 }
