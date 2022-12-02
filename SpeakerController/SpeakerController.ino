@@ -33,13 +33,13 @@ uint8_t sound[8] = {B00001,B00011,B00101,B01001,B01001,B01011,B11011,B11000};
 // IR
 int IRpin = 8; // receiver in TSOP34838YA1
 bool irCodeScan = 0; // enable IR codes on the terminal (1)
-uint8_t debounceIR = 75; // IR receive max rate (ms)
+uint8_t debounceIR = 100; // IR receive max rate (ms)
 uint32_t irRecv;
 
 // Front Panel Control
 #define selectPin 1 // A1 analog input
 #define functionPin 2 // A2 analog input
-#define subPin 3 // A3 analog input
+#define subPin 0 // A3 analog input
 uint8_t selectButton = 0;
 uint8_t lastSelectButton = 0;
 uint32_t selectButtonMillis;
@@ -50,9 +50,9 @@ uint8_t subButton = 0;
 uint8_t lastSubButton = 0;
 uint32_t subButtonMillis;
 
-String textA0 = "a";
-String textB0 = "b";
+String textA0 = "A";
 String textA1 = "A";
+String textB0 = "B";
 String textB1 = "B";
 String subText0 = "Sub"; 
 String subText1 = "SUB"; 
@@ -75,14 +75,14 @@ bool writeRelays = 0;
 int selectedMode = 0;
 
 // Amplifier control
-#define outRelaysPin 3
+#define outRelaysPin 3 // speakers
 #define inRelaysPin 4
 
 // Power Control
-#define subRelayPin 5
-#define ampSelectRelayPin 6
+#define subRelayPin 6
+#define ampSelectRelayPin 5 // amps & a/b pwr
 #define powerRelayPin 7
-#define powerTriggerPin 0 // A0 analog input
+#define powerTriggerPin 3 // A0 analog input
 #define powerButtonPin 5 // on MCP chip
 uint8_t powerButton = 0;
 uint8_t lastPowerButton = 0;
@@ -90,9 +90,9 @@ uint32_t powerButtonMillis;
 uint8_t powerTrigger = 0;
 uint8_t lastPowerTrigger = 0;
 uint32_t powerTriggerMillis;
-int startDelay = 1; // startup delay in seconds, unmutes after ***
-int shutdownTime = 1; // shutdown delay before turning off aux power ***
-int initStartDelay = 1; // delay on initial cold start
+int startDelay = 3; // startup delay in seconds, unmutes after ***
+int shutdownTime = 3; // shutdown delay before turning off aux power ***
+int initStartDelay = 3; // delay on initial cold start
 uint8_t debounceDelay = 50; // button debounce delay in ms
 bool powerLock = 0;
 bool powerCycle = 0;
@@ -193,25 +193,26 @@ void irReceive()
     if (IrReceiver.decodedIRData.address == 0xCE) { // remote address        
     // code detected
       if (powerState == 1) { // powered on state
-    	  if (IrReceiver.decodedIRData.command == 0x5C) { // center button
-    	  	writeRelays = 1;
-            functionSelect(99);   	
-    	  }      
-    	  if (IrReceiver.decodedIRData.command == 0xA) { // up button
+      	if (IrReceiver.decodedIRData.command == 0x5C) { // center button (select)
+            writeRelays = 1;
+            functionSelect(99); 
+      	}      
+      	if (IrReceiver.decodedIRData.command == 0xA) { // up button
             functionSelect(0);
-    	  }	  
-    	  if (IrReceiver.decodedIRData.command == 0xC) { // down button
+      	}	  
+      	if (IrReceiver.decodedIRData.command == 0xC) { // down button
             functionSelect(1);
-    	  }       
+      	}       
         if (IrReceiver.decodedIRData.command == 0x9) { // left button
-          Serial.println("Left button");
+          functionSelect(1);
         }   
         if (IrReceiver.decodedIRData.command == 0x6) { // right button
-          Serial.println("Right button"); 
+          functionSelect(0);
         }     
-        if (IrReceiver.decodedIRData.command == 0x3) { // menu button
-          lcd.setCursor(0,0);
-          lcd.print("MENU    ");   
+        if (IrReceiver.decodedIRData.command == 0x3) { // menu button (sub on/off)
+          writeRelays = 1;    		
+    	    selectedMode = 3;
+  	      functionSelect(99);          
         }                                
       }   
       if (powerLock == 0) { // powered off state & not locked
@@ -369,7 +370,9 @@ void readFrontPanel() {
       if (reading != selectButton) {
         selectButton = reading;
         if (selectButton == 1) {
-          Serial.println("select: ");  
+          // select button pressed
+          writeRelays = 1;
+          functionSelect(99);  
         }   
       }
     }
@@ -390,7 +393,8 @@ void readFrontPanel() {
       if (reading != functionButton) {
         functionButton = reading;
         if (functionButton == 1) {
-          Serial.println("function: ");   
+          // function button pressed
+          functionSelect(0);  
         }  
       }
     }
@@ -411,7 +415,10 @@ void readFrontPanel() {
       if (reading != subButton) {
         subButton = reading;
         if (subButton == 1) {
-          Serial.println("sub: ");  
+          // sub button pressed
+          writeRelays = 1;    		
+    	  selectedMode = 3;
+  	      functionSelect(99);
         }   
       }
     }
