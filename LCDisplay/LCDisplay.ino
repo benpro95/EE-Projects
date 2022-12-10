@@ -11,7 +11,7 @@
 // I2C addresses
 #define lcdAddr 0x27
 
-char* lcdChars[]={" ","0","1","2","3","4","5","6","7","8","9","a","b","c","d","e","f","g","h","i","j","k","l","m","n","o","p","q","r","s","t","u","v","w","x","y","z","A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z","+","=","-",".","(",")","[","]","*","$","@","&","%","!"};
+char* lcdChars[]={" ","0","1","2","3","4","5","6","7","8","9","a","b","c","d","e","f","g","h","i","j","k","l","m","n","o","p","q","r","s","t","u","v","w","x","y","z","A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z","+","=","-","%","(",")",":"};
 
 // 16x2 Display
 LiquidCrystal_I2C lcd(lcdAddr);
@@ -37,7 +37,9 @@ String lastChars;
 
 // RF Control
 RCSwitch mySwitch = RCSwitch();
-String rfvalue;
+uint32_t RFdebounce = 500; // button debounce delay in ms
+uint32_t RFMillis;
+String lastRFvalue;
 
 // Power Control
 #define powerButtonPin 5 // on MCP chip
@@ -57,36 +59,40 @@ bool powerLock = 0;
 void receiveRF() {
   if (mySwitch.available()) {
     // store RF data
+    String rfvalue;
     rfvalue = mySwitch.getReceivedValue();
     if (rfvalue.length() == 6) { // only process 6-bit data
-      // split up bits
-      String _id = rfvalue.substring(0,3);
-      String _schar = rfvalue.substring(3,5);
-      String _sline = rfvalue.substring(5,6);
-      // convert to integers 
-      uint8_t _char = _schar.toInt();
-      uint8_t _line = _sline.toInt();
-      // detect correct RF ID (000xxx)
-      if (_id == "818") {
-        // read last argument (xxxxx0)
-        if (_line == 3) {
-          clearLCD(1);
-        }
-        if (_line == 2) {
-          clearLCD(0);
-        }
-        if (_line <= 1) {
-          // draw character (xxx00x)
-          drawChar(_line,_char,0);
-        }
-      }  
+      if (rfvalue != lastRFvalue) {       
+        // split up incoming data 
+        String _id = rfvalue.substring(0,3);
+        String _schar = rfvalue.substring(3,5);
+        String _sline = rfvalue.substring(5,6);
+        // convert to integers 
+        uint8_t _char = _schar.toInt();
+        uint8_t _line = _sline.toInt();
+        // detect correct RF ID (000xxx)
+        if (_id == "828") {
+          // read last argument (xxxxx0)
+          if (_line == 3) {
+            clearLCD(1);
+          }
+          if (_line == 2) {
+            clearLCD(0);
+          }
+          if (_line <= 1) {
+            // draw character (xxx00x)
+            drawChar(_line,_char);
+          }
+        }  
+      } 
+      lastRFvalue = rfvalue;  
     }
     mySwitch.resetAvailable();
   }
 }
 
 // scroll text on display
-void drawChar(bool _line, uint8_t _char, bool _speed) {
+void drawChar(bool _line, uint8_t _char) {
   if( _char <= arraySize){
     uint8_t _cursor0;
     uint8_t _cursor1;
@@ -118,12 +124,10 @@ void drawChar(bool _line, uint8_t _char, bool _speed) {
       lcd.setCursor(_cursor1, _line);
       // count characters
       rowCount1++;
-    }
-    lcd.print(lcdChars[_char]); // display a single character from the array
-    if( _speed == 1){
-      delay(lcdScrollSpeedSlow);
-    }
-  } // clear display when character limit exceeded
+    } // display a single character from the array
+    lcd.print(lcdChars[_char]); 
+  } 
+  // clear display when character limit exceeded
   if( _line == 0){
     if( rowCount0 > lcdCharLimit){
       lastChars = "";
@@ -256,6 +260,8 @@ void setPowerState() {
 
 void shutdown() { 
   // shutdown animation
+  clearLCD(0);
+  clearLCD(1);
   lcd.clear();
   lcd.setCursor(0,0);
   lcd.print("Shutting Down...");  
@@ -288,8 +294,6 @@ void standby()
 // initialization 
 void setup() 
 { 	
-  // serial support
-  Serial.begin(9600);  
   // 16x2 display (calls Wire.begin)
   lcd.begin(lcdCols,lcdRows); 	
   // LED status LED
