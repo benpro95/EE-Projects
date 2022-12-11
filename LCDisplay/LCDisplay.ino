@@ -2,24 +2,35 @@
 // by Ben Provenzano III
 ///////////////////////////////////////////////////////////////////////////////
 
-
 // Libraries //
+#include <Arduino.h>
+#include <WiFi.h>
 #include "LiquidCrystal_I2C.h" // custom for MCP23008-E/P, power button support
-#include <RCSwitch.h>
 #include <Wire.h> 
 
 // I2C addresses
 #define lcdAddr 0x27
 
-char* lcdChars[]={" ","0","1","2","3","4","5","6","7","8","9","a","b","c","d","e","f","g","h","i","j","k","l","m","n","o","p","q","r","s","t","u","v","w","x","y","z","A","B","C","D","E","F","G","H","I","J","K","L","M","N","O","P","Q","R","S","T","U","V","W","X","Y","Z","+","=","-","%","(",")",":"};
+// Wi-Fi Configuration
+const char* CONFIG_SSID      = "mach_kernel";
+const char* CONFIG_PSK       = "phonics.87.reply.218";
+const char* HOSTNAME         = "lcd16x2";
+const int   CONFIG_SERIAL    = 115200;
+const int   CONFIG_PORT      = 80;
+/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+
+// Characters Table
+const char lcdChars[]={' ','0','1','2','3','4','5','6','7','8','9','a','b','c','d'\
+,'e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x'\
+,'y','z','A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R'\
+,'S','T','U','V','W','X','Y','Z','&',':',',','.','*','/','-','+','=','_','#','@'\
+,'!','%','[',']','(',')','~','"','"'};
 
 // 16x2 Display
 LiquidCrystal_I2C lcd(lcdAddr);
 uint8_t lcdCols = 16; // number of columns in the LCD
 uint8_t lcdRows = 2;  // number of rows in the LCD
 #define lcdBacklightPin 9 // display backlight pin
-uint8_t lcdOffBrightness = 75; // standby-off LCD brightness level ***
-uint8_t lcdOnBrightness = 150; // online LCD brightness level ***
 // Custom Characters
 uint8_t bar1[8] = {0x10,0x10,0x10,0x10,0x10,0x10,0x10,0x10};
 uint8_t bar2[8] = {0x18,0x18,0x18,0x18,0x18,0x18,0x18,0x18};
@@ -27,19 +38,14 @@ uint8_t bar3[8] = {0x1C,0x1C,0x1C,0x1C,0x1C,0x1C,0x1C,0x1C};
 uint8_t bar4[8] = {0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E};
 uint8_t bar5[8] = {0x1F,0x1F,0x1F,0x1F,0x1F,0x1F,0x1F,0x1F};
 #define lcdScrollSpeedSlow 60
-uint8_t lcdCharLimit = 100;
-uint8_t arraySize = 0;
-uint8_t rowCount0 = 0;
-uint8_t rowCount1 = 0;
+uint32_t lcdCharLimit = 512;
+uint32_t chrarSize = 0;
+uint32_t rowCount0 = 0;
+uint32_t rowCount1 = 0;
+bool printMessage = 0;
 String charBuffer0;
 String charBuffer1;
 String lastChars;
-
-// RF Control
-RCSwitch mySwitch = RCSwitch();
-uint32_t RFdebounce = 500; // button debounce delay in ms
-uint32_t RFMillis;
-String lastRFvalue;
 
 // Power Control
 #define powerButtonPin 5 // on MCP chip
@@ -47,55 +53,109 @@ uint8_t powerButton = 0;
 uint8_t lastPowerButton = 0;
 uint32_t powerButtonMillis;
 uint8_t powerDelay = 1; // startup delay in seconds, unmutes after ***
-uint8_t initStartDelay = 1; // delay on initial cold start
+uint8_t initStartDelay = 2; // delay on initial cold start
 uint8_t debounceDelay = 50; // button debounce delay in ms
 bool powerCycle = 1; // set this to 1 for auto power-on / 0 normal 
 bool powerState = 1; // set this to 1 for auto power-on / 0 normal 
 bool powerLock = 0;
 
+// Enable Serial Messages (0 = off)
+#define DEBUG 0
+
+#if DEBUG == 1
+#define debugstart(x) Serial.begin(x)
+#define debug(x) Serial.print(x)
+#define debugln(x) Serial.println(x)
+#else
+#define debugstart(x)
+#define debug(x)
+#define debugln(x)
+#endif
+
+// Create webserver object
+WiFiServer server(CONFIG_PORT);
+
+// WiFi Constants
+unsigned long previousMillis = 0;
+unsigned long interval = 30000;
+
+// Variables to store the HTTP request
+String httpHeader = "Accept: lcd/";
+String req_trunc;
+String req;
+
+// Current time
+unsigned long currentTime = millis();
+// Previous time
+unsigned long previousTime = 0;        
+// Define timeout time in milliseconds
+const long timeoutTime = 1000;
+
 ///////////////////////////////////////////////////////////////////////////////
 
+void prepMessage() {
+  req_trunc.remove(0, ((req_trunc.lastIndexOf(httpHeader)) + 12));
+  req_trunc.trim();
+  // extract line command data
+  int _lineindex = req_trunc.indexOf('/');
+  String _linecmd = req_trunc.substring(0, _lineindex); 
+  uint8_t _lineint = _linecmd.toInt();
+  debug("Line Command: ");
+  debugln(_lineint);
+  // extract message data
+  req_trunc.remove(0, ((req_trunc.lastIndexOf("/")) + 1));
+  debug("Message: ");
+  debugln(req_trunc);
+  // calculate message length
+  int str_len = req_trunc.length() + 1;
+  // copy to character array
+  char char_array[str_len];
+  req_trunc.toCharArray(char_array, str_len);
+  // send to display
+  sendMessage(char_array,_lineint);
+  // clear buffer
+  req_trunc = "";
+}
 
-void receiveRF() {
-  if (mySwitch.available()) {
-    // store RF data
-    String rfvalue;
-    rfvalue = mySwitch.getReceivedValue();
-    if (rfvalue.length() == 6) { // only process 6-bit data
-      if (rfvalue != lastRFvalue) {       
-        // split up incoming data 
-        String _id = rfvalue.substring(0,3);
-        String _schar = rfvalue.substring(3,5);
-        String _sline = rfvalue.substring(5,6);
-        // convert to integers 
-        uint8_t _char = _schar.toInt();
-        uint8_t _line = _sline.toInt();
-        // detect correct RF ID (000xxx)
-        if (_id == "828") {
-          // read last argument (xxxxx0)
-          if (_line == 3) {
-            clearLCD(1);
-          }
-          if (_line == 2) {
-            clearLCD(0);
-          }
-          if (_line <= 1) {
-            // draw character (xxx00x)
-            drawChar(_line,_char);
-          }
-        }  
-      } 
-      lastRFvalue = rfvalue;  
+// convert message into character stream
+void sendMessage(char _msg[], uint8_t _line) {
+  uint32_t _char;
+  for(int i=0; i < strlen(_msg); i++ ) {
+    // convert each character into array index positions
+    _char = (charLookup(_msg[i]));
+    if (_line == 3) {
+      clearLCD(1);
+      return;
     }
-    mySwitch.resetAvailable();
+    if (_line == 2) {
+      clearLCD(0);
+      return;
+    }
+    if (_line <= 1) {
+      drawChar(_line,_char);
+      debugln(_char);
+    }   
+    delay(300);
   }
+  drawChar(_line,0);
+}
+// character search
+int charLookup(char _char){
+  int _index;
+  for (_index=0; _index <= chrarSize; _index++){
+    if (lcdChars[_index] == _char){
+      break;
+    }
+  }
+  return _index;
 }
 
 // scroll text on display
-void drawChar(bool _line, uint8_t _char) {
-  if( _char <= arraySize){
-    uint8_t _cursor0;
-    uint8_t _cursor1;
+void drawChar(bool _line, uint32_t _char) {
+  if( _char < chrarSize){
+    uint32_t _cursor0;
+    uint32_t _cursor1;
+    debugln(_char);
     if( _line == 0){
       charBuffer0 += lcdChars[_char];
       if( rowCount0 > lcdCols ){
@@ -124,35 +184,38 @@ void drawChar(bool _line, uint8_t _char) {
       lcd.setCursor(_cursor1, _line);
       // count characters
       rowCount1++;
-    } // display a single character from the array
-    lcd.print(lcdChars[_char]); 
-  } 
-  // clear display when character limit exceeded
-  if( _line == 0){
-    if( rowCount0 > lcdCharLimit){
-      lastChars = "";
-      rowCount0 = 0;
-      charBuffer0 = "";
-      for(uint8_t _count = 0; _count < lcdCols + 1; _count++)
-      { // draw spaces
-        lcd.setCursor(_count, 0);
-        lcd.print(" ");
-        delay(lcdScrollSpeedSlow);
+    } 
+    // display a single character from the array
+    lcd.print(lcdChars[_char]);
+    // clear display when character limit exceeded
+    if( _line == 0){
+      if( rowCount0 > lcdCharLimit){
+        lastChars = "";
+        rowCount0 = 0;
+        charBuffer0 = "";
+        for(uint8_t _count = 0; _count < lcdCols + 1; _count++)
+        { // draw spaces
+          lcd.setCursor(_count,0);
+          lcd.print(" ");
+          delay(lcdScrollSpeedSlow);
+        }
+        lcd.setCursor(0,0);
+      }   
+    } else {
+      if( rowCount1 > lcdCharLimit){
+        lastChars = "";
+        rowCount1 = 0;
+        charBuffer1 = "";
+        for(uint8_t _count = 0; _count < lcdCols + 1; _count++)
+        { // draw spaces
+          lcd.setCursor(_count,1);
+          lcd.print(" ");
+          delay(lcdScrollSpeedSlow);
+        }  
+        lcd.setCursor(0,1);    
       }
-    }   
-  } else {
-    if( rowCount1 > lcdCharLimit){
-      lastChars = "";
-      rowCount1 = 0;
-      charBuffer1 = "";
-      for(uint8_t _count = 0; _count < lcdCols + 1; _count++)
-      { // draw spaces
-        lcd.setCursor(_count, 1);
-        lcd.print(" ");
-        delay(lcdScrollSpeedSlow);
-      }      
     }
-  }
+  }  
 }
 
 // clear display
@@ -172,6 +235,8 @@ void clearLCD(bool _line)
     rowCount1 = 0;
     charBuffer1 = "";
   }
+  lcd.setCursor(0, _line);
+  req_trunc = "";
 }
 
 // mapping function (fixed)
@@ -260,8 +325,11 @@ void setPowerState() {
 
 void shutdown() { 
   // shutdown animation
-  clearLCD(0);
-  clearLCD(1);
+  lastChars = "";
+  rowCount0 = 0;
+  charBuffer0 = "";
+  rowCount1 = 0;
+  charBuffer1 = "";
   lcd.clear();
   lcd.setCursor(0,0);
   lcd.print("Shutting Down...");  
@@ -272,7 +340,7 @@ void shutdown() {
 // startup routines
 void startup() 
 { 
-  analogWrite(lcdBacklightPin, lcdOnBrightness);
+  digitalWrite(lcdBacklightPin, HIGH);
   lcd.clear();
   lcd.setCursor(0,0);
 }
@@ -280,7 +348,7 @@ void startup()
 // standby mode
 void standby()
 { 
-  analogWrite(lcdBacklightPin, lcdOffBrightness); 
+  digitalWrite(lcdBacklightPin, LOW); 
   lcd.clear();
   lcd.setCursor(0,0);
   lcd.print("Z-Terminal");
@@ -289,6 +357,67 @@ void standby()
   delay(500);
   digitalWrite(LED_BUILTIN, LOW);
 }  
+
+
+void webServer() 
+{ 	
+  // Wait for new client
+  WiFiClient client = server.available();
+  if (client) {
+    currentTime = millis();
+    previousTime = currentTime;
+    debugln("New Client.");                 // print a message out in the serial port
+    String currentLine = "";                // make a String to hold incoming data from the client
+    while (client.connected() && currentTime - previousTime <= timeoutTime) {
+      currentTime = millis();
+      // loop while the client's connected
+      if (client.available()) {             // if there's bytes to read from the client,
+        char c = client.read();             // read a byte, then
+        req += c;
+        if (c == '\n') {                    // if the byte is a newline character
+          // if the current line is blank, you got two newline characters in a row.
+          // that's the end of the client HTTP request, so send a response:
+          if (currentLine.length() == 0) {
+            // HTTP headers always start with a response code (e.g. HTTP/1.1 200 OK)
+            // and a content-type so the client knows what's coming, then a blank line:
+            client.println("HTTP/1.1 200 OK");
+            client.println("Content-type:text/html");
+            client.println("Connection: close");
+            client.println();
+            // transmit example: (curl http://lcd16x2.home/message -H "Accept: lcd/0/message")
+            debugln(req); // print full HTTP request
+            // only allow message prefix
+            if (req.indexOf(F("/message")) != -1) {
+              // only allow correct HTTP header 
+              if(req.indexOf(httpHeader) >=0) {
+                // move request to buffer
+                // !! ADD LONGER THAN 1024byte string detection 
+                req_trunc = req;
+                // trigger message action
+                printMessage = 1;
+              }
+            }            
+            // The HTTP response ends with another blank line
+            client.println();
+            // Break out of the while loop
+            break;
+          } else { // if you got a newline, then clear currentLine
+            currentLine = "";
+          }
+        } else if (c != '\r') {  // if you got anything else but a carriage return character,
+          currentLine += c;      // add it to the end of the currentLine
+        }
+      }
+    }
+    // Clear the request variable
+    req = "";
+    // Close the connection
+    client.stop();
+    debugln("Client disconnected.");
+    debugln("");
+  }
+}  
+
 
 ///////////////////////////////////////////////////////////////////////////////
 // initialization 
@@ -301,7 +430,39 @@ void setup()
   digitalWrite(LED_BUILTIN, HIGH);    
   // display backlight
   pinMode(lcdBacklightPin, OUTPUT);  
-  analogWrite(lcdBacklightPin, lcdOffBrightness);
+  digitalWrite(lcdBacklightPin, LOW);
+  // Start serial
+  debugstart(CONFIG_SERIAL);
+  debugln();
+  debugln("Starting setup...");
+  // Start WiFi connection
+  debug("Connecting to: ");
+  debugln(CONFIG_SSID);
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect(true);
+  WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE);
+  WiFi.setHostname(HOSTNAME);
+  WiFi.begin(CONFIG_SSID, CONFIG_PSK);
+  // Wait for WiFi connection
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    debug(".");
+  }
+  debugln();
+  debugln("WiFi connected!");
+  WiFi.setAutoReconnect(true);
+  WiFi.persistent(true);
+  // Print WiFi connection information
+  debug("  SSID: ");
+  debugln(WiFi.SSID());
+  debug("  RSSI: ");
+  debug(WiFi.RSSI());
+  debugln(" dBm");
+  debug("  Local IP: ");
+  debugln(WiFi.localIP());
+  // Start webserver
+  debugln("Starting webserver...");
+  server.begin();
   // initial boot display
   lcd.createChar(1, bar1);
   lcd.createChar(2, bar2);
@@ -309,14 +470,19 @@ void setup()
   lcd.createChar(4, bar4);
   lcd.createChar(5, bar5);
   lcdTimedBar(initStartDelay,1);
-  // calculate number of characters in the array
-  arraySize = sizeof(lcdChars) / 2;
-  // RF receive  
-  mySwitch.enableReceive(0);  // Receiver on interrupt 0 => that is [pin #2]
-  mySwitch.setProtocol(1);
-  mySwitch.setPulseLength(183);
+  debugln("Webserver started!");
+  // Print webserver information
+  debug("  Host: ");
+  debugln(WiFi.localIP());
+  debug("  Port: ");
+  debugln(CONFIG_PORT);
+  // calculate number of characters
+  chrarSize = sizeof(lcdChars);
   // enter standby mode
   standby();
+  // Setup complete
+  debugln("Setup completed");
+  debugln();  
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -325,7 +491,20 @@ void loop()
 {
   // power management
   setPowerState();
-  if (powerState == 1){
-    receiveRF();
+  // if WiFi is down, try reconnecting every CHECK_WIFI_TIME seconds
+  unsigned long currentMillis = millis();
+  if ((WiFi.status() != WL_CONNECTED) && (currentMillis - previousMillis >=interval)) {
+    debug(millis());
+    debugln("Reconnecting to WiFi...");
+    WiFi.disconnect();
+    WiFi.reconnect();
+    previousMillis = currentMillis;
+  }  
+  // light web server
+  webServer();
+  // display message trigger
+  if (printMessage == 1) { 
+    prepMessage();
+    printMessage = 0;
   }
 }
