@@ -37,8 +37,9 @@ uint8_t bar2[8] = {0x18,0x18,0x18,0x18,0x18,0x18,0x18,0x18};
 uint8_t bar3[8] = {0x1C,0x1C,0x1C,0x1C,0x1C,0x1C,0x1C,0x1C};
 uint8_t bar4[8] = {0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E};
 uint8_t bar5[8] = {0x1F,0x1F,0x1F,0x1F,0x1F,0x1F,0x1F,0x1F};
-#define lcdScrollSpeedSlow 60
-uint32_t lcdCharLimit = 512;
+#define lcdClearCharSpeed 60 // ms delay between drawing each character (clearing display)
+#define lcdCharSpeed 350 // ms delay between drawing each character (message mode)
+uint32_t lcdCharLimit = 256; // max scrolling characters (clears display after limit)
 uint32_t chrarSize = 0;
 uint32_t rowCount0 = 0;
 uint32_t rowCount1 = 0;
@@ -47,17 +48,16 @@ String charBuffer0;
 String charBuffer1;
 String lastChars;
 
+TaskHandle_t Task1;
+TaskHandle_t Task2;
+
 // Power Control
-#define powerButtonPin 5 // on MCP chip
-uint8_t powerButton = 0;
-uint8_t lastPowerButton = 0;
-uint32_t powerButtonMillis;
-uint8_t powerDelay = 1; // startup delay in seconds, unmutes after ***
+#define clearButtonPin 5 // on MCP chip
+uint8_t clearButton = 0;
+uint8_t lastclearButton = 0;
+uint32_t clearButtonMillis;
 uint8_t initStartDelay = 2; // delay on initial cold start
 uint8_t debounceDelay = 50; // button debounce delay in ms
-bool powerCycle = 1; // set this to 1 for auto power-on / 0 normal 
-bool powerState = 1; // set this to 1 for auto power-on / 0 normal 
-bool powerLock = 0;
 
 // Enable Serial Messages (0 = off)
 #define DEBUG 0
@@ -78,6 +78,7 @@ WiFiServer server(CONFIG_PORT);
 // WiFi Constants
 unsigned long previousMillis = 0;
 unsigned long interval = 30000;
+String ipAddress;
 
 // Variables to store the HTTP request
 String httpHeader = "Accept: lcd/";
@@ -93,28 +94,54 @@ const long timeoutTime = 1000;
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void prepMessage() {
-  req_trunc.remove(0, ((req_trunc.lastIndexOf(httpHeader)) + 12));
-  req_trunc.trim();
-  // extract line command data
-  int _lineindex = req_trunc.indexOf('/');
-  String _linecmd = req_trunc.substring(0, _lineindex); 
-  uint8_t _lineint = _linecmd.toInt();
-  debug("Line Command: ");
-  debugln(_lineint);
-  // extract message data
-  req_trunc.remove(0, ((req_trunc.lastIndexOf("/")) + 1));
-  debug("Message: ");
-  debugln(req_trunc);
-  // calculate message length
-  int str_len = req_trunc.length() + 1;
-  // copy to character array
-  char char_array[str_len];
-  req_trunc.toCharArray(char_array, str_len);
-  // send to display
-  sendMessage(char_array,_lineint);
-  // clear buffer
-  req_trunc = "";
+void httpLoop(void * pvParameters) {
+    // read buttons 
+  readClearButton();
+  // if WiFi is down, try reconnecting every CHECK_WIFI_TIME seconds
+  unsigned long currentMillis = millis();
+  if ((WiFi.status() != WL_CONNECTED) && (currentMillis - previousMillis >=interval)) {
+    debug(millis());
+    debugln("Reconnecting to WiFi...");
+    WiFi.disconnect();
+    WiFi.reconnect();
+    previousMillis = currentMillis;
+  }  
+  // light web server
+  webServer();
+}
+
+
+void prepMessage(void * pvParameters) {
+  // display message trigger
+  if (printMessage == 1) {
+
+  debug("prepMessage running on core ");
+  debugln(xPortGetCoreID());
+
+    req_trunc.remove(0, ((req_trunc.lastIndexOf(httpHeader)) + 12));
+    req_trunc.trim();
+    // extract line command data
+    int _lineindex = req_trunc.indexOf('/');
+    String _linecmd = req_trunc.substring(0, _lineindex); 
+    uint8_t _lineint = _linecmd.toInt();
+    debug("Line Command: ");
+    debugln(_lineint);
+    // extract message data
+    req_trunc.remove(0, ((req_trunc.lastIndexOf("/")) + 1));
+    debug("Message: ");
+    debugln(req_trunc);
+    // calculate message length
+    int str_len = req_trunc.length() + 1;
+    // copy to character array
+    char char_array[str_len];
+    req_trunc.toCharArray(char_array, str_len);
+    // send to display
+    sendMessage(char_array,_lineint);
+    // clear buffer
+    req_trunc = "";
+    // exit function
+    printMessage = 0;
+  }
 }
 
 // convert message into character stream
@@ -135,7 +162,7 @@ void sendMessage(char _msg[], uint8_t _line) {
       drawChar(_line,_char);
       debugln(_char);
     }   
-    delay(300);
+    delay(lcdCharSpeed);
   }
   drawChar(_line,0);
 }
@@ -197,7 +224,7 @@ void drawChar(bool _line, uint32_t _char) {
         { // draw spaces
           lcd.setCursor(_count,0);
           lcd.print(" ");
-          delay(lcdScrollSpeedSlow);
+          delay(lcdClearCharSpeed);
         }
         lcd.setCursor(0,0);
       }   
@@ -210,7 +237,7 @@ void drawChar(bool _line, uint32_t _char) {
         { // draw spaces
           lcd.setCursor(_count,1);
           lcd.print(" ");
-          delay(lcdScrollSpeedSlow);
+          delay(lcdClearCharSpeed);
         }  
         lcd.setCursor(0,1);    
       }
@@ -225,7 +252,7 @@ void clearLCD(bool _line)
   { // draw spaces
     lcd.setCursor(_count, _line);
     lcd.print(" ");
-    delay(lcdScrollSpeedSlow);
+    delay(lcdClearCharSpeed);
   } // reset lines/rows
   lastChars = "";
   if( _line == 0){
@@ -284,81 +311,30 @@ void lcdTimedBar(uint8_t _sec, bool _doublebar)
   }    
 }  
 
-// power on/off
-void setPowerState() {
+// clear display button
+void readClearButton() {
   // read pin state from MCP23008 //////////////////
-  int reading = lcd.readPin(powerButtonPin);
+  int reading = lcd.readPin(clearButtonPin);
   // if switch changed
-  if (reading != lastPowerButton) {
+  if (reading != lastclearButton) {
     // reset the debouncing timer
-    powerButtonMillis = millis();
+    clearButtonMillis = millis();
   }
-  if ((millis() - powerButtonMillis) > debounceDelay) {
-    if (powerLock == 0) {
-      // if the button state has changed:
-      if (reading != powerButton) {
-        powerButton = reading;
-        // power state has changed!
-        if (powerButton == 1) { 
-          powerState = !powerState;  
-          powerCycle = 1;
-        }
+  if ((millis() - clearButtonMillis) > debounceDelay) {
+    // if button state has changed
+    if (reading != clearButton) {
+      clearButton = reading;
+      if (clearButton == 1) { 
+        // button change event
+        clearLCD(0);
+        clearLCD(1);
       }
-    }  
+    } 
   }
-  lastPowerButton = reading;
-  // power state actions ///////////////////////////
-  if (powerCycle == 1){       
-  // reset display
-  lcd.clear();
-  // one-shot triggers
-    if (powerState == 1){
-      /// runs once on boot ///
-      startup();
-    } else {  
-      /// runs once on shutdown ///
-      shutdown();
-    }  
-  powerCycle = 0;  
-  }  
+  lastclearButton = reading; 
 }
 
-void shutdown() { 
-  // shutdown animation
-  lastChars = "";
-  rowCount0 = 0;
-  charBuffer0 = "";
-  rowCount1 = 0;
-  charBuffer1 = "";
-  lcd.clear();
-  lcd.setCursor(0,0);
-  lcd.print("Shutting Down...");  
-  lcdTimedBar(powerDelay,0);  
-  standby();
-}
-
-// startup routines
-void startup() 
-{ 
-  digitalWrite(lcdBacklightPin, HIGH);
-  lcd.clear();
-  lcd.setCursor(0,0);
-}
-
-// standby mode
-void standby()
-{ 
-  digitalWrite(lcdBacklightPin, LOW); 
-  lcd.clear();
-  lcd.setCursor(0,0);
-  lcd.print("Z-Terminal");
-  lcd.setCursor(0,1);
-  lcd.print("v1.0");
-  delay(500);
-  digitalWrite(LED_BUILTIN, LOW);
-}  
-
-
+// light HTTP server
 void webServer() 
 { 	
   // Wait for new client
@@ -367,6 +343,10 @@ void webServer()
     currentTime = millis();
     previousTime = currentTime;
     debugln("New Client.");                 // print a message out in the serial port
+
+  debug("webServer running on core ");
+  debugln(xPortGetCoreID());
+
     String currentLine = "";                // make a String to hold incoming data from the client
     while (client.connected() && currentTime - previousTime <= timeoutTime) {
       currentTime = millis();
@@ -418,23 +398,31 @@ void webServer()
   }
 }  
 
-
 ///////////////////////////////////////////////////////////////////////////////
 // initialization 
 void setup() 
-{ 	
+{        
+
+
+
   // 16x2 display (calls Wire.begin)
   lcd.begin(lcdCols,lcdRows); 	
+  lcd.createChar(1, bar1);
+  lcd.createChar(2, bar2);
+  lcd.createChar(3, bar3);
+  lcd.createChar(4, bar4);
+  lcd.createChar(5, bar5);
+  lcd.clear();
   // LED status LED
   pinMode(LED_BUILTIN, OUTPUT);  
   digitalWrite(LED_BUILTIN, HIGH);    
-  // display backlight
+  // display backlight (low)
   pinMode(lcdBacklightPin, OUTPUT);  
   digitalWrite(lcdBacklightPin, LOW);
   // Start serial
   debugstart(CONFIG_SERIAL);
   debugln();
-  debugln("Starting setup...");
+  debugln("Starting...");
   // Start WiFi connection
   debug("Connecting to: ");
   debugln(CONFIG_SSID);
@@ -445,7 +433,8 @@ void setup()
   WiFi.begin(CONFIG_SSID, CONFIG_PSK);
   // Wait for WiFi connection
   while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
+    // loading bar
+    lcdTimedBar(initStartDelay,1);
     debug(".");
   }
   debugln();
@@ -453,58 +442,74 @@ void setup()
   WiFi.setAutoReconnect(true);
   WiFi.persistent(true);
   // Print WiFi connection information
+  ipAddress = WiFi.localIP().toString();
   debug("  SSID: ");
   debugln(WiFi.SSID());
   debug("  RSSI: ");
   debug(WiFi.RSSI());
   debugln(" dBm");
   debug("  Local IP: ");
-  debugln(WiFi.localIP());
+  debugln(ipAddress);
+  debug("  Port: ");
+  debugln(CONFIG_PORT);  
+  lcd.setCursor(0,0);
+  lcd.print("WiFi Connected.");
+  lcd.setCursor(0,1);
+  lcd.print("IP: " + ipAddress);  
+  delay(2000);
   // Start webserver
   debugln("Starting webserver...");
   server.begin();
-  // initial boot display
-  lcd.createChar(1, bar1);
-  lcd.createChar(2, bar2);
-  lcd.createChar(3, bar3);
-  lcd.createChar(4, bar4);
-  lcd.createChar(5, bar5);
-  lcdTimedBar(initStartDelay,1);
+  // web server loading bar
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print("Web Server...");  
+  lcdTimedBar(initStartDelay,0);
   debugln("Webserver started!");
-  // Print webserver information
-  debug("  Host: ");
-  debugln(WiFi.localIP());
-  debug("  Port: ");
-  debugln(CONFIG_PORT);
   // calculate number of characters
   chrarSize = sizeof(lcdChars);
-  // enter standby mode
-  standby();
+  // show splash screen
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print("Z-Terminal");    
+  lcd.setCursor(0,1);
+  lcd.print("v1.1");  
+  delay(2000);
+  lcd.clear();
+  lcd.setCursor(0,0);
   // Setup complete
   debugln("Setup completed");
-  debugln();  
+  debugln();
+
+
+xTaskCreatePinnedToCore(
+             httpLoop, /* Task function. */
+             "http",   /* name of task. */
+             10000,     /* Stack size of task */
+             NULL,      /* parameter of the task */
+             1,         /* priority of the task */
+             &Task1,    /* Task handle to keep track of created task */
+             0);        /* pin task to core 0 */
+  delay(500); 
+
+  //create a task that will be executed in the Task2code() function, with priority 1 and executed on core 1
+  xTaskCreatePinnedToCore(
+                    prepMessage,   /* Task function. */
+                    "prepmsg",     /* name of task. */
+                    10000,       /* Stack size of task */
+                    NULL,        /* parameter of the task */
+                    1,           /* priority of the task */
+                    &Task2,      /* Task handle to keep track of created task */
+                    1);          /* pin task to core 1 */
+    delay(500); 
+
+    
+
+
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 // superloop
 void loop()
 {
-  // power management
-  setPowerState();
-  // if WiFi is down, try reconnecting every CHECK_WIFI_TIME seconds
-  unsigned long currentMillis = millis();
-  if ((WiFi.status() != WL_CONNECTED) && (currentMillis - previousMillis >=interval)) {
-    debug(millis());
-    debugln("Reconnecting to WiFi...");
-    WiFi.disconnect();
-    WiFi.reconnect();
-    previousMillis = currentMillis;
-  }  
-  // light web server
-  webServer();
-  // display message trigger
-  if (printMessage == 1) { 
-    prepMessage();
-    printMessage = 0;
-  }
 }
