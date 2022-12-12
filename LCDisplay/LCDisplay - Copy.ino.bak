@@ -7,9 +7,6 @@
 #include <WiFi.h>
 #include "LiquidCrystal_I2C.h" // custom for MCP23008-E/P, power button support
 #include <Wire.h> 
-#include "soc/rtc_wdt.h"
-#include "esp_int_wdt.h"
-#include "esp_task_wdt.h"
 
 // I2C addresses
 #define lcdAddr 0x27
@@ -46,13 +43,11 @@ uint32_t lcdCharLimit = 256; // max scrolling characters (clears display after l
 uint32_t chrarSize = 0;
 uint32_t rowCount0 = 0;
 uint32_t rowCount1 = 0;
-bool eventMessageLCD = 0;
-bool eventClearLCD = 0;
+bool printMessage = 0;
 String charBuffer0;
 String charBuffer1;
 String lastChars;
 
-// RTOS Multi-Core Handle
 TaskHandle_t Task1;
 TaskHandle_t Task2;
 
@@ -61,11 +56,11 @@ TaskHandle_t Task2;
 uint8_t clearButton = 0;
 uint8_t lastclearButton = 0;
 uint32_t clearButtonMillis;
-uint8_t initStartDelay = 3; // delay on initial cold start
+uint8_t initStartDelay = 2; // delay on initial cold start
 uint8_t debounceDelay = 50; // button debounce delay in ms
 
 // Enable Serial Messages (0 = off)
-#define DEBUG 1
+#define DEBUG 0
 
 #if DEBUG == 1
 #define debugstart(x) Serial.begin(x)
@@ -97,144 +92,28 @@ unsigned long previousTime = 0;
 // Define timeout time in milliseconds
 const long timeoutTime = 1000;
 
-// initialization
-void setup() {
-  // Web task - parallel a task
-  xTaskCreatePinnedToCore(
-   WebServer,     /* task function. */
-   "Task1",     /* name of task. */
-   10000,       /* Stack size of task */
-   NULL,        /* parameter of the task */
-   1,           /* priority of the task */
-   &Task1,      /* Task handle to keep track of created task */
-   0);          /* pin task to core 0 */  
-  delay(1000);  
-  // LCD task - parallel a task
-  xTaskCreatePinnedToCore(
-   LCDDraw,     /* task function. */
-   "Task2",     /* name of task. */
-   10000,       /* Stack size of task */
-   NULL,        /* parameter of the task */
-   10,           /* priority of the task */
-   &Task2,      /* Task handle to keep track of created task */
-   1);          /* pin task to core 1 */  
-  delay(500);
-}
+///////////////////////////////////////////////////////////////////////////////
 
-// parallel task 
-void WebServer( void * pvParameters ){
-  disableCore0WDT();
-  // built-in LED
-  pinMode(LED_BUILTIN, OUTPUT);  
-  digitalWrite(LED_BUILTIN, HIGH);    
-  // display backlight (low)
-  pinMode(lcdBacklightPin, OUTPUT);  
-  digitalWrite(lcdBacklightPin, LOW);
-  // Start serial
-  debugstart(CONFIG_SERIAL);
-  debug("Web running on core ");
-  debugln(xPortGetCoreID());
-  // Start WiFi connection
-  debug("Connecting to: ");
-  debugln(CONFIG_SSID);
-  int _tryCount = 0;
-  while (WiFi.status() != WL_CONNECTED) {
-    _tryCount++;
-    WiFi.mode(WIFI_STA);
-    WiFi.disconnect(true);
-    WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE);
-    WiFi.setHostname(HOSTNAME);
-    WiFi.begin(CONFIG_SSID, CONFIG_PSK);
-    vTaskDelay( 4000 );
-    if ( _tryCount == 10 )
-    {
-      ESP.restart();
-    }
-  }
-  debugln();
-  debugln("WiFi connected!");
-  WiFi.setAutoReconnect(true);
-  WiFi.persistent(true);
-  // Print WiFi connection information
-  ipAddress = WiFi.localIP().toString();
-  debug("  SSID: ");
-  debugln(WiFi.SSID());
-  debug("  RSSI: ");
-  debug(WiFi.RSSI());
-  debugln(" dBm");
-  debug("  Local IP: ");
-  debugln(ipAddress);
-  debug("  Port: ");
-  debugln(CONFIG_PORT);  
-  // Start webserver
-  debugln("Starting webserver...");
-  server.begin();
-  delay(1000);
-  debugln("Webserver started!");
-  debugln();
-  // setup done
-  for(;;){ //
-  ///////////////////
+void httpLoop(void * pvParameters) {
     // read buttons 
-   // readClearButton();
-    // if WiFi is down, try reconnecting every CHECK_WIFI_TIME seconds
-    unsigned long currentMillis = millis();
-    if ((WiFi.status() != WL_CONNECTED) && (currentMillis - previousMillis >=interval)) {
-      debug(millis());
-      debugln("Reconnecting to WiFi...");
-      WiFi.disconnect();
-      WiFi.reconnect();
-      previousMillis = currentMillis;
-    }  
-    // light web server
-    webServer();
-  }
+  readClearButton();
+  // if WiFi is down, try reconnecting every CHECK_WIFI_TIME seconds
+  unsigned long currentMillis = millis();
+  if ((WiFi.status() != WL_CONNECTED) && (currentMillis - previousMillis >=interval)) {
+    debug(millis());
+    debugln("Reconnecting to WiFi...");
+    WiFi.disconnect();
+    WiFi.reconnect();
+    previousMillis = currentMillis;
+  }  
+  // light web server
+  webServer();
 }
 
 
-// parallel task 
-void LCDDraw( void * pvParameters ){
-  disableCore1WDT();
-  debug("LCD drawing running on core ");
-  debugln(xPortGetCoreID());
-  // calculate number of characters
-  chrarSize = sizeof(lcdChars);  
-  // 16x2 display (calls Wire.begin)
-  lcd.begin(lcdCols,lcdRows);   
-  lcd.createChar(1, bar1);
-  lcd.createChar(2, bar2);
-  lcd.createChar(3, bar3);
-  lcd.createChar(4, bar4);
-  lcd.createChar(5, bar5);
-  lcd.clear();
-  // loading bar
-  lcdTimedBar(initStartDelay,1);
-  // WiFi status
-  lcd.setCursor(0,0);
-  lcd.print("WiFi Connected.");
-  lcd.setCursor(0,1);
-  lcd.print("IP: " + ipAddress);  
-  delay(1000);
-  // show splash screen
-  lcd.clear();
-  lcd.setCursor(0,0);
-  lcd.print("Z-Terminal");    
-  lcd.setCursor(0,1);
-  lcd.print("v1.1");  
-  delay(1000);
-  lcd.clear();
-  lcd.setCursor(0,0);
-  // setup done
-  for(;;){ // LCD loop
-  ///////////////////
-     prepMessage();
-  }
-}
-
-void prepMessage() {
+void prepMessage(void * pvParameters) {
   // display message trigger
-  if (eventMessageLCD == 1) {
-    delay(500);
+  if (printMessage == 1) {
     req_trunc.remove(0, ((req_trunc.lastIndexOf(httpHeader)) + 12));
     req_trunc.trim();
     // extract line command data
@@ -257,7 +136,7 @@ void prepMessage() {
     // clear buffer
     req_trunc = "";
     // exit function
-    eventMessageLCD = 0;
+    printMessage = 0;
   }
 }
 
@@ -299,7 +178,6 @@ void drawChar(bool _line, uint32_t _char) {
   if( _char < chrarSize){
     uint32_t _cursor0;
     uint32_t _cursor1;
-    // print index position
     debugln(_char);
     if( _line == 0){
       charBuffer0 += lcdChars[_char];
@@ -381,7 +259,6 @@ void clearLCD(bool _line)
     charBuffer1 = "";
   }
   lcd.setCursor(0, _line);
-  // clear HTTP buffer
   req_trunc = "";
 }
 
@@ -439,23 +316,27 @@ void readClearButton() {
       clearButton = reading;
       if (clearButton == 1) { 
         // button change event
-        eventClearLCD = 1;
+        clearLCD(0);
+        clearLCD(1);
       }
     } 
   }
   lastclearButton = reading; 
 }
 
-
 // light HTTP server
 void webServer() 
-{   
+{ 	
   // Wait for new client
   WiFiClient client = server.available();
   if (client) {
     currentTime = millis();
     previousTime = currentTime;
     debugln("New Client.");                 // print a message out in the serial port
+
+  debug("webServer running on core ");
+  debugln(xPortGetCoreID());
+
     String currentLine = "";                // make a String to hold incoming data from the client
     while (client.connected() && currentTime - previousTime <= timeoutTime) {
       currentTime = millis();
@@ -483,9 +364,7 @@ void webServer()
                 // !! ADD LONGER THAN 1024byte string detection 
                 req_trunc = req;
                 // trigger message action
-                eventMessageLCD = 1;
-                // response to client
-                client.println("command received.");
+                printMessage = 1;
               }
             }            
             // The HTTP response ends with another blank line
@@ -509,7 +388,118 @@ void webServer()
   }
 }  
 
+///////////////////////////////////////////////////////////////////////////////
+// initialization 
+void setup() 
+{        
 
-void loop() {
-  delay(1000);
+
+
+  // 16x2 display (calls Wire.begin)
+  lcd.begin(lcdCols,lcdRows); 	
+  lcd.createChar(1, bar1);
+  lcd.createChar(2, bar2);
+  lcd.createChar(3, bar3);
+  lcd.createChar(4, bar4);
+  lcd.createChar(5, bar5);
+  lcd.clear();
+  // LED status LED
+  pinMode(LED_BUILTIN, OUTPUT);  
+  digitalWrite(LED_BUILTIN, HIGH);    
+  // display backlight (low)
+  pinMode(lcdBacklightPin, OUTPUT);  
+  digitalWrite(lcdBacklightPin, LOW);
+  // Start serial
+  debugstart(CONFIG_SERIAL);
+  debugln();
+  debugln("Starting...");
+  // Start WiFi connection
+  debug("Connecting to: ");
+  debugln(CONFIG_SSID);
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect(true);
+  WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE);
+  WiFi.setHostname(HOSTNAME);
+  WiFi.begin(CONFIG_SSID, CONFIG_PSK);
+  // Wait for WiFi connection
+  while (WiFi.status() != WL_CONNECTED) {
+    // loading bar
+    lcdTimedBar(initStartDelay,1);
+    debug(".");
+  }
+  debugln();
+  debugln("WiFi connected!");
+  WiFi.setAutoReconnect(true);
+  WiFi.persistent(true);
+  // Print WiFi connection information
+  ipAddress = WiFi.localIP().toString();
+  debug("  SSID: ");
+  debugln(WiFi.SSID());
+  debug("  RSSI: ");
+  debug(WiFi.RSSI());
+  debugln(" dBm");
+  debug("  Local IP: ");
+  debugln(ipAddress);
+  debug("  Port: ");
+  debugln(CONFIG_PORT);  
+  lcd.setCursor(0,0);
+  lcd.print("WiFi Connected.");
+  lcd.setCursor(0,1);
+  lcd.print("IP: " + ipAddress);  
+  delay(2000);
+  // Start webserver
+  debugln("Starting webserver...");
+  server.begin();
+  // web server loading bar
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print("Web Server...");  
+  lcdTimedBar(initStartDelay,0);
+  debugln("Webserver started!");
+  // calculate number of characters
+  chrarSize = sizeof(lcdChars);
+  // show splash screen
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print("Z-Terminal");    
+  lcd.setCursor(0,1);
+  lcd.print("v1.1");  
+  delay(2000);
+  lcd.clear();
+  lcd.setCursor(0,0);
+  // Setup complete
+  debugln("Setup completed");
+  debugln();
+
+
+xTaskCreatePinnedToCore(
+             httpLoop, /* Task function. */
+             "http",   /* name of task. */
+             10000,     /* Stack size of task */
+             NULL,      /* parameter of the task */
+             1,         /* priority of the task */
+             &Task1,    /* Task handle to keep track of created task */
+             0);        /* pin task to core 0 */
+  delay(500); 
+
+  //create a task that will be executed in the Task2code() function, with priority 1 and executed on core 1
+  xTaskCreatePinnedToCore(
+                    prepMessage,   /* Task function. */
+                    "prepmsg",     /* name of task. */
+                    10000,       /* Stack size of task */
+                    NULL,        /* parameter of the task */
+                    1,           /* priority of the task */
+                    &Task2,      /* Task handle to keep track of created task */
+                    1);          /* pin task to core 1 */
+    delay(500); 
+
+
+
+
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// superloop
+void loop()
+{
 }
