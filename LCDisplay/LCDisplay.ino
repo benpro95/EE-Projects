@@ -6,9 +6,7 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include "LiquidCrystal_I2C.h" // custom for MCP23008-E/P, power button support
-#include <Wire.h> 
-#include "soc/rtc_wdt.h"
-#include "esp_int_wdt.h"
+#include <Wire.h>
 #include "esp_task_wdt.h"
 
 // I2C addresses
@@ -40,14 +38,14 @@ uint8_t bar2[8] = {0x18,0x18,0x18,0x18,0x18,0x18,0x18,0x18};
 uint8_t bar3[8] = {0x1C,0x1C,0x1C,0x1C,0x1C,0x1C,0x1C,0x1C};
 uint8_t bar4[8] = {0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E};
 uint8_t bar5[8] = {0x1F,0x1F,0x1F,0x1F,0x1F,0x1F,0x1F,0x1F};
-#define lcdClearCharSpeed 60 // ms delay between drawing each character (clearing display)
-#define lcdCharSpeed 350 // ms delay between drawing each character (message mode)
-uint32_t lcdCharLimit = 256; // max scrolling characters (clears display after limit)
+#define lcdClearCharSpeed 75 // ms delay between drawing each character (clearing display)
+const long lcdCharSpeed = 250; // ms delay between drawing each character (message mode)
+unsigned long lcdLastTime = 0;
+uint32_t lcdCharLimit = 250; // max scrolling characters (clears display after limit)
 uint32_t chrarSize = 0;
 uint32_t rowCount0 = 0;
 uint32_t rowCount1 = 0;
-bool eventMessageLCD = 0;
-bool eventClearLCD = 0;
+bool eventLCDMessage = 0;
 String charBuffer0;
 String charBuffer1;
 String lastChars;
@@ -61,7 +59,7 @@ TaskHandle_t Task2;
 uint8_t clearButton = 0;
 uint8_t lastclearButton = 0;
 uint32_t clearButtonMillis;
-uint8_t initStartDelay = 3; // delay on initial cold start
+uint8_t initStartDelay = 5; // delay on initial cold start
 uint8_t debounceDelay = 50; // button debounce delay in ms
 
 // Enable Serial Messages (0 = off)
@@ -77,45 +75,40 @@ uint8_t debounceDelay = 50; // button debounce delay in ms
 #define debugln(x)
 #endif
 
-// Create webserver object
-WiFiServer server(CONFIG_PORT);
-
-// WiFi Constants
-unsigned long previousMillis = 0;
-unsigned long interval = 30000;
+// WiFi 
+unsigned long WiFiLastMillis = 0;
+unsigned long WiFiDownInterval = 30000;
 String ipAddress;
 
-// Variables to store the HTTP request
+// Web Server
+WiFiServer server(CONFIG_PORT);
 String httpHeader = "Accept: lcd/";
-String req_trunc;
-String req;
-
-// Current time
-unsigned long currentTime = millis();
-// Previous time
-unsigned long previousTime = 0;        
-// Define timeout time in milliseconds
+String LCDmessage;
+String httpRequest;
+unsigned long HTTPcurTime = millis();
+unsigned long HTTPlastTime = 0;        
+// HTTP timeout
 const long timeoutTime = 1000;
 
 // initialization
 void setup() {
   // Web task - parallel a task
   xTaskCreatePinnedToCore(
-   WebServer,     /* task function. */
+   WebServer,    /* task function. */
    "Task1",     /* name of task. */
    10000,       /* Stack size of task */
    NULL,        /* parameter of the task */
    1,           /* priority of the task */
    &Task1,      /* Task handle to keep track of created task */
    0);          /* pin task to core 0 */  
-  delay(1000);  
+  delay(500);  
   // LCD task - parallel a task
   xTaskCreatePinnedToCore(
    LCDDraw,     /* task function. */
    "Task2",     /* name of task. */
    10000,       /* Stack size of task */
    NULL,        /* parameter of the task */
-   10,           /* priority of the task */
+   3,           /* priority of the task */
    &Task2,      /* Task handle to keep track of created task */
    1);          /* pin task to core 1 */  
   delay(500);
@@ -123,7 +116,7 @@ void setup() {
 
 // parallel task 
 void WebServer( void * pvParameters ){
-  disableCore0WDT();
+  disableCore0WDT(); // disable on core 0 (firmware bug)
   // built-in LED
   pinMode(LED_BUILTIN, OUTPUT);  
   digitalWrite(LED_BUILTIN, HIGH);    
@@ -175,16 +168,14 @@ void WebServer( void * pvParameters ){
   // setup done
   for(;;){ //
   ///////////////////
-    // read buttons 
-   // readClearButton();
-    // if WiFi is down, try reconnecting every CHECK_WIFI_TIME seconds
-    unsigned long currentMillis = millis();
-    if ((WiFi.status() != WL_CONNECTED) && (currentMillis - previousMillis >=interval)) {
+    // if WiFi is down, try reconnecting
+    unsigned long WiFiCurMillis = millis();
+    if ((WiFi.status() != WL_CONNECTED) && (WiFiCurMillis - WiFiLastMillis >= WiFiDownInterval)) {
       debug(millis());
       debugln("Reconnecting to WiFi...");
       WiFi.disconnect();
       WiFi.reconnect();
-      previousMillis = currentMillis;
+      WiFiLastMillis = WiFiCurMillis;
     }  
     // light web server
     webServer();
@@ -194,7 +185,7 @@ void WebServer( void * pvParameters ){
 
 // parallel task 
 void LCDDraw( void * pvParameters ){
-  disableCore1WDT();
+  //disableCore1WDT();
   debug("LCD drawing running on core ");
   debugln(xPortGetCoreID());
   // calculate number of characters
@@ -210,77 +201,104 @@ void LCDDraw( void * pvParameters ){
   // loading bar
   lcdTimedBar(initStartDelay,1);
   // WiFi status
+  lcd.clear();
   lcd.setCursor(0,0);
   lcd.print("WiFi Connected.");
   lcd.setCursor(0,1);
   lcd.print("IP: " + ipAddress);  
-  delay(1000);
+  delay(1500);
   // show splash screen
   lcd.clear();
   lcd.setCursor(0,0);
   lcd.print("Z-Terminal");    
   lcd.setCursor(0,1);
   lcd.print("v1.1");  
-  delay(1000);
+  delay(1500);
   lcd.clear();
   lcd.setCursor(0,0);
   // setup done
   for(;;){ // LCD loop
   ///////////////////
-     prepMessage();
+    decodeMessage();
+    readClearButton();
   }
 }
 
-void prepMessage() {
-  // display message trigger
-  if (eventMessageLCD == 1) {
-    delay(500);
-    req_trunc.remove(0, ((req_trunc.lastIndexOf(httpHeader)) + 12));
-    req_trunc.trim();
+void decodeMessage() {
+  // LCD message trigger
+  if (eventLCDMessage == 1) {
+    delay(75); // remove HTTP header & new line characters
+    LCDmessage.remove(0, ((LCDmessage.lastIndexOf(httpHeader)) + 12));
+    LCDmessage.trim();
+
+//// array to hold positions, make loop to find '/' chars 
+    //  split off trim each.
+
+
+
     // extract line command data
-    int _lineindex = req_trunc.indexOf('/');
-    String _linecmd = req_trunc.substring(0, _lineindex); 
+    int _lineindex = LCDmessage.indexOf('/');
+    String _linecmd = LCDmessage.substring(0, _lineindex); 
     uint8_t _lineint = _linecmd.toInt();
     debug("Line Command: ");
     debugln(_lineint);
-    // extract message data
-    req_trunc.remove(0, ((req_trunc.lastIndexOf("/")) + 1));
+    
+    String _speedcmd = LCDmessage;
+    _speedcmd.remove(0, ((_speedcmd.indexOf("/")) + 1));
+    _speedcmd.remove(0, ((_speedcmd.indexOf("/")) + 1));
+    uint8_t _speedint = _speedcmd.toInt();
+    debug("Speed Command: ");
+    debugln(_speedcmd);
+    debugln(_speedint);
+
+    // remove control characters
+    LCDmessage.remove(0, ((LCDmessage.lastIndexOf("/")) + 1));
     debug("Message: ");
-    debugln(req_trunc);
+    debugln(LCDmessage);
     // calculate message length
-    int str_len = req_trunc.length() + 1;
+    int str_len = LCDmessage.length() + 1;
     // copy to character array
     char char_array[str_len];
-    req_trunc.toCharArray(char_array, str_len);
+    LCDmessage.toCharArray(char_array, str_len);
     // send to display
     sendMessage(char_array,_lineint);
     // clear buffer
-    req_trunc = "";
+    LCDmessage = "";
     // exit function
-    eventMessageLCD = 0;
+    eventLCDMessage = 0;
   }
 }
 
 // convert message into character stream
 void sendMessage(char _msg[], uint8_t _line) {
-  uint32_t _char;
+  uint32_t _char; // loop through each character
   for(int i=0; i < strlen(_msg); i++ ) {
     // convert each character into array index positions
     _char = (charLookup(_msg[i]));
     if (_line == 3) {
       clearLCD(1);
       return;
-    }
+    } // clear display 
     if (_line == 2) {
       clearLCD(0);
       return;
-    }
+    } // draw each character
     if (_line <= 1) {
       drawChar(_line,_char);
       debugln(_char);
-    }   
-    delay(lcdCharSpeed);
-  }
+    } // delay between drawing each character
+    for(;;) { 
+      unsigned long lcdCurTime = millis();
+      readClearButton(); // keep reading button state
+      if (lcdCurTime - lcdLastTime >= lcdCharSpeed) {
+        lcdLastTime = lcdCurTime;
+        break; // exit loop when time exceeded 
+      }
+    }
+    if (eventLCDMessage == 0) {
+      return; // exit if message was canceled
+    }  
+  } // draw a space
   drawChar(_line,0);
 }
 // character search
@@ -290,13 +308,13 @@ int charLookup(char _char){
     if (lcdChars[_index] == _char){
       break;
     }
-  }
+  } // return position 
   return _index;
 }
 
 // scroll text on display
 void drawChar(bool _line, uint32_t _char) {
-  if( _char < chrarSize){
+  if( _char < chrarSize){ // ignore invalid 
     uint32_t _cursor0;
     uint32_t _cursor1;
     // print index position
@@ -364,25 +382,45 @@ void drawChar(bool _line, uint32_t _char) {
 }
 
 // clear display
-void clearLCD(bool _line) 
-{
-  for(uint8_t _count = 0; _count < lcdCols + 1; _count++)
-  { // draw spaces
-    lcd.setCursor(_count, _line);
-    lcd.print(" ");
-    delay(lcdClearCharSpeed);
-  } // reset lines/rows
-  lastChars = "";
-  if( _line == 0){
+void clearLCD(uint8_t _line) 
+{   // clear both lines
+  if (_line > 1) { 
     rowCount0 = 0;
     charBuffer0 = "";
-  } else {
     rowCount1 = 0;
     charBuffer1 = "";
+  } // clear top row
+  if (_line == 1) { 
+    rowCount1 = 0;
+    charBuffer1 = "";
+  } // clear bottom row  
+  if (_line == 0) { 
+    rowCount0 = 0;
+    charBuffer0 = "";
+  } // ignore invalid range
+  if (_line < 3) { // loop through all display characters
+    for(uint8_t _count = 0; _count < lcdCols + 1; _count++) { 
+      // draw spaces
+      if (_line > 1) {
+        lcd.setCursor(_count, 0);
+        lcd.print(" ");
+        lcd.setCursor(_count, 1);
+        lcd.print(" ");
+      } else {
+        lcd.setCursor(_count, _line);
+        lcd.print(" ");
+      }  
+      delay(lcdClearCharSpeed);
+    }
   }
+  if (_line > 1) {
+    _line = 0;
+  }  
+  // reset state
+  eventLCDMessage = 0;
   lcd.setCursor(0, _line);
-  // clear HTTP buffer
-  req_trunc = "";
+  LCDmessage = "";
+  lastChars = "";
 }
 
 
@@ -420,7 +458,7 @@ void lcdTimedBar(uint8_t _sec, bool _doublebar)
     }
     lcdBar(1,_incr,0,_loops);
     _incr = _incr + 4;
-    delay(40);
+    delay(25);
   }    
 }  
 
@@ -439,7 +477,7 @@ void readClearButton() {
       clearButton = reading;
       if (clearButton == 1) { 
         // button change event
-        eventClearLCD = 1;
+        clearLCD(2);
       }
     } 
   }
@@ -453,19 +491,19 @@ void webServer()
   // Wait for new client
   WiFiClient client = server.available();
   if (client) {
-    currentTime = millis();
-    previousTime = currentTime;
+    HTTPcurTime = millis();
+    HTTPlastTime = HTTPcurTime;
     debugln("New Client.");                 // print a message out in the serial port
     String currentLine = "";                // make a String to hold incoming data from the client
-    while (client.connected() && currentTime - previousTime <= timeoutTime) {
-      currentTime = millis();
+    while (client.connected() && HTTPcurTime - HTTPlastTime <= timeoutTime) {
+      HTTPcurTime = millis();
       // loop while the client's connected
       if (client.available()) {             // if there's bytes to read from the client,
         char c = client.read();             // read a byte, then
-        req += c;
+        httpRequest += c;
         if (c == '\n') {                    // if the byte is a newline character
           // if the current line is blank, you got two newline characters in a row.
-          // that's the end of the client HTTP request, so send a response:
+          // that's the end of the client HTTP request, send a response:
           if (currentLine.length() == 0) {
             // HTTP headers always start with a response code (e.g. HTTP/1.1 200 OK)
             // and a content-type so the client knows what's coming, then a blank line:
@@ -474,16 +512,15 @@ void webServer()
             client.println("Connection: close");
             client.println();
             // transmit example: (curl http://lcd16x2.home/message -H "Accept: lcd/0/message")
-            debugln(req); // print full HTTP request
+            debugln(httpRequest); // print full HTTP request
             // only allow message prefix
-            if (req.indexOf(F("/message")) != -1) {
+            if (httpRequest.indexOf(F("/message")) != -1) {
               // only allow correct HTTP header 
-              if(req.indexOf(httpHeader) >=0) {
-                // move request to buffer
-                // !! ADD LONGER THAN 1024byte string detection 
-                req_trunc = req;
-                // trigger message action
-                eventMessageLCD = 1;
+              if(httpRequest.indexOf(httpHeader) >=0) {
+                // copy to shared buffer
+                LCDmessage = httpRequest;
+                // trigger LCD action
+                eventLCDMessage = 1;
                 // response to client
                 client.println("command received.");
               }
@@ -500,8 +537,8 @@ void webServer()
         }
       }
     }
-    // Clear the request variable
-    req = "";
+    // Clear the httpRequestuest variable
+    httpRequest = "";
     // Close the connection
     client.stop();
     debugln("Client disconnected.");
