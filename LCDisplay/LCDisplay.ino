@@ -182,7 +182,6 @@ void WebServer( void * pvParameters ){
   }
 }
 
-
 // parallel task 
 void LCDDraw( void * pvParameters ){
   //disableCore1WDT();
@@ -225,43 +224,61 @@ void LCDDraw( void * pvParameters ){
 }
 
 void decodeMessage() {
-  // LCD message trigger
+  // LCD message async trigger
   if (eventLCDMessage == 1) {
-    delay(75); // remove HTTP header & new line characters
+    // remove HTTP header & new line characters
     LCDmessage.remove(0, ((LCDmessage.lastIndexOf(httpHeader)) + 12));
     LCDmessage.trim();
-
-//// array to hold positions, make loop to find '/' chars 
-    //  split off trim each.
-
-
-
-    // extract line command data
-    int _lineindex = LCDmessage.indexOf('/');
-    String _linecmd = LCDmessage.substring(0, _lineindex); 
-    uint8_t _lineint = _linecmd.toInt();
+    debug("Trimmed HTTP Data: ");
+    debugln(LCDmessage);
+    // calculate trimmed message length
+    int msgLength = LCDmessage.length() + 1;
+    // find delimiter positions 
+    const char _delimiter = '/';
+    int _delsecond = 0;
+    int _delfirst = 0;
+    int _delcount = 0; // loop character by character
+    for(int _msgindex=0; _msgindex < msgLength; _msgindex++ ) {
+      char _msgchar = LCDmessage.charAt(_msgindex);
+      if (_msgchar == _delimiter){ 
+        // store position of first
+        if (_delcount == 0){
+          _delfirst = _msgindex;
+        }
+        // store position of second
+        if (_delcount == 1){
+          _delsecond = _msgindex;
+        }
+        // stop counting after finding both
+        if (_delcount > 1){
+          break;
+        } // count matches 
+        _delcount++;
+      }  
+    } // Extract line command data
+    String _linecmd = LCDmessage.substring(0, _delfirst); 
+    int _lineint = _linecmd.toInt();
+     // Extract character delay speed data
+    String _delaycmd = LCDmessage.substring(_delfirst + 1, _delsecond); 
+    int _delayint = _delaycmd.toInt();
     debug("Line Command: ");
     debugln(_lineint);
-    
-    String _speedcmd = LCDmessage;
-    _speedcmd.remove(0, ((_speedcmd.indexOf("/")) + 1));
-    _speedcmd.remove(0, ((_speedcmd.indexOf("/")) + 1));
-    uint8_t _speedint = _speedcmd.toInt();
-    debug("Speed Command: ");
-    debugln(_speedcmd);
-    debugln(_speedint);
-
-    // remove control characters
-    LCDmessage.remove(0, ((LCDmessage.lastIndexOf("/")) + 1));
-    debug("Message: ");
+    debug("Delay Speed: ");
+    debugln(_delayint);
+    if (_delcount != 2){ // only allow HTTP request with both delimiters
+      LCDmessage = "Invalid Data!";
+      msgLength = LCDmessage.length() + 1;
+    } else {
+      // remove control characters
+      LCDmessage.remove(0, ((LCDmessage.lastIndexOf(_delimiter)) + 1));
+    }
+    debug("Parsed HTTP Data: ");
     debugln(LCDmessage);
-    // calculate message length
-    int str_len = LCDmessage.length() + 1;
     // copy to character array
-    char char_array[str_len];
-    LCDmessage.toCharArray(char_array, str_len);
+    char char_array[msgLength];
+    LCDmessage.toCharArray(char_array, msgLength);
     // send to display
-    sendMessage(char_array,_lineint);
+    sendMessage(char_array,_lineint,_delayint);
     // clear buffer
     LCDmessage = "";
     // exit function
@@ -270,8 +287,14 @@ void decodeMessage() {
 }
 
 // convert message into character stream
-void sendMessage(char _msg[], uint8_t _line) {
-  uint32_t _char; // loop through each character
+void sendMessage(char _msg[], int _line, int _delay) {
+  uint32_t _char; // set default speed if not in range
+  if (_delay == 0 || _delay > 4096) { 
+    _delay = lcdCharSpeed;
+  } // set default line if not in range
+  if (_line > 3) { 
+    _line = 0;
+  } // loop through each character
   for(int i=0; i < strlen(_msg); i++ ) {
     // convert each character into array index positions
     _char = (charLookup(_msg[i]));
@@ -290,7 +313,7 @@ void sendMessage(char _msg[], uint8_t _line) {
     for(;;) { 
       unsigned long lcdCurTime = millis();
       readClearButton(); // keep reading button state
-      if (lcdCurTime - lcdLastTime >= lcdCharSpeed) {
+      if (lcdCurTime - lcdLastTime >= _delay) {
         lcdLastTime = lcdCurTime;
         break; // exit loop when time exceeded 
       }
@@ -311,6 +334,7 @@ int charLookup(char _char){
   } // return position 
   return _index;
 }
+
 
 // scroll text on display
 void drawChar(bool _line, uint32_t _char) {
