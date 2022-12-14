@@ -41,9 +41,9 @@ uint8_t bar2[8] = {0x18,0x18,0x18,0x18,0x18,0x18,0x18,0x18};
 uint8_t bar3[8] = {0x1C,0x1C,0x1C,0x1C,0x1C,0x1C,0x1C,0x1C};
 uint8_t bar4[8] = {0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E};
 uint8_t bar5[8] = {0x1F,0x1F,0x1F,0x1F,0x1F,0x1F,0x1F,0x1F};
-const uint32_t lcdClearCharSpeed = 64; // ms delay between drawing each character (clearing display)
+const uint32_t lcdClearCharSpeed = 30; // ms delay between drawing each character (clearing display)
 const uint32_t lcdCharSpeed = 256; // ms delay between drawing each character (message mode)
-const uint32_t lcdCharLimit = 50; // max scrolling characters (clears display after limit)
+const uint32_t lcdCharLimit = 80; // max scrolling characters (clears display after limit)
 unsigned long lcdLastTime = 0;
 uint8_t lastLine = 0;
 uint8_t lcdLine = 0; 
@@ -53,7 +53,6 @@ uint32_t rowCount1 = 0;
 String charBuffer0 = "";
 String charBuffer1 = "";
 String lastChars = "";
-bool charLock = 0;
 // Shared resources
 String lcdMessage = "";
 uint8_t clearDisplay = 0;
@@ -248,9 +247,7 @@ void webServer()
 
 // parse and decode incoming HTTP request
 void decodeMessage(String _msg) {
-  lcdLine = 0;
-  lcdDelay = 0;
-  lcdMessage = "";
+
   // remove HTTP header & new line characters
   _msg.remove(0, ((_msg.lastIndexOf(httpHeader)) + 12));
   _msg.trim();
@@ -285,24 +282,18 @@ void decodeMessage(String _msg) {
   // write integer to shared buffer
   lcdLine = _linecmd.toInt();
   // clear display routines
-  if (lcdLine == 4) {
-    clearDisplay = 4;
+  if (lcdLine < 5 && lcdLine > 1) {
+    clearDisplay = lcdLine;
     eventlcdMessage = 0;
     _msg = "";
     return;
-  }   
-  if (lcdLine == 3) {
-    clearDisplay = 3;
-    eventlcdMessage = 0;
+  }
+  // clear display if message sent when event still running
+  if(eventlcdMessage == 1){
     _msg = "";
     return;
-  } 
-  if (lcdLine == 2) {
-    clearDisplay = 2;
-    eventlcdMessage = 0;
-    _msg = "";
-    return;
-  } // extract character delay speed data
+  }  
+  // extract character delay speed data
   String _delaycmd = _msg.substring(_delfirst + 1, _delsecond); 
   // write integer to shared buffer
   lcdDelay = _delaycmd.toInt();
@@ -312,11 +303,13 @@ void decodeMessage(String _msg) {
   } else {
     // remove control characters
     _msg.remove(0, ((_msg.lastIndexOf(_delimiter)) + 1));
-  } // write message to shared buffer
+  }
+  // write message to shared buffer
   lcdMessage = _msg;
-  _msg = "";
   // trigger display event 
   eventlcdMessage = 1;
+  // clear buffer
+  _msg = "";
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -348,14 +341,14 @@ void LCDDraw( void * pvParameters ){
   lcd.setCursor(0,0);
   // setup done
   for(;;){ // LCD loop
-  ///////////////////
-    // clear display events
-    clearEvents();    
+  ///////////////////  
     // display message event
     if (eventlcdMessage == 1) {  
       lcdMessageEvent();
       eventlcdMessage = 0;
     }
+    // clear display events
+    clearEvents();      
   }
 }
 
@@ -366,7 +359,6 @@ void clearEvents() {
   // clear display event 
   if (clearDisplay > 0 && clearDisplay < 5) {
     uint8_t _clearMode = clearDisplay - 2;
-    charLock = 1;
     clearLCD(_clearMode);
     clearDisplay = 0;
   } 
@@ -376,7 +368,7 @@ void clearEvents() {
 void lcdMessageEvent() { // (run only from event timer)
   int _line = lcdLine; // read line data from shared buffer
   if (_line > 1) { // ignore invalid range
-    _line = 0;
+    return;
   } // read message data from shared buffer
   String _http = lcdMessage; 
   debug("Parsed HTTP Data: ");
@@ -394,14 +386,24 @@ void lcdMessageEvent() { // (run only from event timer)
   for(int i=0; i < strlen(_msg); i++ ) {
     // convert each character into array index positions
     _char = (charLookup(_msg[i]));
+    // draw each character
+    if (_line <= 1) {
+      // clear display if character limit exceeded
+      if( _line == 0){
+        if( rowCount0 > lcdCharLimit){
+          clearDisplay = 2;
+        }   
+      } else {
+        if( rowCount1 > lcdCharLimit){
+          clearDisplay = 3; 
+        }
+      }
+      drawChar(_line,_char);
+      debugln(_char);
+    }
     // stop drawing if request canceled 
     if (eventlcdMessage == 0) {
       return;
-    }
-    // draw each character
-    if (_line <= 1) {
-      drawChar(_line,_char);
-      debugln(_char);
     }
   }
 }
@@ -426,11 +428,11 @@ void charDelay() {
   } // set default line if not in range
   for(;;) { 
     unsigned long lcdCurTime = millis();
+    clearEvents(); // keep checking for events during delay     
     if (lcdCurTime - lcdLastTime >= _delay) {
       lcdLastTime = lcdCurTime;
       break; // exit loop when time exceeded 
     }
-    clearEvents(); // keep checking for events during delay 
   }
 }
 
@@ -444,7 +446,7 @@ void drawChar(bool _line, uint32_t _char) {
     if( _line == 0){
       // store each character 	
       charBuffer0 += lcdChars[_char];
-      if( rowCount0 > lcdCols ){
+      if( rowCount0 > lcdCols ){ // range 0-15
         // overflow behavior
         _cursor0 = lcdCols - 1;
         lastChars = charBuffer0.substring(rowCount0 - _cursor0, rowCount0);
@@ -453,9 +455,7 @@ void drawChar(bool _line, uint32_t _char) {
       } else {
         // before overflow behavior
         _cursor0 = rowCount0;
-      } 
-      // position cursor   
-      lcd.setCursor(_cursor0, _line);
+      }
       // store row position 
       rowCount0++;
     } else {
@@ -471,14 +471,29 @@ void drawChar(bool _line, uint32_t _char) {
         // before overflow behavior
         _cursor1 = rowCount1;
       } 
-      // position cursor     
-      lcd.setCursor(_cursor1, _line);
       // store row position 
       rowCount1++;
-    } 
+    } // draw characters (line 1)
     //////////////////////////////
-    if( _line == 0){
-      if( rowCount0 > lcdCols ){
+    if( _line == 0){ // draw then delay, for collumn > max display size
+      if( rowCount0 >= lcdCols ){ // range 1-16
+        lcd.setCursor(_cursor0, _line);
+        lcd.print(lcdChars[_char]);
+        if(_char != 0){ // no delay on spaces
+          charDelay(); 
+        }
+      } else { // delay then draw, for collumn < max display size 
+        if(_char != 0){ // no delay on spaces
+          charDelay(); 
+        }
+        if(rowCount0 != 0){
+          lcd.setCursor(_cursor0, _line);
+          lcd.print(lcdChars[_char]);
+        }  
+      }
+    } else { // repeat for (line 2)
+      if( rowCount1 >= lcdCols ){
+        lcd.setCursor(_cursor1, _line);
         lcd.print(lcdChars[_char]);
         if(_char != 0){
           charDelay(); 
@@ -487,37 +502,12 @@ void drawChar(bool _line, uint32_t _char) {
         if(_char != 0){
           charDelay(); 
         }
-        if(charLock == 0){
+        if(rowCount1 != 0){
+          lcd.setCursor(_cursor1, _line);
           lcd.print(lcdChars[_char]);
         }  
       }
-    } else {
-      if( rowCount1 > lcdCols ){
-        lcd.print(lcdChars[_char]);
-        if(_char != 0){
-          charDelay(); 
-        }
-      } else {
-        if(_char != 0){
-          charDelay(); 
-        }
-        if(charLock == 0){
-          lcd.print(lcdChars[_char]);
-        }  
-      }
-    }
-    charLock = 0;
-    //////////////////////////////
-    // clear display if character limit exceeded
-    if( _line == 0){
-      if( rowCount0 > lcdCharLimit){
-        clearDisplay = 2;
-      }   
-    } else {
-      if( rowCount1 > lcdCharLimit){
-        clearDisplay = 3; 
-      }
-    }
+    }    
   }
 }
 
@@ -539,7 +529,6 @@ void clearLCD(uint8_t _line) {
     charBuffer0 = "";
   }
   lastChars = "";
-  lcdMessage = "";
   // ignore invalid range
   if (_line < 3) { 
     // loop through all display characters
@@ -550,15 +539,15 @@ void clearLCD(uint8_t _line) {
         lcd.setCursor(_count, 0);
         lcd.print(' ');
         lcd.setCursor(_count, 1);
-        lcd.print(' ');
       } else {
         // clear a single line
         lcd.setCursor(_count, _line);
-        lcd.print(' ');
       }  
+      lcd.print(' ');
       delay(lcdClearCharSpeed);
     }
-  lcd.setCursor(0, _line);
+    lcd.setCursor(0, _line);
+    lcd.print(' ');
   }
 }
 
