@@ -8,11 +8,8 @@
 #include <Wire.h>
 #include "LiquidCrystal_I2C.h" // custom for MCP23008-E/P, power button support
 #include "esp_task_wdt.h"
+
 //////////////////////////////////////////////////////////////////////////
-
-// I2C addresses
-#define lcdAddr 0x27
-
 // Wi-Fi Configuration
 const char* CONFIG_SSID      = "mach_kernel";
 const char* CONFIG_PSK       = "phonics.87.reply.218";
@@ -32,55 +29,56 @@ const char lcdChars[]={' ','0','1','2','3','4','5','6','7','8','9','a','b','c','
 TaskHandle_t Task1;
 TaskHandle_t Task2;
 
-// 16x2 Display
+// 16x2 LCD Display
+#define lcdAddr 0x27 // I2C address
 LiquidCrystal_I2C lcd(lcdAddr);
 uint8_t lcdCols = 16; // number of columns in the LCD
 uint8_t lcdRows = 2;  // number of rows in the LCD
 #define lcdBacklightPin 9 // display backlight pin
-// Custom Characters
+// Custom Characters (progress bar)
 uint8_t bar1[8] = {0x10,0x10,0x10,0x10,0x10,0x10,0x10,0x10};
 uint8_t bar2[8] = {0x18,0x18,0x18,0x18,0x18,0x18,0x18,0x18};
 uint8_t bar3[8] = {0x1C,0x1C,0x1C,0x1C,0x1C,0x1C,0x1C,0x1C};
 uint8_t bar4[8] = {0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E};
 uint8_t bar5[8] = {0x1F,0x1F,0x1F,0x1F,0x1F,0x1F,0x1F,0x1F};
-#define lcdClearCharSpeed 64 // ms delay between drawing each character (clearing display)
-const long lcdCharSpeed = 256; // ms delay between drawing each character (message mode)
-unsigned long lcdLastTime = 0; // system timer
-uint32_t lcdCharLimit = 512; // max scrolling characters (clears display after limit)
+const uint32_t lcdClearCharSpeed = 64; // ms delay between drawing each character (clearing display)
+const uint32_t lcdCharSpeed = 256; // ms delay between drawing each character (message mode)
+const uint32_t lcdCharLimit = 50; // max scrolling characters (clears display after limit)
+unsigned long lcdLastTime = 0;
+uint8_t lastLine = 0;
+uint8_t lcdLine = 0; 
 uint32_t chrarSize = 0;
 uint32_t rowCount0 = 0;
 uint32_t rowCount1 = 0;
 String charBuffer0 = "";
 String charBuffer1 = "";
 String lastChars = "";
-// Shared resources 
+bool charLock = 0;
+// Shared resources
+String lcdMessage = "";
 uint8_t clearDisplay = 0;
 bool eventlcdMessage = 0;
-String lcdMessage = "";
 int lcdDelay = 0;
-int lcdLine = 0;
+
 
 // Power Control
 #define clearButtonPin 5 // on MCP chip
 uint8_t clearButton = 0;
-uint8_t lastclearButton = 0; // system timer
-uint32_t clearButtonMillis; // system timer
+uint8_t lastclearButton = 0;
+unsigned long clearButtonMillis = 0; 
 uint8_t startDelay = 5; // delay on initial start in seconds
 uint8_t debounceDelay = 50; // button debounce delay in ms
 
-// Wi-Fi 
-unsigned long WiFiLastMillis = 0; // system timer
+// Wi-Fi & Web Server
 unsigned long WiFiDownInterval = 30000; // WiFi reconnect timeout (ms)
+unsigned long WiFiLastMillis = 0;
 String ipAddress = "";
-
-// Web Server
 WiFiServer server(CONFIG_PORT);
-String httpHeader = "Accept: lcd/";
+unsigned long HTTPlastTime = 0; 
+unsigned long HTTPcurTime = millis(); 
 String httpRequest = ""; 
-unsigned long HTTPcurTime = millis(); // system timer
-unsigned long HTTPlastTime = 0; // system timer       
-// HTTP timeout
-const long timeoutTime = 1000;
+String httpHeader = "Accept: lcd/";
+const long timeoutTime = 1000; // HTTP timeout
 
 //////////////////////////////////////////////////////////////////////////
 // Enable Serial Messages (0 = off)
@@ -289,16 +287,19 @@ void decodeMessage(String _msg) {
   // clear display routines
   if (lcdLine == 4) {
     clearDisplay = 4;
+    eventlcdMessage = 0;
     _msg = "";
     return;
   }   
   if (lcdLine == 3) {
     clearDisplay = 3;
+    eventlcdMessage = 0;
     _msg = "";
     return;
   } 
   if (lcdLine == 2) {
     clearDisplay = 2;
+    eventlcdMessage = 0;
     _msg = "";
     return;
   } // extract character delay speed data
@@ -348,12 +349,13 @@ void LCDDraw( void * pvParameters ){
   // setup done
   for(;;){ // LCD loop
   ///////////////////
+    // clear display events
+    clearEvents();    
     // display message event
     if (eventlcdMessage == 1) {  
       lcdMessageEvent();
       eventlcdMessage = 0;
-    } // clear display events
-    clearEvents();
+    }
   }
 }
 
@@ -364,6 +366,7 @@ void clearEvents() {
   // clear display event 
   if (clearDisplay > 0 && clearDisplay < 5) {
     uint8_t _clearMode = clearDisplay - 2;
+    charLock = 1;
     clearLCD(_clearMode);
     clearDisplay = 0;
   } 
@@ -371,52 +374,40 @@ void clearEvents() {
 
 // convert message into character stream
 void lcdMessageEvent() { // (run only from event timer)
-  // read data from shared buffers
-  int _line = lcdLine;
-  int _delay = lcdDelay;   
+  int _line = lcdLine; // read line data from shared buffer
+  if (_line > 1) { // ignore invalid range
+    _line = 0;
+  } // read message data from shared buffer
   String _http = lcdMessage; 
   debug("Parsed HTTP Data: ");
   debugln(_http);
   debug("Line Command: ");
   debugln(_line);
   debug("Delay Speed: ");
-  debugln(_delay);
+  debugln(lcdDelay);
   // convert string to character array
   int _msgLength = _http.length() + 1;
   char _msg[_msgLength];
   _http.toCharArray(_msg, _msgLength);
   _http = "";
-  // set default speed if not in range
-  if (_delay == 0 || _delay > 4096) { 
-    _delay = lcdCharSpeed;
-  } // set default line if not in range
-  if (_line > 1) { 
-    _line = 0;
-  } 
   uint32_t _char; // loop through each character
   for(int i=0; i < strlen(_msg); i++ ) {
     // convert each character into array index positions
     _char = (charLookup(_msg[i]));
+    // stop drawing if request canceled 
+    if (eventlcdMessage == 0) {
+      return;
+    }
     // draw each character
     if (_line <= 1) {
       drawChar(_line,_char);
       debugln(_char);
-    } // delay between drawing each character
-    for(;;) { 
-      unsigned long lcdCurTime = millis();
-      clearEvents(); // keep checking for events during delay 
-      if (lcdCurTime - lcdLastTime >= _delay) {
-        lcdLastTime = lcdCurTime;
-        break; // exit loop when time exceeded 
-      }
     }
-    if (eventlcdMessage == 0) {
-      return; // exit if message was canceled
-    }  
   }
 }
+
 // character search
-int charLookup(char _char){
+int charLookup(char _char) {
   int _index;
   for (_index=0; _index <= chrarSize; _index++){
     if (lcdChars[_index] == _char){
@@ -426,77 +417,108 @@ int charLookup(char _char){
   return _index;
 }
 
+// character delay 
+void charDelay() {
+  int _delay = lcdDelay;   
+  // set default speed if not in range
+  if (_delay == 0 || _delay > 4096) { 
+    _delay = lcdCharSpeed;
+  } // set default line if not in range
+  for(;;) { 
+    unsigned long lcdCurTime = millis();
+    if (lcdCurTime - lcdLastTime >= _delay) {
+      lcdLastTime = lcdCurTime;
+      break; // exit loop when time exceeded 
+    }
+    clearEvents(); // keep checking for events during delay 
+  }
+}
 
 // scroll text on display
 void drawChar(bool _line, uint32_t _char) {
   if( _char < chrarSize){ // ignore invalid input
-  	uint8_t _lcdCols = lcdCols - 1; 	
     uint8_t _cursor0;
     uint8_t _cursor1;
-    // print index position
-    debugln(_char);
+    //////////////////////////////
+    // compute each row separately
     if( _line == 0){
       // store each character 	
       charBuffer0 += lcdChars[_char];
-      if( rowCount0 >= _lcdCols ){
+      if( rowCount0 > lcdCols ){
         // overflow behavior
-        _cursor0 = _lcdCols;
-        lastChars = charBuffer0.substring(rowCount0 - _lcdCols, rowCount0);
+        _cursor0 = lcdCols - 1;
+        lastChars = charBuffer0.substring(rowCount0 - _cursor0, rowCount0);
         lcd.setCursor(0, _line);
         lcd.print(lastChars);
       } else {
+        // before overflow behavior
         _cursor0 = rowCount0;
-      } // position cursor   
+      } 
+      // position cursor   
       lcd.setCursor(_cursor0, _line);
-      // count characters
+      // store row position 
       rowCount0++;
     } else {
       // store each character 	
       charBuffer1 += lcdChars[_char];
-      if( rowCount1 >= _lcdCols ){
+      if( rowCount1 > lcdCols ){
         // overflow behavior
-        _cursor1 = _lcdCols;
-        lastChars = charBuffer1.substring(rowCount1 - _lcdCols, rowCount1);
+        _cursor1 = lcdCols - 1;
+        lastChars = charBuffer1.substring(rowCount1 - _cursor1, rowCount1);
         lcd.setCursor(0, _line);
-        lcd.print(lastChars);      
+        lcd.print(lastChars);
       } else {
+        // before overflow behavior
         _cursor1 = rowCount1;
-      } // position cursor     
+      } 
+      // position cursor     
       lcd.setCursor(_cursor1, _line);
-      // count characters
+      // store row position 
       rowCount1++;
     } 
-    // display a single character from the array
-    lcd.print(lcdChars[_char]);
-    // clear display when character limit exceeded
+    //////////////////////////////
+    if( _line == 0){
+      if( rowCount0 > lcdCols ){
+        lcd.print(lcdChars[_char]);
+        if(_char != 0){
+          charDelay(); 
+        }
+      } else {
+        if(_char != 0){
+          charDelay(); 
+        }
+        if(charLock == 0){
+          lcd.print(lcdChars[_char]);
+        }  
+      }
+    } else {
+      if( rowCount1 > lcdCols ){
+        lcd.print(lcdChars[_char]);
+        if(_char != 0){
+          charDelay(); 
+        }
+      } else {
+        if(_char != 0){
+          charDelay(); 
+        }
+        if(charLock == 0){
+          lcd.print(lcdChars[_char]);
+        }  
+      }
+    }
+    charLock = 0;
+    //////////////////////////////
+    // clear display if character limit exceeded
     if( _line == 0){
       if( rowCount0 > lcdCharLimit){
-        rowCount0 = 0;
-        lastChars = "";        
-        charBuffer0 = "";
-        for(uint8_t _count = 0; _count < _lcdCols + 1; _count++)
-        { // draw spaces
-          lcd.setCursor(_count,0);
-          lcd.print(' ');
-          delay(lcdClearCharSpeed);
-        }
-        lcd.setCursor(0,0);
+        clearDisplay = 2;
       }   
     } else {
       if( rowCount1 > lcdCharLimit){
-        rowCount1 = 0;
-        lastChars = "";        
-        charBuffer1 = "";
-        for(uint8_t _count = 0; _count < _lcdCols + 1; _count++)
-        { // draw spaces
-          lcd.setCursor(_count,1);
-          lcd.print(' ');
-          delay(lcdClearCharSpeed);
-        }  
-        lcd.setCursor(0,1);    
+        clearDisplay = 3; 
       }
     }
-  }  
+  }
 }
 
 // clear display (run only from event timer)
@@ -515,30 +537,29 @@ void clearLCD(uint8_t _line) {
   if (_line == 0) { 
     rowCount0 = 0;
     charBuffer0 = "";
-  } // ignore invalid range
-  if (_line < 3) { // loop through all display characters
+  }
+  lastChars = "";
+  lcdMessage = "";
+  // ignore invalid range
+  if (_line < 3) { 
+    // loop through all display characters
     for(uint8_t _count = 0; _count < lcdCols; _count++) { 
       // draw spaces
       if (_line > 1) {
+        // clear both lines 
         lcd.setCursor(_count, 0);
         lcd.print(' ');
         lcd.setCursor(_count, 1);
         lcd.print(' ');
       } else {
+        // clear a single line
         lcd.setCursor(_count, _line);
         lcd.print(' ');
       }  
       delay(lcdClearCharSpeed);
     }
-  } // default if out of range
-  if (_line > 1) {
-    _line = 0;
-  }  
-  // reset state
-  eventlcdMessage = 0;
   lcd.setCursor(0, _line);
-  lcdMessage = "";
-  lastChars = "";
+  }
 }
 
 
@@ -552,7 +573,7 @@ void lcdTimedBar(int _sec) {
   // draw bar on each row
   for(_rowcount = 0; _rowcount < 2; _rowcount++) {
   	// draw bar on each collumn
-    for(_colcount = 0; _colcount < lcdCols - 1; _colcount++) {
+    for(_colcount = 0; _colcount < lcdCols; _colcount++) {
       // draw bar segments	
       for(_segcount = 0; _segcount < 5; _segcount++) { 	
         lcd.setCursor(_colcount,_line);
@@ -581,6 +602,7 @@ void readClearButton() {
       if (clearButton == 1) { 
         // button change event
         clearDisplay = 4;
+        eventlcdMessage = 0;
       }
     } 
   }
