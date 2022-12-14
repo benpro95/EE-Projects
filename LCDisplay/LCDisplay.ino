@@ -441,7 +441,7 @@ void drawChar(bool _line, uint32_t _char) {
   if( _char < chrarSize){ // ignore invalid input
     uint8_t _cursor0;
     uint8_t _cursor1;
-    //////////////////////////////
+    ////////////////////////////////////
     // compute each row separately
     if( _line == 0){
       // store each character 	
@@ -456,8 +456,7 @@ void drawChar(bool _line, uint32_t _char) {
         // before overflow behavior
         _cursor0 = rowCount0;
       }
-      // store row position 
-      rowCount0++;
+      rowCount0++; // store row position (must be done here)
     } else {
       // store each character 	
       charBuffer1 += lcdChars[_char];
@@ -471,10 +470,9 @@ void drawChar(bool _line, uint32_t _char) {
         // before overflow behavior
         _cursor1 = rowCount1;
       } 
-      // store row position 
-      rowCount1++;
-    } // draw characters (line 1)
-    //////////////////////////////
+      rowCount1++; // store row position (must be done here)
+    } ////////////////////////////////////
+    // draw characters (line 1)
     if( _line == 0){ // draw then delay, for collumn > max display size
       if( rowCount0 >= lcdCols ){ // range 1-16
         lcd.setCursor(_cursor0, _line);
@@ -483,10 +481,10 @@ void drawChar(bool _line, uint32_t _char) {
           charDelay(); 
         }
       } else { // delay then draw, for collumn < max display size 
-        if(_char != 0){ // no delay on spaces
+        if(_char != 0){
           charDelay(); 
-        }
-        if(rowCount0 != 0){
+        } // prevents character drawing after clearing display
+        if(rowCount0 != 0){ 
           lcd.setCursor(_cursor0, _line);
           lcd.print(lcdChars[_char]);
         }  
