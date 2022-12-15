@@ -1,4 +1,4 @@
-//////////////////////////////////////////////////////////////////////////
+ //////////////////////////////////////////////////////////////////////////
 // by Ben Provenzano III
 //////////////////////////////////////////////////////////////////////////
 
@@ -7,7 +7,9 @@
 #include <WiFi.h>
 #include <Wire.h>
 #include "LiquidCrystal_I2C.h" // custom for MCP23008-E/P, power button support
-#include "esp_task_wdt.h"
+#include <neotimer.h>
+#include <NTPClient.h>
+#include <WiFiUdp.h>
 
 //////////////////////////////////////////////////////////////////////////
 // Wi-Fi Configuration
@@ -23,7 +25,7 @@ const char lcdChars[]={' ','0','1','2','3','4','5','6','7','8','9','a','b','c','
 ,'e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x'\
 ,'y','z','A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R'\
 ,'S','T','U','V','W','X','Y','Z','&',':',',','.','*','|','-','+','=','_','#','@'\
-,'!','%','[',']','(',')','~','"','"'};
+,'{','%','[',']','(',')','~','"','<','>','?','}'};
 
 // RTOS Multi-Core Handle
 TaskHandle_t Task1;
@@ -34,50 +36,65 @@ TaskHandle_t Task2;
 LiquidCrystal_I2C lcd(lcdAddr);
 uint8_t lcdCols = 16; // number of columns in the LCD
 uint8_t lcdRows = 2;  // number of rows in the LCD
-#define lcdBacklightPin 9 // display backlight pin
+#define lcdBacklight 13 // display backlight pin
 // Custom Characters (progress bar)
 uint8_t bar1[8] = {0x10,0x10,0x10,0x10,0x10,0x10,0x10,0x10};
 uint8_t bar2[8] = {0x18,0x18,0x18,0x18,0x18,0x18,0x18,0x18};
 uint8_t bar3[8] = {0x1C,0x1C,0x1C,0x1C,0x1C,0x1C,0x1C,0x1C};
 uint8_t bar4[8] = {0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E};
 uint8_t bar5[8] = {0x1F,0x1F,0x1F,0x1F,0x1F,0x1F,0x1F,0x1F};
-const uint32_t lcdClearCharSpeed = 30; // ms delay between drawing each character (clearing display)
-const uint32_t lcdCharSpeed = 256; // ms delay between drawing each character (message mode)
-const uint32_t lcdCharLimit = 80; // max scrolling characters (clears display after limit)
-unsigned long lcdLastTime = 0;
-uint8_t lastLine = 0;
-uint8_t lcdLine = 0; 
+const uint32_t lcdClearCharSpeed = 50; // ms delay between drawing each character (clearing display)
+const uint32_t lcdCharSpeed = 250; // ms delay between drawing each character (message mode)
+const uint32_t lcdCharLimit = 500; // max scrolling characters (clears display after limit)
+Neotimer lcdDim = Neotimer(80000); // 80 second timer
+Neotimer lcdDelayTimer = Neotimer(500); 
+unsigned long lcdDimLastTime = 0;
+bool lcdBacklightDim = 1; 
 uint32_t chrarSize = 0;
 uint32_t rowCount0 = 0;
 uint32_t rowCount1 = 0;
 String charBuffer0 = "";
 String charBuffer1 = "";
+unsigned long lcdLastTime = 0;
 String lastChars = "";
+uint32_t lcdDelay = 0;
+uint8_t lcdLine = 0;
 // Shared resources
 String lcdMessage = "";
 uint8_t clearDisplay = 0;
 bool eventlcdMessage = 0;
-int lcdDelay = 0;
 
+// Set Button
+#define setButtonPin 12
+unsigned long setButtonMillis = 0;
+bool setButtonLast = 0;  
+bool setButton = 0;
 
 // Power Control
 #define clearButtonPin 5 // on MCP chip
-uint8_t clearButton = 0;
-uint8_t lastclearButton = 0;
-unsigned long clearButtonMillis = 0; 
-uint8_t startDelay = 5; // delay on initial start in seconds
+bool clearButton = 0;
+bool lastclearButton = 0;
+unsigned long clearButtonMillis = 0;
 uint8_t debounceDelay = 50; // button debounce delay in ms
+uint8_t startDelay = 5; // delay on initial start in seconds
 
 // Wi-Fi & Web Server
+String ipAddress = "";
 unsigned long WiFiDownInterval = 30000; // WiFi reconnect timeout (ms)
 unsigned long WiFiLastMillis = 0;
-String ipAddress = "";
 WiFiServer server(CONFIG_PORT);
 unsigned long HTTPlastTime = 0; 
 unsigned long HTTPcurTime = millis(); 
+const long timeoutTime = 1000; // HTTP timeout
 String httpRequest = ""; 
 String httpHeader = "Accept: lcd/";
-const long timeoutTime = 1000; // HTTP timeout
+
+// NTP
+WiFiUDP ntpUDP;
+NTPClient timeClient(ntpUDP);
+String formattedDate;
+String dayStamp;
+String timeStamp;
 
 //////////////////////////////////////////////////////////////////////////
 // Enable Serial Messages (0 = off)
@@ -126,13 +143,15 @@ void WebServer( void * pvParameters ){
   pinMode(LED_BUILTIN, OUTPUT);  
   digitalWrite(LED_BUILTIN, HIGH);    
   // display backlight (low)
-  pinMode(lcdBacklightPin, OUTPUT);  
-  digitalWrite(lcdBacklightPin, LOW);
-  // Start serial
+  pinMode(lcdBacklight, OUTPUT);  
+  digitalWrite(lcdBacklight, LOW);
+  // set button
+  pinMode(setButtonPin, INPUT_PULLUP);
+  // start serial
   debugstart(CONFIG_SERIAL);
   debug("Web running on core ");
   debugln(xPortGetCoreID());
-  // Start WiFi connection
+  // start WiFi connection
   debug("Connecting to: ");
   debugln(CONFIG_SSID);
   int _tryCount = 0;
@@ -168,7 +187,12 @@ void WebServer( void * pvParameters ){
   debugln("Starting webserver...");
   server.begin();
   delay(1000);
-  debugln("Webserver started!");
+  debugln("Webserver started.");
+  debugln();
+  // Network Time Client
+  timeClient.begin();
+  timeClient.setTimeOffset(3600);
+  debugln("NTP started.");
   debugln();
   // setup done
   for(;;){ //
@@ -185,6 +209,8 @@ void WebServer( void * pvParameters ){
     }  
     // light web server
     webServer();
+    // read set button
+    readSetButton();
   }
 }
 
@@ -247,7 +273,6 @@ void webServer()
 
 // parse and decode incoming HTTP request
 void decodeMessage(String _msg) {
-
   // remove HTTP header & new line characters
   _msg.remove(0, ((_msg.lastIndexOf(httpHeader)) + 12));
   _msg.trim();
@@ -315,9 +340,10 @@ void decodeMessage(String _msg) {
 //////////////////////////////////////////////////////////////////////////
 // parallel task 1
 void LCDDraw( void * pvParameters ){
-  //disableCore1WDT();
   debug("LCD drawing running on core ");
   debugln(xPortGetCoreID());
+  // enable full brightness
+  digitalWrite(lcdBacklight, HIGH);
   // calculate number of characters
   chrarSize = sizeof(lcdChars);  
   // 16x2 display (calls Wire.begin)
@@ -339,13 +365,19 @@ void LCDDraw( void * pvParameters ){
   delay(2000);
   lcd.clear();
   lcd.setCursor(0,0);
+  // start dimming timer
+  lcdDim.reset();
+  lcdDim.start();
   // setup done
   for(;;){ // LCD loop
   ///////////////////  
     // display message event
     if (eventlcdMessage == 1) {  
+      digitalWrite(lcdBacklight, HIGH);
+      lcdDim.reset();
       lcdMessageEvent();
-      eventlcdMessage = 0;
+      lcdDim.start();
+      eventlcdMessage = 0; 
     }
     // clear display events
     clearEvents();      
@@ -358,10 +390,19 @@ void clearEvents() {
   readClearButton();
   // clear display event 
   if (clearDisplay > 0 && clearDisplay < 5) {
-    uint8_t _clearMode = clearDisplay - 2;
+    // correct range
+    uint8_t _clearMode = clearDisplay - 2; 
+    digitalWrite(lcdBacklight, HIGH);   
+    lcdDim.reset();
     clearLCD(_clearMode);
-    clearDisplay = 0;
+    lcdDim.start();
+    clearDisplay = 0; 
   } 
+  // display dim event
+  if(lcdDim.done()){
+    digitalWrite(lcdBacklight, LOW);
+    lcdDim.reset();
+  }
 }
 
 // convert message into character stream
@@ -426,13 +467,15 @@ void charDelay() {
   if (_delay == 0 || _delay > 4096) { 
     _delay = lcdCharSpeed;
   } // set default line if not in range
+  lcdDelayTimer.reset();
+  lcdDelayTimer.set(_delay);
+  lcdDelayTimer.start();
   for(;;) { 
-    unsigned long lcdCurTime = millis();
-    clearEvents(); // keep checking for events during delay     
-    if (lcdCurTime - lcdLastTime >= _delay) {
-      lcdLastTime = lcdCurTime;
-      break; // exit loop when time exceeded 
-    }
+    if(lcdDelayTimer.done()){
+      lcdDelayTimer.reset();
+      break;
+    } // keep checking for events during delay
+    clearEvents(); 
   }
 }
 
@@ -441,14 +484,14 @@ void drawChar(bool _line, uint32_t _char) {
   if( _char < chrarSize){ // ignore invalid input
     uint8_t _cursor0;
     uint8_t _cursor1;
-    ////////////////////////////////////
+    ////////////////////////////////////// line 0
     // compute each row separately
     if( _line == 0){
       // store each character 	
       charBuffer0 += lcdChars[_char];
       if( rowCount0 > lcdCols ){ // range 0-15
         // overflow behavior
-        _cursor0 = lcdCols - 1;
+        _cursor0 = lcdCols - 1; // trim character string
         lastChars = charBuffer0.substring(rowCount0 - _cursor0, rowCount0);
         lcd.setCursor(0, _line);
         lcd.print(lastChars);
@@ -457,12 +500,36 @@ void drawChar(bool _line, uint32_t _char) {
         _cursor0 = rowCount0;
       }
       rowCount0++; // store row position (must be done here)
-    } else {
+      ////////////////////////////////////////////////////
+      // draw new character > 16 collumns
+      if( rowCount0 >= lcdCols ){ // range 1-16
+        if(rowCount0 == lcdCols + 2){ // overflow transition delay 
+          charDelay();
+        } 
+        lcd.setCursor(_cursor0, _line);
+        lcd.print(lcdChars[_char]);
+        if(rowCount0 != lcdCols + 2){ // overflow transition delay
+          charDelay(); 
+        } 
+      // draw new character < 16 collumns
+      } else { // delay then draw, for collumn < max display width
+        if(rowCount0 != 1){ // stops delay on first character drawing    
+          charDelay();
+        } 
+        if(rowCount0 != 0){ // stops character drawing after clearing display
+          lcd.setCursor(_cursor0, _line);
+          lcd.print(lcdChars[_char]);
+        }
+        if(rowCount0 == lcdCols - 1){ // overflow transition delay 
+          charDelay(); 
+        }
+      }
+    } else { ///////////////////////////// line 1
       // store each character 	
       charBuffer1 += lcdChars[_char];
       if( rowCount1 > lcdCols ){
         // overflow behavior
-        _cursor1 = lcdCols - 1;
+        _cursor1 = lcdCols - 1; // trim character string
         lastChars = charBuffer1.substring(rowCount1 - _cursor1, rowCount1);
         lcd.setCursor(0, _line);
         lcd.print(lastChars);
@@ -471,41 +538,32 @@ void drawChar(bool _line, uint32_t _char) {
         _cursor1 = rowCount1;
       } 
       rowCount1++; // store row position (must be done here)
-    } ////////////////////////////////////
-    // draw characters (line 1)
-    if( _line == 0){ // draw then delay, for collumn > max display size
-      if( rowCount0 >= lcdCols ){ // range 1-16
-        lcd.setCursor(_cursor0, _line);
-        lcd.print(lcdChars[_char]);
-        if(_char != 0){ // no delay on spaces
-          charDelay(); 
-        }
-      } else { // delay then draw, for collumn < max display size 
-        if(_char != 0){
-          charDelay(); 
-        } // prevents character drawing after clearing display
-        if(rowCount0 != 0){ 
-          lcd.setCursor(_cursor0, _line);
-          lcd.print(lcdChars[_char]);
-        }  
-      }
-    } else { // repeat for (line 2)
-      if( rowCount1 >= lcdCols ){
+      ////////////////////////////////////////////////////
+      // draw new character > 16 collumns
+      if( rowCount1 >= lcdCols ){ // range 1-16
+        if(rowCount1 == lcdCols + 2){ // overflow transition delay 
+          lcd.print(' ');
+          charDelay();
+        } 
         lcd.setCursor(_cursor1, _line);
         lcd.print(lcdChars[_char]);
-        if(_char != 0){
+        if(rowCount1 != lcdCols + 2){ // overflow transition delay
           charDelay(); 
-        }
-      } else {
-        if(_char != 0){
-          charDelay(); 
-        }
-        if(rowCount1 != 0){
+        } 
+      // draw new character < 16 collumns
+      } else { // delay then draw, for collumn < max display width
+        if(rowCount1 != 1){ // stops delay on first character drawing    
+          charDelay();
+        } 
+        if(rowCount1 != 0){ // stops character drawing after clearing display
           lcd.setCursor(_cursor1, _line);
           lcd.print(lcdChars[_char]);
-        }  
+        }
+        if(rowCount1 == lcdCols - 1){ // overflow transition delay 
+          charDelay(); 
+        }
       }
-    }    
+    } ////////////////////////////////////////////////////
   }
 }
 
@@ -545,10 +603,8 @@ void clearLCD(uint8_t _line) {
       delay(lcdClearCharSpeed);
     }
     lcd.setCursor(0, _line);
-    lcd.print(' ');
   }
 }
-
 
 // display progress bar for # of seconds 
 void lcdTimedBar(int _sec) { 
@@ -576,7 +632,7 @@ void lcdTimedBar(int _sec) {
 // clear display button
 void readClearButton() {
   // read pin state from MCP23008 //////////////////
-  int reading = lcd.readPin(clearButtonPin);
+  bool reading = lcd.readPin(clearButtonPin);
   // if switch changed
   if (reading != lastclearButton) {
     // reset the debouncing timer
@@ -596,6 +652,54 @@ void readClearButton() {
   lastclearButton = reading; 
 }
 
+// read set button
+void readSetButton() {
+  bool reading = digitalRead(setButtonPin);
+  reading = !reading;
+  // if switch changed
+  if (reading != setButtonLast) {
+    // reset the debouncing timer
+    setButtonMillis = millis();
+  }
+  if ((millis() - setButtonMillis) > debounceDelay) {
+    // if button state has changed
+    if (reading != setButton) {
+      setButton = reading;
+      if (setButton == 1) { 
+        // button change event
+        debugln("HI");
+        if (eventlcdMessage == 0) { 
+
+
+           while(!timeClient.update()) {
+              timeClient.forceUpdate();
+            }
+            // The formattedDate comes with the following format:
+            // 2018-05-28T16:00:13Z
+            // We need to extract date and time
+            formattedDate = timeClient.getFormattedDate();
+            Serial.println(formattedDate);
+
+            // Extract date
+            int splitT = formattedDate.indexOf("T");
+            dayStamp = formattedDate.substring(0, splitT);
+            Serial.print("DATE: ");
+            Serial.println(dayStamp);
+            // Extract time
+            timeStamp = formattedDate.substring(splitT+1, formattedDate.length()-1);
+            Serial.print("HOUR: ");
+            Serial.println(timeStamp);
+          
+          lcdLine = 0;
+          lcdDelay = 0;
+          lcdMessage = formattedDate;
+          eventlcdMessage = 1;
+        }   
+      }
+    } 
+  }
+  setButtonLast = reading; 
+}
 
 void loop() {
   // main loop disabled
