@@ -6,6 +6,8 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <Wire.h>
+#include <HTTPClient.h>
+#include <Arduino_JSON.h>
 #include "LiquidCrystal_I2C.h" // custom for MCP23008-E/P, power button support
 #include <neotimer.h>
 
@@ -23,7 +25,7 @@ const char lcdChars[]={' ','0','1','2','3','4','5','6','7','8','9','a','b','c','
 ,'e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x'\
 ,'y','z','A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R'\
 ,'S','T','U','V','W','X','Y','Z','&',':',',','.','*','|','-','+','=','_','#','@'\
-,'{','%','[',']','(',')','~','"','<','>','?','}'};
+,'{','%','[',']','(',')','~','"','<','>','?','}','°'};
 
 // RTOS Multi-Core Handle
 TaskHandle_t Task1;
@@ -32,8 +34,8 @@ TaskHandle_t Task2;
 // 16x2 LCD Display
 #define lcdAddr 0x27 // I2C address
 LiquidCrystal_I2C lcd(lcdAddr);
-uint8_t lcdCols = 16; // number of columns in the LCD
-uint8_t lcdRows = 2;  // number of rows in the LCD
+const uint8_t lcdCols = 16; // number of columns in the LCD
+const uint8_t lcdRows = 2;  // number of rows in the LCD
 #define lcdBacklight 13 // display backlight pin
 // Custom Characters (progress bar)
 uint8_t bar1[8] = {0x10,0x10,0x10,0x10,0x10,0x10,0x10,0x10};
@@ -41,26 +43,32 @@ uint8_t bar2[8] = {0x18,0x18,0x18,0x18,0x18,0x18,0x18,0x18};
 uint8_t bar3[8] = {0x1C,0x1C,0x1C,0x1C,0x1C,0x1C,0x1C,0x1C};
 uint8_t bar4[8] = {0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E};
 uint8_t bar5[8] = {0x1F,0x1F,0x1F,0x1F,0x1F,0x1F,0x1F,0x1F};
-const uint32_t lcdClearCharSpeed = 50; // ms delay between drawing each character (clearing display)
-const uint32_t lcdCharSpeed = 250; // ms delay between drawing each character (message mode)
+const uint32_t lcdClearCharSpeed = 75; // ms delay between drawing each character (clearing display)
 const uint32_t lcdCharLimit = 500; // max scrolling characters (clears display after limit)
-Neotimer lcdDim = Neotimer(80000); // 80 second timer
-Neotimer lcdDelayTimer = Neotimer(500); 
+Neotimer lcdDim = Neotimer(80000); // ms before dimming display backlight
+Neotimer lcdDelayTimer = Neotimer();
 unsigned long lcdDimLastTime = 0;
 bool lcdBacklightDim = 1; 
 uint32_t chrarSize = 0;
 uint32_t rowCount0 = 0;
 uint32_t rowCount1 = 0;
+String lastChars = "";
 String charBuffer0 = "";
 String charBuffer1 = "";
 unsigned long lcdLastTime = 0;
-String lastChars = "";
-uint32_t lcdDelay = 0;
-uint8_t lcdLine = 0;
 // Shared resources
-String lcdMessage = "";
 uint8_t clearDisplay = 0;
 bool eventlcdMessage = 0;
+String lcdMessage = "";
+uint32_t lcdDelay = 0;
+uint8_t lcdLine = 0;
+
+// Weather Search
+String jsonBuffer;
+String openWeatherMapApiKey = "842b247f09feaabbf1176be9d6221469";
+String openWeatherMapURL = "http://api.openweathermap.org/data/2.5/weather?q=";
+String countryCode = "US";
+String city = "Buffalo";
 
 // Set Button
 #define setButtonPin 12
@@ -292,6 +300,7 @@ void decodeMessage(String _msg) {
   String _linecmd = _msg.substring(0, _delfirst); 
   // write integer to shared buffer
   lcdLine = _linecmd.toInt();
+  _linecmd = "";
   // clear display routines
   if (lcdLine < 5 && lcdLine > 1) {
     clearDisplay = lcdLine;
@@ -308,6 +317,7 @@ void decodeMessage(String _msg) {
   String _delaycmd = _msg.substring(_delfirst + 1, _delsecond); 
   // write integer to shared buffer
   lcdDelay = _delaycmd.toInt();
+  _delaycmd = "";
   if (_delcount != 2){ // only allow HTTP request with both delimiters
     _msg = "Invalid Data!";
     _msgLength = _msg.length() + 1;
@@ -408,7 +418,9 @@ void lcdMessageEvent() { // (run only from event timer)
   int _msgLength = _http.length() + 1;
   char _msg[_msgLength];
   _http.toCharArray(_msg, _msgLength);
+  // clear strings
   _http = "";
+  lcdMessage = "";
   uint32_t _char; // loop through each character
   for(int i=0; i < strlen(_msg); i++ ) {
     // convert each character into array index positions
@@ -537,20 +549,20 @@ void drawChar(bool _line, uint32_t _char) {
 void charDelay() {
   int _delay = lcdDelay;   
   // set default speed if not in range
-  if (_delay < 4096) { 
-  	if (_delay > 0 ) {
-      // set default line if not in range
-      lcdDelayTimer.reset();
-      lcdDelayTimer.set(_delay);
-      lcdDelayTimer.start();
-      for(;;) { // adjustable delay
-        if(lcdDelayTimer.done()){
-          lcdDelayTimer.reset();
-          break;
-        } // keep checking for events during delay
-        clearEvents(); 
-      }
-    }  
+  if (_delay < 4096) {
+    if (_delay < 10) {
+      _delay = 10;	// min speed limit
+    } // restart timer	
+	lcdDelayTimer.reset();
+	lcdDelayTimer.set(_delay);
+	lcdDelayTimer.start();
+	for(;;) { // adjustable delay	
+	  clearEvents(); // keep checking for events during delay
+	  if(lcdDelayTimer.done()){
+	    lcdDelayTimer.reset();
+	    break; // exit loop when timer done
+	  } 
+	}  
   }
 }
 
@@ -655,16 +667,79 @@ void readSetButton() {
       if (setButton == 1) { 
         // button change event
         if (eventlcdMessage == 0) { 
-          // Trigger display
-          lcdLine = 0;
-          lcdDelay = 0;
-          lcdMessage = "PLACEHOLDER....";
+
+
+          // Trigger display of weather
+	      String serverPath = openWeatherMapURL + city + "," + countryCode + "&APPID=" + openWeatherMapApiKey;    
+	      jsonBuffer = httpGETRequest(serverPath.c_str()); // call API server
+	      JSONVar weatherObject = JSON.parse(jsonBuffer); // receive JSON
+	      if (JSON.typeof(weatherObject) == "undefined") {
+	        lcdMessage = "Parsing input failed!";
+	      } else {
+	      	// parse temperature and convert K to F 
+	        String _tempstr0 = JSON.stringify(weatherObject["main"]["temp"]);
+	        String _tempstr1 = JSON.stringify(weatherObject["main"]["feels_like"]);
+            float _temp0 = KtoF(_tempstr0.toFloat());
+            float _temp1 = KtoF(_tempstr1.toFloat());
+            _tempstr0 = String(_temp0); // convert back to strings
+            _tempstr1 = String(_temp1);
+            _tempstr0.remove(_tempstr0.length()-1,1); // remove last decimal
+            _tempstr1.remove(_tempstr1.length()-1,1);
+            // weather description 
+            String _desc = JSON.stringify(weatherObject["weather"][0]["description"]);
+            _desc.remove(_desc.indexOf('"'),1); 
+            _desc.remove(_desc.lastIndexOf('"'),1);
+            // build message 
+	        lcdMessage = "Weather in " + city + " " + _desc + " " + _tempstr0 + "F feels like " + _tempstr1 + "F ";
+	        _tempstr0 = "";
+            _tempstr1 = "";
+            _desc = "";
+	      }
+	      // set event
+		  lcdLine = 1;
+          lcdDelay = 300;
           eventlcdMessage = 1;
+          // clear buffers
+          serverPath = "";
+          jsonBuffer = "";
+        
+
         }   
       }
     } 
   }
   setButtonLast = reading; 
+}
+
+// Kelvin to Fahrenheit
+float KtoF(float _kel) {
+  float _f = (9.0 / 5) * (_kel - 273.15) + 32;	
+  return _f;
+}
+
+String httpGETRequest(const char* serverName) {
+  WiFiClient client;
+  HTTPClient http;
+  // Your Domain name with URL path or IP address with path
+  http.begin(client, serverName);
+  // Send HTTP POST request
+  int httpResponseCode = http.GET();
+  // Build output
+  String payload = "{}"; 
+  // Check response code
+  if (httpResponseCode>0) {
+    Serial.print("HTTP Response code: ");
+    Serial.println(httpResponseCode);
+    payload = http.getString();
+  }
+  else {
+    Serial.print("Error code: ");
+    Serial.println(httpResponseCode);
+  }
+  // Free resources
+  http.end();
+  // 
+  return payload;
 }
 
 void loop() {
