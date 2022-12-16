@@ -6,10 +6,10 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <Wire.h>
+#include <neotimer.h>
 #include <HTTPClient.h>
 #include <Arduino_JSON.h>
 #include "LiquidCrystal_I2C.h" // custom for MCP23008-E/P, power button support
-#include <neotimer.h>
 
 //////////////////////////////////////////////////////////////////////////
 // Wi-Fi Configuration
@@ -48,14 +48,15 @@ const uint32_t lcdCharLimit = 500; // max scrolling characters (clears display a
 Neotimer lcdDim = Neotimer(80000); // ms before dimming display backlight
 Neotimer lcdDelayTimer = Neotimer();
 unsigned long lcdDimLastTime = 0;
+unsigned long lcdLastTime = 0;
 bool lcdBacklightDim = 1; 
 uint32_t chrarSize = 0;
 uint32_t rowCount0 = 0;
 uint32_t rowCount1 = 0;
-String lastChars = "";
 String charBuffer0 = "";
 String charBuffer1 = "";
-unsigned long lcdLastTime = 0;
+String lastChars = "";
+
 // Shared resources
 uint8_t clearDisplay = 0;
 bool eventlcdMessage = 0;
@@ -65,10 +66,14 @@ uint8_t lcdLine = 0;
 
 // Weather Search
 String jsonBuffer;
-String openWeatherMapApiKey = "842b247f09feaabbf1176be9d6221469";
+bool weatherNew = 1; // download new data flag
+bool weatherTrigger = 0; // event trigger flag
+Neotimer owmTimer = Neotimer(600000); // 10 minute timer
+String openWeatherMapApiKey = "842b247f09feaabbf1176be9d6221469"; // API key
 String openWeatherMapURL = "http://api.openweathermap.org/data/2.5/weather?q=";
 String countryCode = "US";
 String city = "Buffalo";
+String weatherData; 
 
 // Set Button
 #define setButtonPin 12
@@ -376,14 +381,16 @@ void LCDDraw( void * pvParameters ){
       eventlcdMessage = 0; 
     }
     // clear display events
-    clearEvents();      
+    mainEvents();      
   }
 }
 
 // runs in main loop and during character delay
-void clearEvents() {
+void mainEvents() {
   // read GPIO button
   readClearButton();
+  // weather event
+  weatherEvent();
   // clear display event 
   if (clearDisplay > 0 && clearDisplay < 5) {
     // correct range
@@ -393,9 +400,10 @@ void clearEvents() {
     clearLCD(_clearMode);
     lcdDim.start();
     clearDisplay = 0; 
-  } 
+  }
   // display dim event
   if(lcdDim.done()){
+  	debugln("Dimming backlight...");
     digitalWrite(lcdBacklight, LOW);
     lcdDim.reset();
   }
@@ -557,7 +565,7 @@ void charDelay() {
 	lcdDelayTimer.set(_delay);
 	lcdDelayTimer.start();
 	for(;;) { // adjustable delay	
-	  clearEvents(); // keep checking for events during delay
+	  mainEvents(); // keep checking for events during delay
 	  if(lcdDelayTimer.done()){
 	    lcdDelayTimer.reset();
 	    break; // exit loop when timer done
@@ -607,11 +615,11 @@ void clearLCD(uint8_t _line) {
 
 // display progress bar for # of seconds 
 void lcdTimedBar(int _sec) { 
-  uint8_t _rowcount;
+  uint32_t _ms = _sec * 6; 
   uint32_t _colcount;
   uint32_t _segcount;
   uint8_t _line = 0;
-  uint32_t _ms = _sec * 6; // constant (based on CPU speed)
+  uint8_t _rowcount;
   // draw bar on each row
   for(_rowcount = 0; _rowcount < 2; _rowcount++) {
   	// draw bar on each collumn
@@ -643,7 +651,7 @@ void readClearButton() {
       clearButton = reading;
       if (clearButton == 1) { 
         // button change event
-        eventlcdMessage = 0;
+        eventlcdMessage = 0; // stop active drawing 
         clearDisplay = 4; // both lines
       }
     } 
@@ -667,48 +675,71 @@ void readSetButton() {
       if (setButton == 1) { 
         // button change event
         if (eventlcdMessage == 0) { 
-
-
           // Trigger display of weather
-	      String serverPath = openWeatherMapURL + city + "," + countryCode + "&APPID=" + openWeatherMapApiKey;    
-	      jsonBuffer = httpGETRequest(serverPath.c_str()); // call API server
-	      JSONVar weatherObject = JSON.parse(jsonBuffer); // receive JSON
-	      if (JSON.typeof(weatherObject) == "undefined") {
-	        lcdMessage = "Parsing input failed!";
-	      } else {
-	      	// parse temperature and convert K to F 
-	        String _tempstr0 = JSON.stringify(weatherObject["main"]["temp"]);
-	        String _tempstr1 = JSON.stringify(weatherObject["main"]["feels_like"]);
-            float _temp0 = KtoF(_tempstr0.toFloat());
-            float _temp1 = KtoF(_tempstr1.toFloat());
-            _tempstr0 = String(_temp0); // convert back to strings
-            _tempstr1 = String(_temp1);
-            _tempstr0.remove(_tempstr0.length()-1,1); // remove last decimal
-            _tempstr1.remove(_tempstr1.length()-1,1);
-            // weather description 
-            String _desc = JSON.stringify(weatherObject["weather"][0]["description"]);
-            _desc.remove(_desc.indexOf('"'),1); 
-            _desc.remove(_desc.lastIndexOf('"'),1);
-            // build message 
-	        lcdMessage = "Weather in " + city + " " + _desc + " " + _tempstr0 + "F feels like " + _tempstr1 + "F ";
-	        _tempstr0 = "";
-            _tempstr1 = "";
-            _desc = "";
-	      }
-	      // set event
-		  lcdLine = 1;
-          lcdDelay = 300;
-          eventlcdMessage = 1;
-          // clear buffers
-          serverPath = "";
-          jsonBuffer = "";
-        
-
+          weatherTrigger = 1;
         }   
       }
     } 
   }
   setButtonLast = reading; 
+}
+
+// display weather event
+void weatherEvent() {
+  if (weatherTrigger == 1){
+    if (weatherNew == 1){
+	  String serverPath = openWeatherMapURL + city + "," + countryCode + "&APPID=" + openWeatherMapApiKey;    
+      jsonBuffer = httpGETRequest(serverPath.c_str()); // call API server
+      JSONVar weatherObject = JSON.parse(jsonBuffer); // receive JSON
+      if (JSON.typeof(weatherObject) == "undefined") {
+      	debugln("Weather data download failed.");
+        weatherData = "Parsing input failed!";
+      } else {
+      	weatherData = "";
+      	debugln("Downloading weather data...");
+      	// parse temperature and convert K to F 
+        String _tempstr0 = JSON.stringify(weatherObject["main"]["temp"]);
+        String _tempstr1 = JSON.stringify(weatherObject["main"]["feels_like"]);
+        float _temp0 = KtoF(_tempstr0.toFloat());
+        float _temp1 = KtoF(_tempstr1.toFloat());
+        _tempstr0 = String(_temp0); // convert back to strings
+        _tempstr1 = String(_temp1);
+        _tempstr0.remove(_tempstr0.length()-1,1); // remove last decimal
+        _tempstr1.remove(_tempstr1.length()-1,1);
+        // weather description 
+        String _desc = JSON.stringify(weatherObject["weather"][0]["description"]);
+        _desc.remove(_desc.indexOf('"'),1); 
+        _desc.remove(_desc.lastIndexOf('"'),1);
+        // build message 
+        weatherData = "Weather in " + city + " " + _desc + " " + _tempstr0 + "F feels like " + _tempstr1 + "F ";
+        _tempstr0 = "";
+        _tempstr1 = "";
+        _desc = "";
+      }
+      // clear buffers
+      serverPath = "";
+      jsonBuffer = "";
+      // only allow new data to be pulled every 5-min
+      weatherNew = 0;
+      owmTimer.reset();
+      owmTimer.start();      
+    } else { // reset after 5-min, show last data
+      debugln("Showing last weather data..."); 	
+    }
+    // display event
+	lcdLine = 0;
+    lcdDelay = 350;
+    lcdMessage = weatherData;
+    eventlcdMessage = 1;
+    // end event
+  	weatherTrigger = 0;
+  }    
+  if(owmTimer.done()){
+  	debugln("New weather data mode.");
+  	weatherData = "";
+  	owmTimer.reset();
+    weatherNew = 1;
+  }    
 }
 
 // Kelvin to Fahrenheit
@@ -717,6 +748,7 @@ float KtoF(float _kel) {
   return _f;
 }
 
+// Send a GET request
 String httpGETRequest(const char* serverName) {
   WiFiClient client;
   HTTPClient http;
@@ -728,13 +760,13 @@ String httpGETRequest(const char* serverName) {
   String payload = "{}"; 
   // Check response code
   if (httpResponseCode>0) {
-    Serial.print("HTTP Response code: ");
-    Serial.println(httpResponseCode);
+    debug("HTTP Response code: ");
+    debugln(httpResponseCode);
     payload = http.getString();
   }
   else {
-    Serial.print("Error code: ");
-    Serial.println(httpResponseCode);
+    debug("Error code: ");
+    debugln(httpResponseCode);
   }
   // Free resources
   http.end();
