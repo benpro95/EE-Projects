@@ -8,8 +8,6 @@
 #include <Wire.h>
 #include "LiquidCrystal_I2C.h" // custom for MCP23008-E/P, power button support
 #include <neotimer.h>
-#include <NTPClient.h>
-#include <WiFiUdp.h>
 
 //////////////////////////////////////////////////////////////////////////
 // Wi-Fi Configuration
@@ -88,13 +86,6 @@ unsigned long HTTPcurTime = millis();
 const long timeoutTime = 1000; // HTTP timeout
 String httpRequest = ""; 
 String httpHeader = "Accept: lcd/";
-
-// NTP
-WiFiUDP ntpUDP;
-NTPClient timeClient(ntpUDP);
-String formattedDate;
-String dayStamp;
-String timeStamp;
 
 //////////////////////////////////////////////////////////////////////////
 // Enable Serial Messages (0 = off)
@@ -188,11 +179,6 @@ void WebServer( void * pvParameters ){
   server.begin();
   delay(1000);
   debugln("Webserver started.");
-  debugln();
-  // Network Time Client
-  timeClient.begin();
-  timeClient.setTimeOffset(3600);
-  debugln("NTP started.");
   debugln();
   // setup done
   for(;;){ //
@@ -460,25 +446,6 @@ int charLookup(char _char) {
   return _index;
 }
 
-// character delay 
-void charDelay() {
-  int _delay = lcdDelay;   
-  // set default speed if not in range
-  if (_delay == 0 || _delay > 4096) { 
-    _delay = lcdCharSpeed;
-  } // set default line if not in range
-  lcdDelayTimer.reset();
-  lcdDelayTimer.set(_delay);
-  lcdDelayTimer.start();
-  for(;;) { 
-    if(lcdDelayTimer.done()){
-      lcdDelayTimer.reset();
-      break;
-    } // keep checking for events during delay
-    clearEvents(); 
-  }
-}
-
 // scroll text on display
 void drawChar(bool _line, uint32_t _char) {
   if( _char < chrarSize){ // ignore invalid input
@@ -532,7 +499,7 @@ void drawChar(bool _line, uint32_t _char) {
         _cursor1 = lcdCols - 1; // trim character string
         lastChars = charBuffer1.substring(rowCount1 - _cursor1, rowCount1);
         lcd.setCursor(0, _line);
-        lcd.print(lastChars);
+        lcd.print(lastChars); // print trailing characters
       } else {
         // before overflow behavior
         _cursor1 = rowCount1;
@@ -542,7 +509,6 @@ void drawChar(bool _line, uint32_t _char) {
       // draw new character > 16 collumns
       if( rowCount1 >= lcdCols ){ // range 1-16
         if(rowCount1 == lcdCols + 2){ // overflow transition delay 
-          lcd.print(' ');
           charDelay();
         } 
         lcd.setCursor(_cursor1, _line);
@@ -567,24 +533,29 @@ void drawChar(bool _line, uint32_t _char) {
   }
 }
 
+// character delay 
+void charDelay() {
+  int _delay = lcdDelay;   
+  // set default speed if not in range
+  if (_delay < 4096) { 
+  	if (_delay > 0 ) {
+      // set default line if not in range
+      lcdDelayTimer.reset();
+      lcdDelayTimer.set(_delay);
+      lcdDelayTimer.start();
+      for(;;) { // adjustable delay
+        if(lcdDelayTimer.done()){
+          lcdDelayTimer.reset();
+          break;
+        } // keep checking for events during delay
+        clearEvents(); 
+      }
+    }  
+  }
+}
+
 // clear display (run only from event timer)
 void clearLCD(uint8_t _line) { 
-  // clear both lines
-  if (_line > 1) { 
-    rowCount0 = 0;
-    charBuffer0 = "";
-    rowCount1 = 0;
-    charBuffer1 = "";
-  } // clear top row
-  if (_line == 1) { 
-    rowCount1 = 0;
-    charBuffer1 = "";
-  } // clear bottom row  
-  if (_line == 0) { 
-    rowCount0 = 0;
-    charBuffer0 = "";
-  }
-  lastChars = "";
   // ignore invalid range
   if (_line < 3) { 
     // loop through all display characters
@@ -604,6 +575,22 @@ void clearLCD(uint8_t _line) {
     }
     lcd.setCursor(0, _line);
   }
+  // clear both lines
+  if (_line > 1) { 
+    rowCount0 = 0;
+    charBuffer0 = "";
+    rowCount1 = 0;
+    charBuffer1 = "";
+  } // clear top row
+  if (_line == 1) { 
+    rowCount1 = 0;
+    charBuffer1 = "";
+  } // clear bottom row  
+  if (_line == 0) { 
+    rowCount0 = 0;
+    charBuffer0 = "";
+  }
+  lastChars = "";  
 }
 
 // display progress bar for # of seconds 
@@ -644,8 +631,8 @@ void readClearButton() {
       clearButton = reading;
       if (clearButton == 1) { 
         // button change event
-        clearDisplay = 4;
         eventlcdMessage = 0;
+        clearDisplay = 4; // both lines
       }
     } 
   }
@@ -667,32 +654,11 @@ void readSetButton() {
       setButton = reading;
       if (setButton == 1) { 
         // button change event
-        debugln("HI");
         if (eventlcdMessage == 0) { 
-
-
-           while(!timeClient.update()) {
-              timeClient.forceUpdate();
-            }
-            // The formattedDate comes with the following format:
-            // 2018-05-28T16:00:13Z
-            // We need to extract date and time
-            formattedDate = timeClient.getFormattedDate();
-            Serial.println(formattedDate);
-
-            // Extract date
-            int splitT = formattedDate.indexOf("T");
-            dayStamp = formattedDate.substring(0, splitT);
-            Serial.print("DATE: ");
-            Serial.println(dayStamp);
-            // Extract time
-            timeStamp = formattedDate.substring(splitT+1, formattedDate.length()-1);
-            Serial.print("HOUR: ");
-            Serial.println(timeStamp);
-          
+          // Trigger display
           lcdLine = 0;
           lcdDelay = 0;
-          lcdMessage = formattedDate;
+          lcdMessage = "PLACEHOLDER....";
           eventlcdMessage = 1;
         }   
       }
