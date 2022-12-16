@@ -709,7 +709,7 @@ void weatherEvent() {
         // weather description 
         String _desc = JSON.stringify(weatherObject["weather"][0]["description"]);
         _desc.remove(_desc.indexOf('"'),1); 
-        _desc.remove(_desc.lastIndexOf('"'),1);
+        _desc.remove(_desc.lastIndexOf('"'),1); 
         // build message 
         weatherData = "Weather in " + city + " " + _desc + " " + _tempstr0 + "F feels like " + _tempstr1 + "F ";
         _tempstr0 = "";
@@ -733,9 +733,8 @@ void weatherEvent() {
     eventlcdMessage = 1;
     // end event
   	weatherTrigger = 0;
-  }    
+  } // reset timer   
   if(owmTimer.done()){
-  	debugln("New weather data mode.");
   	weatherData = "";
   	owmTimer.reset();
     weatherNew = 1;
