@@ -3,9 +3,14 @@
 //////////////////////////////////////////////////////////////////////////
 
 // Libraries //
+#include <stdio.h>
+#include <string.h>
+#include <iostream>
+using namespace std;
 #include <Arduino.h>
 #include <WiFi.h>
 #include <Wire.h>
+#include "time.h"
 #include <neotimer.h>
 #include <HTTPClient.h>
 #include <Arduino_JSON.h>
@@ -25,7 +30,7 @@ const char lcdChars[]={' ','0','1','2','3','4','5','6','7','8','9','a','b','c','
 ,'e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x'\
 ,'y','z','A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R'\
 ,'S','T','U','V','W','X','Y','Z','&',':',',','.','*','|','-','+','=','_','#','@'\
-,'{','%','[',']','(',')','~','"','<','>','?','}','°'};
+,'{','%','[',']','(',')','~','"','<','>','?','}'};
 
 // RTOS Multi-Core Handle
 TaskHandle_t Task1;
@@ -53,14 +58,13 @@ bool lcdBacklightDim = 1;
 uint32_t chrarSize = 0;
 uint32_t rowCount0 = 0;
 uint32_t rowCount1 = 0;
-String charBuffer0 = "";
-String charBuffer1 = "";
-String lastChars = "";
+uint8_t charBuffer0[100];
+uint8_t charBuffer1[100];
 
 // Shared resources
 uint8_t clearDisplay = 0;
 bool eventlcdMessage = 0;
-String lcdMessage = "";
+String lcdMessage = " ";
 uint32_t lcdDelay = 0;
 uint8_t lcdLine = 0;
 
@@ -88,6 +92,11 @@ bool lastclearButton = 0;
 unsigned long clearButtonMillis = 0;
 uint8_t debounceDelay = 50; // button debounce delay in ms
 uint8_t startDelay = 5; // delay on initial start in seconds
+
+// NTP
+const char* ntpServer = "pool.ntp.org";
+const long  gmtOffset_sec = -18000;
+const int   daylightOffset_sec = 3600;
 
 // Wi-Fi & Web Server
 String ipAddress = "";
@@ -192,7 +201,11 @@ void WebServer( void * pvParameters ){
   server.begin();
   delay(1000);
   debugln("Webserver started.");
-  debugln();
+  // Network time protocol
+  debugln("Starting NTP...");
+  configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
+  delay(500);
+  debugln("NTP started.");
   // setup done
   for(;;){ //
   ///////////////////
@@ -435,16 +448,6 @@ void lcdMessageEvent() { // (run only from event timer)
     _char = (charLookup(_msg[i]));
     // draw each character
     if (_line <= 1) {
-      // clear display if character limit exceeded
-      if( _line == 0){
-        if( rowCount0 > lcdCharLimit){
-          clearDisplay = 2;
-        }   
-      } else {
-        if( rowCount1 > lcdCharLimit){
-          clearDisplay = 3; 
-        }
-      }
       drawChar(_line,_char);
       debugln(_char);
     }
@@ -468,88 +471,94 @@ int charLookup(char _char) {
 
 // scroll text on display
 void drawChar(bool _line, uint32_t _char) {
-  if( _char < chrarSize){ // ignore invalid input
-    uint8_t _cursor0;
-    uint8_t _cursor1;
-    ////////////////////////////////////// line 0
+  // ignore invalid input  
+  if( _char < chrarSize){ 
+    /////////////////////////////////////////////////////////////////////// line 0
     // compute each row separately
     if( _line == 0){
-      // store each character 	
-      charBuffer0 += lcdChars[_char];
-      if( rowCount0 > lcdCols ){ // range 0-15
+      // store row position (first)     
+      rowCount0++; 
+      // drawing behavior
+      if( rowCount0 >= lcdCols ){ 
         // overflow behavior
-        _cursor0 = lcdCols - 1; // trim character string
-        lastChars = charBuffer0.substring(rowCount0 - _cursor0, rowCount0);
-        lcd.setCursor(0, _line);
-        lcd.print(lastChars);
+        for(int _idx = 0; _idx < lcdCols - 1; _idx++) { 
+          charBuffer0[_idx] = charBuffer0[_idx + 1];
+        } 
+        for(int _idx = 0; _idx < lcdCols - 2; _idx++) {
+          lcd.setCursor(_idx + 1, _line);  // print characters 0-14
+          uint8_t _tmpchr = charBuffer0[_idx];
+          lcd.print(lcdChars[_tmpchr]);
+        }
+        // overflow transition delay 
+        if(rowCount0 == lcdCols){
+          charDelay();
+        }  
+        // print new character 15
+        lcd.setCursor(lcdCols - 1, _line);
+        lcd.print(lcdChars[_char]); 
+        // overflow transition delay 
+        if(rowCount0 != lcdCols){ 
+          charDelay(); 
+        }   
+        // reset
+        if(rowCount0 > lcdCols){
+          rowCount0 = lcdCols; 
+        }         
       } else {
         // before overflow behavior
-        _cursor0 = rowCount0;
-      }
-      rowCount0++; // store row position (must be done here)
-      ////////////////////////////////////////////////////
-      // draw new character > 16 collumns
-      if( rowCount0 >= lcdCols ){ // range 1-16
-        if(rowCount0 == lcdCols + 2){ // overflow transition delay 
-          charDelay();
-        } 
-        lcd.setCursor(_cursor0, _line);
-        lcd.print(lcdChars[_char]);
-        if(rowCount0 != lcdCols + 2){ // overflow transition delay
-          charDelay(); 
-        } 
-      // draw new character < 16 collumns
-      } else { // delay then draw, for collumn < max display width
-        if(rowCount0 != 1){ // stops delay on first character drawing    
-          charDelay();
-        } 
         if(rowCount0 != 0){ // stops character drawing after clearing display
-          lcd.setCursor(_cursor0, _line);
+          lcd.setCursor(rowCount0 - 1, _line);
           lcd.print(lcdChars[_char]);
-        }
-        if(rowCount0 == lcdCols - 1){ // overflow transition delay 
           charDelay(); 
         }
       }
-    } else { ///////////////////////////// line 1
-      // store each character 	
-      charBuffer1 += lcdChars[_char];
-      if( rowCount1 > lcdCols ){
-        // overflow behavior
-        _cursor1 = lcdCols - 1; // trim character string
-        lastChars = charBuffer1.substring(rowCount1 - _cursor1, rowCount1);
-        lcd.setCursor(0, _line);
-        lcd.print(lastChars); // print trailing characters
-      } else {
-        // before overflow behavior
-        _cursor1 = rowCount1;
-      } 
-      rowCount1++; // store row position (must be done here)
-      ////////////////////////////////////////////////////
-      // draw new character > 16 collumns
-      if( rowCount1 >= lcdCols ){ // range 1-16
-        if(rowCount1 == lcdCols + 2){ // overflow transition delay 
-          charDelay();
-        } 
-        lcd.setCursor(_cursor1, _line);
-        lcd.print(lcdChars[_char]);
-        if(rowCount1 != lcdCols + 2){ // overflow transition delay
-          charDelay(); 
-        } 
-      // draw new character < 16 collumns
-      } else { // delay then draw, for collumn < max display width
-        if(rowCount1 != 1){ // stops delay on first character drawing    
-          charDelay();
-        } 
-        if(rowCount1 != 0){ // stops character drawing after clearing display
-          lcd.setCursor(_cursor1, _line);
-          lcd.print(lcdChars[_char]);
-        }
-        if(rowCount1 == lcdCols - 1){ // overflow transition delay 
-          charDelay(); 
-        }
-      }
-    } ////////////////////////////////////////////////////
+      // store each character (last)
+      charBuffer0[rowCount0 - 1] = _char;
+      debug("row count: ");
+      debugln(rowCount0);   
+      debug("charBuffer0: ");
+      debugln(charBuffer0[0]); 
+      debug(" ");   
+      debug(charBuffer0[1]);  
+      debug(" ");   
+      debug(charBuffer0[2]);  
+      debug(" ");   
+      debug(charBuffer0[3]);  
+      debug(" ");   
+      debug(charBuffer0[4]);  
+      debug(" ");   
+      debug(charBuffer0[5]);  
+      debug(" ");   
+      debug(charBuffer0[6]);  
+      debug(" ");   
+      debug(charBuffer0[7]);  
+      debug(" ");   
+      debug(charBuffer0[8]);  
+      debug(" ");   
+      debug(charBuffer0[9]);  
+      debug(" ");   
+      debug(charBuffer0[10]);  
+      debug(" ");   
+      debug(charBuffer0[11]);  
+      debug(" ");   
+      debug(charBuffer0[12]);  
+      debug(" ");   
+      debug(charBuffer0[13]);  
+      debug(" ");   
+      debug(charBuffer0[14]);  
+      debug(" ");   
+      debug(charBuffer0[15]);  
+      debug(" ");   
+      debug(charBuffer0[16]); 
+      debug(" ");   
+      debug(charBuffer0[17]); 
+      debug(" ");   
+      debug(charBuffer0[18]);  
+      debug(" ");   
+      debug(charBuffer0[19]); 
+      debug(" ");   
+      debug(charBuffer0[20]);       
+    }
   }
 }
 
@@ -560,7 +569,10 @@ void charDelay() {
   if (_delay < 4096) {
     if (_delay < 10) {
       _delay = 10;	// min speed limit
-    } // restart timer	
+    } // prevent dimming while drawing
+  lcdDim.reset();
+  lcdDim.start();
+  // restart character delay timer	
 	lcdDelayTimer.reset();
 	lcdDelayTimer.set(_delay);
 	lcdDelayTimer.start();
@@ -598,19 +610,16 @@ void clearLCD(uint8_t _line) {
   // clear both lines
   if (_line > 1) { 
     rowCount0 = 0;
-    charBuffer0 = "";
     rowCount1 = 0;
-    charBuffer1 = "";
   } // clear top row
   if (_line == 1) { 
     rowCount1 = 0;
-    charBuffer1 = "";
   } // clear bottom row  
   if (_line == 0) { 
-    rowCount0 = 0;
-    charBuffer0 = "";
+    rowCount0 = 0;    
   }
-  lastChars = "";  
+
+
 }
 
 // display progress bar for # of seconds 
@@ -727,7 +736,7 @@ void weatherEvent() {
       debugln("Showing last weather data..."); 	
     }
     // display event
-	lcdLine = 0;
+	  lcdLine = 0;
     lcdDelay = 350;
     lcdMessage = weatherData;
     eventlcdMessage = 1;
@@ -771,6 +780,58 @@ String httpGETRequest(const char* serverName) {
   http.end();
   // 
   return payload;
+}
+
+// Time-date using NTP 
+void printLocalTime(){
+  struct tm timeinfo;
+  if(!getLocalTime(&timeinfo)){
+    debugln("Failed to obtain time");
+    return;
+  }
+
+  char timeMonth[10];
+  strftime(timeMonth,10, "%b", &timeinfo);
+  debug("timeMonth: ");
+  debugln(timeMonth);  
+
+  char timeDay[3];
+  strftime(timeDay,3, "%d", &timeinfo);
+  int x = atoi(timeDay);
+  debug("timeDay: ");
+  debugln(x);
+
+  char timeYear[5];
+  strftime(timeYear,5, "%Y", &timeinfo);
+  debug("timeYear: ");
+  debugln(timeYear);
+
+  char timeSec[3];
+  strftime(timeSec,3, "%S", &timeinfo);
+  debug("timeSec: ");
+  debugln(timeSec);
+
+  char timeMin[3];
+  strftime(timeMin,3, "%M", &timeinfo);
+  debug("timeMin: ");
+  debugln(timeMin);
+
+  char timeHour12[3];
+  strftime(timeHour12,3, "%I", &timeinfo);
+  debug("timeHour12: ");
+  debugln(timeHour12);  
+
+  char timeHour[3];
+  strftime(timeHour,3, "%H", &timeinfo);
+  debug("timeHour: ");
+  debugln(timeHour);
+
+  char timeWeekDay[10];
+  strftime(timeWeekDay,10, "%A", &timeinfo);
+  debug("timeWeekDay: ");
+  debugln(timeWeekDay);
+
+  debugln();
 }
 
 void loop() {
