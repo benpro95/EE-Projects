@@ -479,15 +479,15 @@ void drawChar(bool _line, uint32_t _char) {
       // store row position (first)     
       rowCount0++; 
       // drawing behavior
-      if( rowCount0 >= lcdCols ){ 
+      if( rowCount0 > lcdCols ){ 
         // overflow behavior
-        for(int _idx = 0; _idx < lcdCols - 1; _idx++) { 
+        for(int _idx = 0; _idx <= lcdCols; _idx++) { 
           charBuffer0[_idx] = charBuffer0[_idx + 1];
-        } 
-        for(int _idx = 0; _idx < lcdCols - 2; _idx++) {
-          lcd.setCursor(_idx + 1, _line);  // print characters 0-14
-          uint8_t _tmpchr = charBuffer0[_idx];
-          lcd.print(lcdChars[_tmpchr]);
+        } // draw trailing characters
+        for(int _idx = 0; _idx <= lcdCols; _idx++) {
+          lcd.setCursor(_idx, _line); 
+          uint8_t _tmpchr0 = charBuffer0[_idx];
+          lcd.print(lcdChars[_tmpchr0]);
         }
         // overflow transition delay 
         if(rowCount0 == lcdCols){
@@ -501,10 +501,8 @@ void drawChar(bool _line, uint32_t _char) {
           charDelay(); 
         }   
         // reset
-        if(rowCount0 > lcdCols){
-          rowCount0 = lcdCols; 
-        }         
-      } else {
+        rowCount0 = lcdCols;       
+      } else { 
         // before overflow behavior
         if(rowCount0 != 0){ // stops character drawing after clearing display
           lcd.setCursor(rowCount0 - 1, _line);
@@ -513,51 +511,45 @@ void drawChar(bool _line, uint32_t _char) {
         }
       }
       // store each character (last)
-      charBuffer0[rowCount0 - 1] = _char;
-      debug("row count: ");
-      debugln(rowCount0);   
-      debug("charBuffer0: ");
-      debugln(charBuffer0[0]); 
-      debug(" ");   
-      debug(charBuffer0[1]);  
-      debug(" ");   
-      debug(charBuffer0[2]);  
-      debug(" ");   
-      debug(charBuffer0[3]);  
-      debug(" ");   
-      debug(charBuffer0[4]);  
-      debug(" ");   
-      debug(charBuffer0[5]);  
-      debug(" ");   
-      debug(charBuffer0[6]);  
-      debug(" ");   
-      debug(charBuffer0[7]);  
-      debug(" ");   
-      debug(charBuffer0[8]);  
-      debug(" ");   
-      debug(charBuffer0[9]);  
-      debug(" ");   
-      debug(charBuffer0[10]);  
-      debug(" ");   
-      debug(charBuffer0[11]);  
-      debug(" ");   
-      debug(charBuffer0[12]);  
-      debug(" ");   
-      debug(charBuffer0[13]);  
-      debug(" ");   
-      debug(charBuffer0[14]);  
-      debug(" ");   
-      debug(charBuffer0[15]);  
-      debug(" ");   
-      debug(charBuffer0[16]); 
-      debug(" ");   
-      debug(charBuffer0[17]); 
-      debug(" ");   
-      debug(charBuffer0[18]);  
-      debug(" ");   
-      debug(charBuffer0[19]); 
-      debug(" ");   
-      debug(charBuffer0[20]);       
+      charBuffer0[rowCount0 - 1] = _char;   
+    } else {
+      /////////////////////////////////////////////////////////////////////// line 1      
+      // store row position (first)     
+      rowCount1++; 
+      // drawing behavior
+      if( rowCount1 > lcdCols ){ 
+        // overflow behavior
+        for(int _idx = 0; _idx <= lcdCols; _idx++) { 
+          charBuffer1[_idx] = charBuffer1[_idx + 1];
+        } // draw trailing characters
+        for(int _idx = 0; _idx <= lcdCols; _idx++) {
+          lcd.setCursor(_idx, _line); 
+          uint8_t _tmpchr1 = charBuffer1[_idx];
+          lcd.print(lcdChars[_tmpchr1]);
+        }
+        // overflow transition delay 
+        if(rowCount1 == lcdCols){
+          charDelay();
+        }  
+        // print new character 15
+        lcd.setCursor(lcdCols - 1, _line);
+        lcd.print(lcdChars[_char]); 
+        // overflow transition delay 
+        if(rowCount1 != lcdCols){ 
+          charDelay(); 
+        }   
+        // reset
+        rowCount1 = lcdCols;       
+      } else {
+        // before overflow behavior
+        if(rowCount1 != 0){ // stops character drawing after clearing display
+          lcd.setCursor(rowCount1 - 1, _line);
+          lcd.print(lcdChars[_char]);
+          charDelay(); 
+        }
+      }
+      // store each character (last)
+      charBuffer1[rowCount1 - 1] = _char;         
     }
   }
 }
@@ -618,8 +610,6 @@ void clearLCD(uint8_t _line) {
   if (_line == 0) { 
     rowCount0 = 0;    
   }
-
-
 }
 
 // display progress bar for # of seconds 
