@@ -62,7 +62,7 @@ uint8_t charBuffer0[100];
 uint8_t charBuffer1[100];
 
 // Shared resources
-uint8_t clearDisplay = 0;
+uint8_t lcdReset = 0;   
 bool eventlcdMessage = 0;
 String lcdMessage = " ";
 uint32_t lcdDelay = 0;
@@ -319,10 +319,9 @@ void decodeMessage(String _msg) {
   // write integer to shared buffer
   lcdLine = _linecmd.toInt();
   _linecmd = "";
-  // clear display routines
+  // clear display trigger (only 2-4 range)
   if (lcdLine < 5 && lcdLine > 1) {
-    clearDisplay = lcdLine;
-    eventlcdMessage = 0;
+    lcdReset = lcdLine - 1;
     _msg = "";
     return;
   }
@@ -383,17 +382,21 @@ void LCDDraw( void * pvParameters ){
   lcdDim.reset();
   lcdDim.start();
   // setup done
-  for(;;){ // LCD loop
+  for(;;){ // LCD display main loop
   ///////////////////  
-    // display message event
-    if (eventlcdMessage == 1) {  
+    // display message event (main only!)
+    if (eventlcdMessage > 0) {  
       digitalWrite(lcdBacklight, HIGH);
       lcdDim.reset();
       lcdMessageEvent();
       lcdDim.start();
       eventlcdMessage = 0; 
     }
-    // clear display events
+    // clear display event (main only!)
+    if( lcdReset > 0) {
+       drawChar(0,0,0);
+    }
+    // ran in main and during delay loop 
     mainEvents();      
   }
 }
@@ -404,16 +407,6 @@ void mainEvents() {
   readClearButton();
   // weather event
   weatherEvent();
-  // clear display event 
-  if (clearDisplay > 0 && clearDisplay < 5) {
-    // correct range
-    uint8_t _clearMode = clearDisplay - 2; 
-    digitalWrite(lcdBacklight, HIGH);   
-    lcdDim.reset();
-    clearLCD(_clearMode);
-    lcdDim.start();
-    clearDisplay = 0; 
-  }
   // display dim event
   if(lcdDim.done()){
   	debugln("Dimming backlight...");
@@ -424,31 +417,27 @@ void mainEvents() {
 
 // convert message into character stream
 void lcdMessageEvent() { // (run only from event timer)
-  int _line = lcdLine; // read line data from shared buffer
-  if (_line > 1) { // ignore invalid range
-    return;
-  } // read message data from shared buffer
-  String _http = lcdMessage; 
+  int _delay = lcdDelay;
+  int _line = lcdLine;
+  // read message data from shared buffer
   debug("Parsed HTTP Data: ");
-  debugln(_http);
+  debugln(lcdMessage);
   debug("Line Command: ");
-  debugln(_line);
+  debugln(lcdLine);
   debug("Delay Speed: ");
   debugln(lcdDelay);
   // convert string to character array
-  int _msgLength = _http.length() + 1;
+  int _msgLength = lcdMessage.length() + 1;
   char _msg[_msgLength];
-  _http.toCharArray(_msg, _msgLength);
-  // clear strings
-  _http = "";
+  lcdMessage.toCharArray(_msg, _msgLength);
   lcdMessage = "";
   uint32_t _char; // loop through each character
   for(int i=0; i < strlen(_msg); i++ ) {
     // convert each character into array index positions
     _char = (charLookup(_msg[i]));
     // draw each character
-    if (_line <= 1) {
-      drawChar(_line,_char);
+    if (lcdLine <= 1) {
+      drawChar(_line,_char,_delay);
       debugln(_char);
     }
     // stop drawing if request canceled 
@@ -470,7 +459,43 @@ int charLookup(char _char) {
 }
 
 // scroll text on display
-void drawChar(bool _line, uint32_t _char) {
+void drawChar(bool _line, uint32_t _char, uint32_t _delay) {
+  // clear LCD routine
+  if( lcdReset > 0){
+    // full brightness backlight
+    lcdDim.reset();
+    digitalWrite(lcdBacklight, HIGH);   
+    lcdDim.start();
+    // loop through all display characters
+    for(uint8_t _count = 0; _count < lcdCols; _count++) { 
+      // draw spaces
+      if (lcdReset > 1) {
+        // clear both lines 
+        lcd.setCursor(_count, 0);
+        lcd.print(' ');
+        lcd.setCursor(_count, 1);
+      } else {
+        // clear a single line
+        lcd.setCursor(_count, lcdReset - 1);
+      }  
+      lcd.print(' ');
+      delay(lcdClearCharSpeed);
+    } // reset cursor
+    lcd.setCursor(0, _line);
+    if( lcdReset == 1){ // reset row 0
+      rowCount0 = 0;
+    }
+    if( lcdReset == 2){ // reset row 1
+      rowCount1 = 0;
+    }
+    if( lcdReset == 3){ // reset both rows
+      rowCount0 = 0;
+      rowCount1 = 0;
+    }   
+    lcdReset = 0; // end reset event
+    eventlcdMessage = 0; // end message event
+    return; // exit function 
+  }
   // ignore invalid input  
   if( _char < chrarSize){ 
     /////////////////////////////////////////////////////////////////////// line 0
@@ -491,14 +516,14 @@ void drawChar(bool _line, uint32_t _char) {
         }
         // overflow transition delay 
         if(rowCount0 == lcdCols){
-          charDelay();
+          charDelay(_delay);
         }  
         // print new character 15
         lcd.setCursor(lcdCols - 1, _line);
         lcd.print(lcdChars[_char]); 
         // overflow transition delay 
         if(rowCount0 != lcdCols){ 
-          charDelay(); 
+          charDelay(_delay); 
         }   
         // reset
         rowCount0 = lcdCols;       
@@ -507,7 +532,7 @@ void drawChar(bool _line, uint32_t _char) {
         if(rowCount0 != 0){ // stops character drawing after clearing display
           lcd.setCursor(rowCount0 - 1, _line);
           lcd.print(lcdChars[_char]);
-          charDelay(); 
+          charDelay(_delay); 
         }
       }
       // store each character (last)
@@ -529,14 +554,14 @@ void drawChar(bool _line, uint32_t _char) {
         }
         // overflow transition delay 
         if(rowCount1 == lcdCols){
-          charDelay();
+          charDelay(_delay);
         }  
         // print new character 15
         lcd.setCursor(lcdCols - 1, _line);
         lcd.print(lcdChars[_char]); 
         // overflow transition delay 
         if(rowCount1 != lcdCols){ 
-          charDelay(); 
+          charDelay(_delay); 
         }   
         // reset
         rowCount1 = lcdCols;       
@@ -545,7 +570,7 @@ void drawChar(bool _line, uint32_t _char) {
         if(rowCount1 != 0){ // stops character drawing after clearing display
           lcd.setCursor(rowCount1 - 1, _line);
           lcd.print(lcdChars[_char]);
-          charDelay(); 
+          charDelay(_delay); 
         }
       }
       // store each character (last)
@@ -555,60 +580,25 @@ void drawChar(bool _line, uint32_t _char) {
 }
 
 // character delay 
-void charDelay() {
-  int _delay = lcdDelay;   
+void charDelay(int _delay) {  
   // set default speed if not in range
   if (_delay < 4096) {
-    if (_delay < 10) {
-      _delay = 10;	// min speed limit
+    if (_delay < 5) {
+      _delay = 5;	// min speed limit
     } // prevent dimming while drawing
-  lcdDim.reset();
-  lcdDim.start();
-  // restart character delay timer	
-	lcdDelayTimer.reset();
-	lcdDelayTimer.set(_delay);
-	lcdDelayTimer.start();
-	for(;;) { // adjustable delay	
-	  mainEvents(); // keep checking for events during delay
-	  if(lcdDelayTimer.done()){
-	    lcdDelayTimer.reset();
-	    break; // exit loop when timer done
-	  } 
-	}  
-  }
-}
-
-// clear display (run only from event timer)
-void clearLCD(uint8_t _line) { 
-  // ignore invalid range
-  if (_line < 3) { 
-    // loop through all display characters
-    for(uint8_t _count = 0; _count < lcdCols; _count++) { 
-      // draw spaces
-      if (_line > 1) {
-        // clear both lines 
-        lcd.setCursor(_count, 0);
-        lcd.print(' ');
-        lcd.setCursor(_count, 1);
-      } else {
-        // clear a single line
-        lcd.setCursor(_count, _line);
-      }  
-      lcd.print(' ');
-      delay(lcdClearCharSpeed);
-    }
-    lcd.setCursor(0, _line);
-  }
-  // clear both lines
-  if (_line > 1) { 
-    rowCount0 = 0;
-    rowCount1 = 0;
-  } // clear top row
-  if (_line == 1) { 
-    rowCount1 = 0;
-  } // clear bottom row  
-  if (_line == 0) { 
-    rowCount0 = 0;    
+    lcdDim.reset();
+    lcdDim.start();
+    // restart character delay timer	
+	  lcdDelayTimer.reset();
+	  lcdDelayTimer.set(_delay);
+	  lcdDelayTimer.start();
+	  for(;;) { // adjustable delay	
+	    mainEvents(); // keep checking for events during delay
+	    if(lcdDelayTimer.done()){
+	      lcdDelayTimer.reset();
+	      break; // exit loop when timer done
+	    } 
+	  }  
   }
 }
 
@@ -650,8 +640,7 @@ void readClearButton() {
       clearButton = reading;
       if (clearButton == 1) { 
         // button change event
-        eventlcdMessage = 0; // stop active drawing 
-        clearDisplay = 4; // both lines
+        lcdReset = 3; // both lines
       }
     } 
   }
