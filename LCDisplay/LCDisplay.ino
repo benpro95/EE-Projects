@@ -3,10 +3,6 @@
 //////////////////////////////////////////////////////////////////////////
 
 // Libraries //
-#include <stdio.h>
-#include <string.h>
-#include <iostream>
-using namespace std;
 #include <Arduino.h>
 #include <WiFi.h>
 #include <Wire.h>
@@ -48,24 +44,21 @@ uint8_t bar2[8] = {0x18,0x18,0x18,0x18,0x18,0x18,0x18,0x18};
 uint8_t bar3[8] = {0x1C,0x1C,0x1C,0x1C,0x1C,0x1C,0x1C,0x1C};
 uint8_t bar4[8] = {0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E};
 uint8_t bar5[8] = {0x1F,0x1F,0x1F,0x1F,0x1F,0x1F,0x1F,0x1F};
+Neotimer lcdDelayTimer = Neotimer();
+Neotimer lcdDimmer = Neotimer(100000); // ms before dimming display backlight
 const uint32_t lcdClearCharSpeed = 75; // ms delay between drawing each character (clearing display)
 const uint32_t lcdCharLimit = 500; // max scrolling characters (clears display after limit)
-Neotimer lcdDim = Neotimer(80000); // ms before dimming display backlight
-Neotimer lcdDelayTimer = Neotimer();
-unsigned long lcdDimLastTime = 0;
-unsigned long lcdLastTime = 0;
-bool lcdBacklightDim = 1; 
+uint8_t charBuffer0[20];
+uint8_t charBuffer1[20];
 uint32_t chrarSize = 0;
 uint32_t rowCount0 = 0;
 uint32_t rowCount1 = 0;
-uint8_t charBuffer0[100];
-uint8_t charBuffer1[100];
 
 // Shared resources
-uint8_t lcdReset = 0;   
+String lcdMessage = ""; 
 bool eventlcdMessage = 0;
-String lcdMessage = " ";
 uint32_t lcdDelay = 0;
+uint8_t lcdReset = 0;  
 uint8_t lcdLine = 0;
 
 // Weather Search
@@ -105,9 +98,15 @@ unsigned long WiFiLastMillis = 0;
 WiFiServer server(CONFIG_PORT);
 unsigned long HTTPlastTime = 0; 
 unsigned long HTTPcurTime = millis(); 
-const long timeoutTime = 1000; // HTTP timeout
-String httpRequest = ""; 
+const long timeoutTime = 1000; // HTTP Stimeout
+//String httpRequest = ""; 
+
+#define httpBufferSize 4096 // bytes
+char httpReq[httpBufferSize] = {'\0'};
+unsigned long httpReqCount = 0;
+unsigned long httpLineCount = 0;
 String httpHeader = "Accept: lcd/";
+char httpHdr[] = {'|','x','x','|'};
 
 //////////////////////////////////////////////////////////////////////////
 // Enable Serial Messages (0 = off)
@@ -130,7 +129,7 @@ void setup() {
   xTaskCreatePinnedToCore(
    WebServer,    /* task function. */
    "Task1",     /* name of task. */
-   10000,       /* Stack size of task */
+   16000,       /* Stack size of task */
    NULL,        /* parameter of the task */
    1,           /* priority of the task */
    &Task1,      /* Task handle to keep track of created task */
@@ -233,49 +232,74 @@ void webServer()
   if (client) {
     HTTPcurTime = millis();
     HTTPlastTime = HTTPcurTime;
-    debugln("New Client.");                 // print a message out in the serial port
-    String currentLine = "";                // make a String to hold incoming data from the client
+    debugln("New Client.");                 // print a message out in the serial port              
+    char curLine[httpBufferSize] = {'\0'};  // make an array to hold incoming data from the client
     while (client.connected() && HTTPcurTime - HTTPlastTime <= timeoutTime) {
       HTTPcurTime = millis();
       // loop while the client's connected
       if (client.available()) {             // if there's bytes to read from the client,
         char c = client.read();             // read a byte, then
-        httpRequest += c;
-        if (c == '\n') {                    // if the byte is a newline character
+        // add each character to array 
+        if (httpReqCount < httpBufferSize && httpReqCount >= 0){
+          httpReq[httpReqCount] = c;
+          httpReqCount++;
+        } else {
+          httpReqCount = 0;   
+        } // if the byte is a newline character
+        if (c == '\n') { 
           // if the current line is blank, you got two newline characters in a row.
           // that's the end of the client HTTP request, send a response:
-          if (currentLine.length() == 0) {
+          if (httpLineCount == 0) {
             // HTTP headers always start with a response code (e.g. HTTP/1.1 200 OK)
             // and a content-type so the client knows what's coming, then a blank line:
             client.println("HTTP/1.1 200 OK");
             client.println("Content-type:text/html");
             client.println("Connection: close");
             client.println();
-            // transmit example: (curl http://lcd16x2.home/message -H "Accept: lcd/0/message")
-            debugln(httpRequest); // print full HTTP request
-            // only allow message prefix
-            if (httpRequest.indexOf(F("/message")) != -1) {
-              // only allow correct HTTP header 
-              if(httpRequest.indexOf(httpHeader) >=0) {
-                decodeMessage(httpRequest);
-                // response to client
-                client.println("command received.");
-              }
-            }            
+            // transmit example: (curl http://lcd16x2.home/message -H "Accept: |xx|0|0|message")
+            debugln("HTTP request");
+            for(int _idx = 0; _idx < httpReqCount; _idx++) {
+              char _vchr = httpReq[_idx];    
+              debug(_vchr); 
+            }
+            debugln("---------");
+            // loop through characters (detect header signature)
+            int _hdrcount = sizeof(httpHdr);
+            int _charstart = 0;            
+            int _matches = 0;
+            for(int _idx = 0; _idx < httpReqCount; _idx++) {
+              // find matching characters
+              if (httpReq[_idx] == httpHdr[_matches]) {
+                if (_matches + 1 >= _hdrcount){
+                  // all characters matched
+                  client.println("command received.");
+                  _charstart = _idx + 1; // record valid start position
+                  break; // stop searching
+                } // count matches 
+                _matches++;
+              }  
+            }      
             // The HTTP response ends with another blank line
             client.println();
             // Break out of the while loop
             break;
           } else { // if you got a newline, then clear currentLine
-            currentLine = "";
+            httpLineCount = 0;  
           }
         } else if (c != '\r') {  // if you got anything else but a carriage return character,
-          currentLine += c;      // add it to the end of the currentLine
+          // add it to the end of the currentLine
+          if (httpLineCount < httpBufferSize && httpLineCount >= 0){
+            curLine[httpLineCount] = c;
+            httpLineCount++;
+          } else {
+            httpLineCount = 0;   
+          }
         }
       }
     }
-    // Clear the httpRequestuest variable
-    httpRequest = "";
+    // Clear the http request variable
+    httpReqCount = 0;
+
     // Close the connection
     client.stop();
     debugln("Client disconnected.");
@@ -284,20 +308,20 @@ void webServer()
 } 
 
 // parse and decode incoming HTTP request
-void decodeMessage(String _msg) {
+void decodeMessage() {
   // remove HTTP header & new line characters
-  _msg.remove(0, ((_msg.lastIndexOf(httpHeader)) + 12));
-  _msg.trim();
+  lcdMessage.remove(0, ((lcdMessage.lastIndexOf(httpHeader)) + 12));
+  lcdMessage.trim();
   debug("Trimmed HTTP Data: ");
-  debugln(_msg);
+  debugln(lcdMessage);
   // find delimiter positions 
   const char _delimiter = '/';
   int _delsecond = 0;
   int _delfirst = 0;
   int _delcount = 0; // loop character by character
-  int _msgLength = _msg.length() + 1;
+  int _msgLength = lcdMessage.length() + 1;
   for(int _msgindex=0; _msgindex < _msgLength; _msgindex++ ) {
-    char _msgchar = _msg.charAt(_msgindex);
+    char _msgchar = lcdMessage.charAt(_msgindex);
     if (_msgchar == _delimiter){ 
       // store position of first
       if (_delcount == 0){
@@ -315,39 +339,41 @@ void decodeMessage(String _msg) {
     }  
   } 
   // extract line command data
-  String _linecmd = _msg.substring(0, _delfirst); 
+  String _strbuf = lcdMessage.substring(0, _delfirst); 
   // write integer to shared buffer
-  lcdLine = _linecmd.toInt();
-  _linecmd = "";
+  lcdLine = _strbuf.toInt();
+  _strbuf = "";
+  // invalid range detection
+  if (lcdLine > 4) { 
+    lcdMessage = "";
+    return;
+  }
   // clear display trigger (only 2-4 range)
-  if (lcdLine < 5 && lcdLine > 1) {
+  if (lcdLine > 1) {
     lcdReset = lcdLine - 1;
-    _msg = "";
+    lcdMessage = "";
     return;
   }
   // clear display if message sent when event still running
   if(eventlcdMessage == 1){
-    _msg = "";
+    lcdMessage = "";
     return;
   }  
   // extract character delay speed data
-  String _delaycmd = _msg.substring(_delfirst + 1, _delsecond); 
+  _strbuf = lcdMessage.substring(_delfirst + 1, _delsecond); 
   // write integer to shared buffer
-  lcdDelay = _delaycmd.toInt();
-  _delaycmd = "";
+  lcdDelay = _strbuf.toInt();
+  _strbuf = "";
+
   if (_delcount != 2){ // only allow HTTP request with both delimiters
-    _msg = "Invalid Data!";
-    _msgLength = _msg.length() + 1;
+    lcdMessage = "Invalid Data!";
+    _msgLength = lcdMessage.length() + 1;
   } else {
     // remove control characters
-    _msg.remove(0, ((_msg.lastIndexOf(_delimiter)) + 1));
+    lcdMessage.remove(0, ((lcdMessage.lastIndexOf(_delimiter)) + 1));
   }
-  // write message to shared buffer
-  lcdMessage = _msg;
   // trigger display event 
   eventlcdMessage = 1;
-  // clear buffer
-  _msg = "";
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -355,8 +381,6 @@ void decodeMessage(String _msg) {
 void LCDDraw( void * pvParameters ){
   debug("LCD drawing running on core ");
   debugln(xPortGetCoreID());
-  // enable full brightness
-  digitalWrite(lcdBacklight, HIGH);
   // calculate number of characters
   chrarSize = sizeof(lcdChars);  
   // 16x2 display (calls Wire.begin)
@@ -378,18 +402,15 @@ void LCDDraw( void * pvParameters ){
   delay(2000);
   lcd.clear();
   lcd.setCursor(0,0);
-  // start dimming timer
-  lcdDim.reset();
-  lcdDim.start();
+  // dimming timer
+  lcdDim();
   // setup done
   for(;;){ // LCD display main loop
   ///////////////////  
     // display message event (main only!)
     if (eventlcdMessage > 0) {  
-      digitalWrite(lcdBacklight, HIGH);
-      lcdDim.reset();
+      lcdDim();
       lcdMessageEvent();
-      lcdDim.start();
       eventlcdMessage = 0; 
     }
     // clear display event (main only!)
@@ -408,17 +429,26 @@ void mainEvents() {
   // weather event
   weatherEvent();
   // display dim event
-  if(lcdDim.done()){
+  if(lcdDimmer.done()){
   	debugln("Dimming backlight...");
     digitalWrite(lcdBacklight, LOW);
-    lcdDim.reset();
+    lcdDimmer.reset();
   }
+}
+
+// disable LCD dimming then start dimming timer
+void lcdDim(){
+  lcdDimmer.reset();
+  // enable full brightness
+  digitalWrite(lcdBacklight, HIGH);
+  // start dimming timer
+  lcdDimmer.start();
 }
 
 // convert message into character stream
 void lcdMessageEvent() { // (run only from event timer)
-  int _delay = lcdDelay;
-  int _line = lcdLine;
+  uint32_t _delay = lcdDelay;
+  uint8_t _line = lcdLine;
   // read message data from shared buffer
   debug("Parsed HTTP Data: ");
   debugln(lcdMessage);
@@ -461,22 +491,20 @@ int charLookup(char _char) {
 // scroll text on display
 void drawChar(bool _line, uint32_t _char, uint32_t _delay) {
   // clear LCD routine
-  if( lcdReset > 0){
-    // full brightness backlight
-    lcdDim.reset();
-    digitalWrite(lcdBacklight, HIGH);   
-    lcdDim.start();
+  uint8_t _reset = lcdReset;
+  if( _reset > 0){
+    lcdDim(); // disable dimming and reset timer
     // loop through all display characters
     for(uint8_t _count = 0; _count < lcdCols; _count++) { 
       // draw spaces
-      if (lcdReset > 1) {
+      if (_reset > 1) {
         // clear both lines 
         lcd.setCursor(_count, 0);
         lcd.print(' ');
         lcd.setCursor(_count, 1);
       } else {
         // clear a single line
-        lcd.setCursor(_count, lcdReset - 1);
+        lcd.setCursor(_count, _reset - 1);
       }  
       lcd.print(' ');
       delay(lcdClearCharSpeed);
@@ -496,7 +524,7 @@ void drawChar(bool _line, uint32_t _char, uint32_t _delay) {
     eventlcdMessage = 0; // end message event
     return; // exit function 
   }
-  // ignore invalid input  
+  // ignore invalid characters  
   if( _char < chrarSize){ 
     /////////////////////////////////////////////////////////////////////// line 0
     // compute each row separately
@@ -525,7 +553,7 @@ void drawChar(bool _line, uint32_t _char, uint32_t _delay) {
         if(rowCount0 != lcdCols){ 
           charDelay(_delay); 
         }   
-        // reset
+        // lock trailing behavior on
         rowCount0 = lcdCols;       
       } else { 
         // before overflow behavior
@@ -563,7 +591,7 @@ void drawChar(bool _line, uint32_t _char, uint32_t _delay) {
         if(rowCount1 != lcdCols){ 
           charDelay(_delay); 
         }   
-        // reset
+        // lock trailing behavior on
         rowCount1 = lcdCols;       
       } else {
         // before overflow behavior
@@ -586,8 +614,8 @@ void charDelay(int _delay) {
     if (_delay < 5) {
       _delay = 5;	// min speed limit
     } // prevent dimming while drawing
-    lcdDim.reset();
-    lcdDim.start();
+    lcdDimmer.reset();
+    lcdDimmer.start();
     // restart character delay timer	
 	  lcdDelayTimer.reset();
 	  lcdDelayTimer.set(_delay);
