@@ -46,17 +46,20 @@ uint8_t bar4[8] = {0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E};
 uint8_t bar5[8] = {0x1F,0x1F,0x1F,0x1F,0x1F,0x1F,0x1F,0x1F};
 Neotimer lcdDelayTimer = Neotimer();
 Neotimer lcdDimmer = Neotimer(100000); // ms before dimming display backlight
-const uint32_t lcdClearCharSpeed = 75; // ms delay between drawing each character (clearing display)
+const uint8_t lcdClearCharSpeed = 75; // ms delay between drawing each character (clearing display)
 const uint32_t lcdCharLimit = 500; // max scrolling characters (clears display after limit)
 uint8_t charBuffer0[20];
 uint8_t charBuffer1[20];
-uint32_t chrarSize = 0;
-uint32_t rowCount0 = 0;
-uint32_t rowCount1 = 0;
+uint8_t chrarSize = 0;
+uint8_t rowCount0 = 0;
+uint8_t rowCount1 = 0;
 
 // Shared resources
-String lcdMessage = ""; 
+#define httpBufferSize 4096 // HTTP request buffer (bytes)
+char httpReq[httpBufferSize] = {'\0'};
 bool eventlcdMessage = 0;
+uint32_t msgStartPos = 0;
+uint32_t msgEndPos = 0;
 uint32_t lcdDelay = 0;
 uint8_t lcdReset = 0;  
 uint8_t lcdLine = 0;
@@ -91,22 +94,20 @@ const char* ntpServer = "pool.ntp.org";
 const long  gmtOffset_sec = -18000;
 const int   daylightOffset_sec = 3600;
 
-// Wi-Fi & Web Server
+// Wi-Fi
 String ipAddress = "";
 unsigned long WiFiDownInterval = 30000; // WiFi reconnect timeout (ms)
 unsigned long WiFiLastMillis = 0;
+
+// Web Server
 WiFiServer server(CONFIG_PORT);
+char httpHdr[] = {"####?|"}; // API signature
 unsigned long HTTPlastTime = 0; 
 unsigned long HTTPcurTime = millis(); 
-const long timeoutTime = 1000; // HTTP Stimeout
-//String httpRequest = ""; 
-
-#define httpBufferSize 4096 // bytes
-char httpReq[httpBufferSize] = {'\0'};
-unsigned long httpReqCount = 0;
 unsigned long httpLineCount = 0;
-String httpHeader = "Accept: lcd/";
-char httpHdr[] = {'|','x','x','|'};
+unsigned long httpReqCount = 0;
+const long timeoutTime = 1000; // HTTP timeout (ms)
+
 
 //////////////////////////////////////////////////////////////////////////
 // Enable Serial Messages (0 = off)
@@ -225,9 +226,9 @@ void WebServer( void * pvParameters ){
   }
 }
 
-// light HTTP server
+// HTTP request server
 void webServer() 
-{ // Wait for new client
+{ // wait for new client
   WiFiClient client = server.available();
   if (client) {
     HTTPcurTime = millis();
@@ -256,38 +257,39 @@ void webServer()
             client.println("Content-type:text/html");
             client.println("Connection: close");
             client.println();
-            // transmit example: (curl http://lcd16x2.home/message -H "Accept: |xx|0|0|message")
+            // transmit example: (curl http://lcd16x2.home/message -H "Accept: ####?|0|0|message")
             debugln("HTTP request");
-            for(int _idx = 0; _idx < httpReqCount; _idx++) {
+            for(uint32_t _idx = 0; _idx < httpReqCount; _idx++) {
               char _vchr = httpReq[_idx];    
               debug(_vchr); 
             }
             debugln("---------");
             // loop through characters (detect header signature)
-            int _hdrcount = sizeof(httpHdr);
-            int _charstart = 0;            
-            int _matches = 0;
-            for(int _idx = 0; _idx < httpReqCount; _idx++) {
+            uint32_t _matches = 0;
+            uint32_t _charstart = 0;            
+            uint8_t _hdrcount = sizeof(httpHdr) - 2;
+            for(uint32_t _idx = 0; _idx < httpReqCount; _idx++) {
               // find matching characters
               if (httpReq[_idx] == httpHdr[_matches]) {
-                if (_matches + 1 >= _hdrcount){
+                if (_matches >= _hdrcount){
                   // all characters matched
                   client.println("command received.");
-                  _charstart = _idx + 1; // record valid start position
-                  break; // stop searching
+                  msgEndPos = httpReqCount; // record valid end position
+                  msgStartPos = _idx + 1; // record valid start position
+                  // trigger display event 
+                  eventlcdMessage = 1;
                 } // count matches 
                 _matches++;
               }  
             }      
-            // The HTTP response ends with another blank line
+            // the HTTP response ends with another blank line
             client.println();
-            // Break out of the while loop
-            break;
+            break; // break out of the while loop
           } else { // if you got a newline, then clear currentLine
             httpLineCount = 0;  
           }
-        } else if (c != '\r') {  // if you got anything else but a carriage return character,
-          // add it to the end of the currentLine
+        } else if (c != '\r') {  // if you have anything else but a carriage return character
+          // add it to the end of the current line
           if (httpLineCount < httpBufferSize && httpLineCount >= 0){
             curLine[httpLineCount] = c;
             httpLineCount++;
@@ -297,84 +299,14 @@ void webServer()
         }
       }
     }
-    // Clear the http request variable
+    // reset the HTTP request array index counter
     httpReqCount = 0;
-
-    // Close the connection
+    // close the connection
     client.stop();
     debugln("Client disconnected.");
     debugln("");
   }
 } 
-
-// parse and decode incoming HTTP request
-void decodeMessage() {
-  // remove HTTP header & new line characters
-  lcdMessage.remove(0, ((lcdMessage.lastIndexOf(httpHeader)) + 12));
-  lcdMessage.trim();
-  debug("Trimmed HTTP Data: ");
-  debugln(lcdMessage);
-  // find delimiter positions 
-  const char _delimiter = '/';
-  int _delsecond = 0;
-  int _delfirst = 0;
-  int _delcount = 0; // loop character by character
-  int _msgLength = lcdMessage.length() + 1;
-  for(int _msgindex=0; _msgindex < _msgLength; _msgindex++ ) {
-    char _msgchar = lcdMessage.charAt(_msgindex);
-    if (_msgchar == _delimiter){ 
-      // store position of first
-      if (_delcount == 0){
-        _delfirst = _msgindex;
-      }
-      // store position of second
-      if (_delcount == 1){
-        _delsecond = _msgindex;
-      }
-      // stop counting after finding both
-      if (_delcount > 1){
-        break;
-      } // count matches 
-      _delcount++;
-    }  
-  } 
-  // extract line command data
-  String _strbuf = lcdMessage.substring(0, _delfirst); 
-  // write integer to shared buffer
-  lcdLine = _strbuf.toInt();
-  _strbuf = "";
-  // invalid range detection
-  if (lcdLine > 4) { 
-    lcdMessage = "";
-    return;
-  }
-  // clear display trigger (only 2-4 range)
-  if (lcdLine > 1) {
-    lcdReset = lcdLine - 1;
-    lcdMessage = "";
-    return;
-  }
-  // clear display if message sent when event still running
-  if(eventlcdMessage == 1){
-    lcdMessage = "";
-    return;
-  }  
-  // extract character delay speed data
-  _strbuf = lcdMessage.substring(_delfirst + 1, _delsecond); 
-  // write integer to shared buffer
-  lcdDelay = _strbuf.toInt();
-  _strbuf = "";
-
-  if (_delcount != 2){ // only allow HTTP request with both delimiters
-    lcdMessage = "Invalid Data!";
-    _msgLength = lcdMessage.length() + 1;
-  } else {
-    // remove control characters
-    lcdMessage.remove(0, ((lcdMessage.lastIndexOf(_delimiter)) + 1));
-  }
-  // trigger display event 
-  eventlcdMessage = 1;
-}
 
 //////////////////////////////////////////////////////////////////////////
 // parallel task 1
@@ -410,6 +342,7 @@ void LCDDraw( void * pvParameters ){
     // display message event (main only!)
     if (eventlcdMessage > 0) {  
       lcdDim();
+      delay(10);
       lcdMessageEvent();
       eventlcdMessage = 0; 
     }
@@ -445,26 +378,102 @@ void lcdDim(){
   lcdDimmer.start();
 }
 
-// convert message into character stream
+// convert message into character stream !!!!!!!!!!! turn invalid char into spaces
 void lcdMessageEvent() { // (run only from event timer)
-  uint32_t _delay = lcdDelay;
-  uint8_t _line = lcdLine;
-  // read message data from shared buffer
-  debug("Parsed HTTP Data: ");
-  debugln(lcdMessage);
-  debug("Line Command: ");
-  debugln(lcdLine);
-  debug("Delay Speed: ");
-  debugln(lcdDelay);
-  // convert string to character array
-  int _msgLength = lcdMessage.length() + 1;
-  char _msg[_msgLength];
-  lcdMessage.toCharArray(_msg, _msgLength);
-  lcdMessage = "";
-  uint32_t _char; // loop through each character
-  for(int i=0; i < strlen(_msg); i++ ) {
+  // find second delimiter position
+  char _v;
+  uint8_t _maxchars = 10; // max characters for line & delay commands
+  int _startpos = msgStartPos; // read in character start position
+  int _httpcount = msgEndPos;
+  int _linepos = 0;
+  for(uint32_t _idx = _startpos; _idx < _httpcount; _idx++) {  
+    char _vchr = httpReq[_idx];  
+    if (_vchr == '|') {
+      // store index position
+      _linepos = _idx;
+      break;
+    }
+  }
+  debugln(" ");
+  debugln("line: "); // loop through line characters
+  char _linebuffer[_maxchars];
+  uint8_t _linecount = 0;  
+  for(uint32_t _idx = _startpos; _idx < _linepos; _idx++) {
+    if (_linecount >= _maxchars) {
+      break;
+    } // store in new array
+    _v = httpReq[_idx];
+    _linebuffer[_linecount] = httpReq[_idx];
+    _linecount++;
+    debug(_v);
+  }
+  int pos = atoi(_linebuffer);
+  debugln(pos);
+  debugln(" ");
+  // find third delimiter position
+  uint32_t _count = 0;
+  int _delaypos = 0; 
+  for(uint32_t _idx = _startpos; _idx < _httpcount; _idx++) {
+    char _vchr = httpReq[_idx];     
+    if (_vchr == '|') {
+      if (_count == 1) {
+        // store index position
+        _delaypos = _idx;
+        break;
+      }  
+      _count++;
+    }
+  } 
+  debugln(" ");
+  debugln("delay: "); // loop through delay characters
+  char _delaybuffer[_maxchars];
+  uint8_t _delaycount = 0;
+  for(uint32_t _idx = _linepos + 1; _idx < _delaypos; _idx++) { 
+    if (_delaycount >= _maxchars) {
+      break;
+    } // store in new array
+    _v = httpReq[_idx];
+    _delaybuffer[_delaycount] = httpReq[_idx];
+    _delaycount++;
+    debug(_v);
+  }
+  pos = atoi(_delaybuffer);
+  debugln(pos);  
+  debugln(" ");
+  // display message  
+  debugln("trimmed request: ");
+  for(uint32_t _idx = _delaypos + 1; _idx < _httpcount; _idx++) { 
+    _v = httpReq[_idx];
+    debug(_v);
+  }
+
+  // invalid range detection
+ // if (lcdLine > 4) { 
+ //   lcdMessage = "";
+ //   return;
+ // }
+  // clear display trigger (only 2-4 range)
+ // if (lcdLine > 1) {
+ //   lcdReset = lcdLine - 1;
+ //   lcdMessage = "";
+ //   return;
+ // }
+  // clear display if message sent when event still running
+  //if(eventlcdMessage == 1){
+ //   lcdMessage = "";
+ //   return;
+  //}  
+
+  // save to stored buffers
+  uint32_t _msgstart = _delaypos + 1;
+  uint32_t _delay = 25;
+  uint32_t _line = 0;
+  uint32_t _char;
+  debugln("character stream: ");
+  // loop through each character of the message only
+  for(uint32_t _idx = _msgstart; _idx < _httpcount; _idx++) { 
     // convert each character into array index positions
-    _char = (charLookup(_msg[i]));
+    _char = (charLookup(httpReq[_idx]));
     // draw each character
     if (lcdLine <= 1) {
       drawChar(_line,_char,_delay);
@@ -489,7 +498,7 @@ int charLookup(char _char) {
 }
 
 // scroll text on display
-void drawChar(bool _line, uint32_t _char, uint32_t _delay) {
+void drawChar(bool _line, uint8_t _char, uint32_t _delay) {
   // clear LCD routine
   uint8_t _reset = lcdReset;
   if( _reset > 0){
@@ -524,87 +533,89 @@ void drawChar(bool _line, uint32_t _char, uint32_t _delay) {
     eventlcdMessage = 0; // end message event
     return; // exit function 
   }
-  // ignore invalid characters  
-  if( _char < chrarSize){ 
-    /////////////////////////////////////////////////////////////////////// line 0
-    // compute each row separately
-    if( _line == 0){
-      // store row position (first)     
-      rowCount0++; 
-      // drawing behavior
-      if( rowCount0 > lcdCols ){ 
-        // overflow behavior
-        for(int _idx = 0; _idx <= lcdCols; _idx++) { 
-          charBuffer0[_idx] = charBuffer0[_idx + 1];
-        } // draw trailing characters
-        for(int _idx = 0; _idx <= lcdCols; _idx++) {
-          lcd.setCursor(_idx, _line); 
-          uint8_t _tmpchr0 = charBuffer0[_idx];
-          lcd.print(lcdChars[_tmpchr0]);
-        }
-        // overflow transition delay 
-        if(rowCount0 == lcdCols){
-          charDelay(_delay);
-        }  
-        // print new character 15
-        lcd.setCursor(lcdCols - 1, _line);
-        lcd.print(lcdChars[_char]); 
-        // overflow transition delay 
-        if(rowCount0 != lcdCols){ 
-          charDelay(_delay); 
-        }   
-        // lock trailing behavior on
-        rowCount0 = lcdCols;       
-      } else { 
-        // before overflow behavior
-        if(rowCount0 != 0){ // stops character drawing after clearing display
-          lcd.setCursor(rowCount0 - 1, _line);
-          lcd.print(lcdChars[_char]);
-          charDelay(_delay); 
-        }
-      }
-      // store each character (last)
-      charBuffer0[rowCount0 - 1] = _char;   
-    } else {
-      /////////////////////////////////////////////////////////////////////// line 1      
-      // store row position (first)     
-      rowCount1++; 
-      // drawing behavior
-      if( rowCount1 > lcdCols ){ 
-        // overflow behavior
-        for(int _idx = 0; _idx <= lcdCols; _idx++) { 
-          charBuffer1[_idx] = charBuffer1[_idx + 1];
-        } // draw trailing characters
-        for(int _idx = 0; _idx <= lcdCols; _idx++) {
-          lcd.setCursor(_idx, _line); 
-          uint8_t _tmpchr1 = charBuffer1[_idx];
-          lcd.print(lcdChars[_tmpchr1]);
-        }
-        // overflow transition delay 
-        if(rowCount1 == lcdCols){
-          charDelay(_delay);
-        }  
-        // print new character 15
-        lcd.setCursor(lcdCols - 1, _line);
-        lcd.print(lcdChars[_char]); 
-        // overflow transition delay 
-        if(rowCount1 != lcdCols){ 
-          charDelay(_delay); 
-        }   
-        // lock trailing behavior on
-        rowCount1 = lcdCols;       
-      } else {
-        // before overflow behavior
-        if(rowCount1 != 0){ // stops character drawing after clearing display
-          lcd.setCursor(rowCount1 - 1, _line);
-          lcd.print(lcdChars[_char]);
-          charDelay(_delay); 
-        }
-      }
-      // store each character (last)
-      charBuffer1[rowCount1 - 1] = _char;         
-    }
+  // invalid characters become spaces
+  if( _char >= chrarSize){ 
+    _char = 0;
   }
+  /////////////////////////////////////////////////////////////////////// line 0
+  // compute each row separately
+  if( _line == 0){
+    // store row position (first)     
+    rowCount0++; 
+    // drawing behavior
+    if( rowCount0 > lcdCols ){ 
+      // overflow behavior
+      for(uint8_t _idx = 0; _idx <= lcdCols; _idx++) { 
+        charBuffer0[_idx] = charBuffer0[_idx + 1];
+      } // draw trailing characters
+      for(uint8_t _idx = 0; _idx <= lcdCols; _idx++) {
+        lcd.setCursor(_idx, _line); 
+        uint8_t _tmpchr0 = charBuffer0[_idx];
+        lcd.print(lcdChars[_tmpchr0]);
+      }
+      // overflow transition delay 
+      if(rowCount0 == lcdCols){
+        charDelay(_delay);
+      }  
+      // print new character 15
+      lcd.setCursor(lcdCols - 1, _line);
+      lcd.print(lcdChars[_char]); 
+      // overflow transition delay 
+      if(rowCount0 != lcdCols){ 
+        charDelay(_delay); 
+      }   
+      // lock trailing behavior on
+      rowCount0 = lcdCols;       
+    } else { 
+      // before overflow behavior
+      if(rowCount0 != 0){ // stops character drawing after clearing display
+        lcd.setCursor(rowCount0 - 1, _line);
+        lcd.print(lcdChars[_char]);
+        charDelay(_delay); 
+      }
+    }
+    // store each character (last)
+    charBuffer0[rowCount0 - 1] = _char;   
+  } else {
+    /////////////////////////////////////////////////////////////////////// line 1      
+    // store row position (first)     
+    rowCount1++; 
+    // drawing behavior
+    if( rowCount1 > lcdCols ){ 
+      // overflow behavior
+      for(uint8_t _idx = 0; _idx <= lcdCols; _idx++) { 
+        charBuffer1[_idx] = charBuffer1[_idx + 1];
+      } // draw trailing characters
+      for(uint8_t _idx = 0; _idx <= lcdCols; _idx++) {
+        lcd.setCursor(_idx, _line); 
+        uint8_t _tmpchr1 = charBuffer1[_idx];
+        lcd.print(lcdChars[_tmpchr1]);
+      }
+      // overflow transition delay 
+      if(rowCount1 == lcdCols){
+        charDelay(_delay);
+      }  
+      // print new character 15
+      lcd.setCursor(lcdCols - 1, _line);
+      lcd.print(lcdChars[_char]); 
+      // overflow transition delay 
+      if(rowCount1 != lcdCols){ 
+        charDelay(_delay); 
+      }   
+      // lock trailing behavior on
+      rowCount1 = lcdCols;       
+    } else {
+      // before overflow behavior
+      if(rowCount1 != 0){ // stops character drawing after clearing display
+        lcd.setCursor(rowCount1 - 1, _line);
+        lcd.print(lcdChars[_char]);
+        charDelay(_delay); 
+      }
+    }
+    // store each character (last)
+    charBuffer1[rowCount1 - 1] = _char;         
+  }
+
 }
 
 // character delay 
@@ -745,7 +756,7 @@ void weatherEvent() {
     // display event
 	  lcdLine = 0;
     lcdDelay = 350;
-    lcdMessage = weatherData;
+    //lcdMessage = weatherData;
     eventlcdMessage = 1;
     // end event
   	weatherTrigger = 0;
