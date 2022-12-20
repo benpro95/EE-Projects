@@ -383,9 +383,9 @@ void lcdMessageEvent() { // (run only from event timer)
   // find second delimiter position
   char _v;
   uint8_t _maxchars = 10; // max characters for line & delay commands
-  int _startpos = msgStartPos; // read in character start position
-  int _httpcount = msgEndPos;
-  int _linepos = 0;
+  uint32_t _startpos = msgStartPos; // read in character start position
+  uint32_t _httpcount = msgEndPos;
+  uint32_t _linepos = 0;
   for(uint32_t _idx = _startpos; _idx < _httpcount; _idx++) {  
     char _vchr = httpReq[_idx];  
     if (_vchr == '|') {
@@ -405,14 +405,10 @@ void lcdMessageEvent() { // (run only from event timer)
     _v = httpReq[_idx];
     _linebuffer[_linecount] = httpReq[_idx];
     _linecount++;
-    debug(_v);
   }
-  int pos = atoi(_linebuffer);
-  debugln(pos);
-  debugln(" ");
   // find third delimiter position
   uint32_t _count = 0;
-  int _delaypos = 0; 
+  uint32_t _delaypos = 0; 
   for(uint32_t _idx = _startpos; _idx < _httpcount; _idx++) {
     char _vchr = httpReq[_idx];     
     if (_vchr == '|') {
@@ -435,11 +431,8 @@ void lcdMessageEvent() { // (run only from event timer)
     _v = httpReq[_idx];
     _delaybuffer[_delaycount] = httpReq[_idx];
     _delaycount++;
-    debug(_v);
   }
-  pos = atoi(_delaybuffer);
-  debugln(pos);  
-  debugln(" ");
+
   // display message  
   debugln("trimmed request: ");
   for(uint32_t _idx = _delaypos + 1; _idx < _httpcount; _idx++) { 
@@ -462,22 +455,21 @@ void lcdMessageEvent() { // (run only from event timer)
   //if(eventlcdMessage == 1){
  //   lcdMessage = "";
  //   return;
-  //}  
+  //} 
 
-  // save to stored buffers
-  uint32_t _msgstart = _delaypos + 1;
-  uint32_t _delay = 25;
-  uint32_t _line = 0;
-  uint32_t _char;
+  uint32_t _msgstart = _delaypos + 1; // start position of message
+  uint32_t _delay = atoi(_delaybuffer); // convert to integer
+  uint32_t _line = atoi(_linebuffer); // convert to integer
+  uint32_t _charidx;
   debugln("character stream: ");
   // loop through each character of the message only
   for(uint32_t _idx = _msgstart; _idx < _httpcount; _idx++) { 
     // convert each character into array index positions
-    _char = (charLookup(httpReq[_idx]));
+    _charidx = (charLookup(httpReq[_idx]));
     // draw each character
     if (lcdLine <= 1) {
-      drawChar(_line,_char,_delay);
-      debugln(_char);
+      drawChar(_line,_charidx,_delay);
+      debugln(_charidx);
     }
     // stop drawing if request canceled 
     if (eventlcdMessage == 0) {
