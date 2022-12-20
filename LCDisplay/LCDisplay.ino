@@ -91,8 +91,8 @@ uint8_t startDelay = 5; // delay on initial start in seconds
 
 // NTP
 const char* ntpServer = "pool.ntp.org";
-const long  gmtOffset_sec = -18000;
-const int   daylightOffset_sec = 3600;
+const long gmtOffset_sec = -18000;
+const int daylightOffset_sec = 3600;
 
 // Wi-Fi
 String ipAddress = "";
@@ -745,7 +745,11 @@ void weatherEvent() {
     }
     // display event
 	  lcdLine = 0;
-    lcdDelay = 350;
+    lcdDelay = 200;
+    int _len = weatherData.length() + 1; 
+    weatherData.toCharArray(httpReq, _len);
+    lcdMessageStart = 0;
+    lcdMessageEnd = _len;
     //lcdMessage = weatherData;
     eventlcdMessage = 1;
     // end event
