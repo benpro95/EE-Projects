@@ -378,10 +378,9 @@ void lcdDim(){
   lcdDimmer.start();
 }
 
-// convert message into character stream !!!!!!!!!!! turn invalid char into spaces
+// convert message into character stream 
 void lcdMessageEvent() { // (run only from event timer)
   // find second delimiter position
-  char _v;
   uint8_t _maxchars = 10; // max characters for line & delay commands
   uint32_t _startpos = msgStartPos; // read in character start position
   uint32_t _httpcount = msgEndPos;
@@ -402,10 +401,11 @@ void lcdMessageEvent() { // (run only from event timer)
     if (_linecount >= _maxchars) {
       break;
     } // store in new array
-    _v = httpReq[_idx];
     _linebuffer[_linecount] = httpReq[_idx];
     _linecount++;
   }
+  uint32_t _line = atoi(_linebuffer); // convert to integer
+  debugln(_line);
   // find third delimiter position
   uint32_t _count = 0;
   uint32_t _delaypos = 0; 
@@ -428,38 +428,28 @@ void lcdMessageEvent() { // (run only from event timer)
     if (_delaycount >= _maxchars) {
       break;
     } // store in new array
-    _v = httpReq[_idx];
     _delaybuffer[_delaycount] = httpReq[_idx];
     _delaycount++;
   }
-
+  uint32_t _delay = atoi(_delaybuffer); // convert to integer
+  debugln(_delay);
   // display message  
   debugln("trimmed request: ");
   for(uint32_t _idx = _delaypos + 1; _idx < _httpcount; _idx++) { 
-    _v = httpReq[_idx];
+    char _v = httpReq[_idx];
     debug(_v);
   }
-
+  // store start position of message
+  uint32_t _msgstart = _delaypos + 1; 
   // invalid range detection
- // if (lcdLine > 4) { 
- //   lcdMessage = "";
- //   return;
- // }
+  if (_line > 4) { 
+    return;
+  }
   // clear display trigger (only 2-4 range)
- // if (lcdLine > 1) {
- //   lcdReset = lcdLine - 1;
- //   lcdMessage = "";
- //   return;
- // }
-  // clear display if message sent when event still running
-  //if(eventlcdMessage == 1){
- //   lcdMessage = "";
- //   return;
-  //} 
-
-  uint32_t _msgstart = _delaypos + 1; // start position of message
-  uint32_t _delay = atoi(_delaybuffer); // convert to integer
-  uint32_t _line = atoi(_linebuffer); // convert to integer
+  if (_line > 1) {
+    lcdReset = _line - 1; // write clear trigger
+    return;
+  }
   uint32_t _charidx;
   debugln("character stream: ");
   // loop through each character of the message only
@@ -467,7 +457,7 @@ void lcdMessageEvent() { // (run only from event timer)
     // convert each character into array index positions
     _charidx = (charLookup(httpReq[_idx]));
     // draw each character
-    if (lcdLine <= 1) {
+    if (_line <= 1) {
       drawChar(_line,_charidx,_delay);
       debugln(_charidx);
     }
@@ -527,7 +517,7 @@ void drawChar(bool _line, uint8_t _char, uint32_t _delay) {
   }
   // invalid characters become spaces
   if( _char >= chrarSize){ 
-    _char = 0;
+    return; // exit function 
   }
   /////////////////////////////////////////////////////////////////////// line 0
   // compute each row separately
