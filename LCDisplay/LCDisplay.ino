@@ -14,23 +14,83 @@
 
 //////////////////////////////////////////////////////////////////////////
 // Wi-Fi Configuration
-const char* CONFIG_SSID      = "mach_kernel";
-const char* CONFIG_PSK       = "phonics.87.reply.218";
-const char* HOSTNAME         = "lcd16x2";
-const int   CONFIG_SERIAL    = 115200;
-const int   CONFIG_PORT      = 80;
+const char* CONFIG_SSID   = "mach_kernel";
+const char* CONFIG_PSK    = "phonics.87.reply.218";
+const char* HOSTNAME      = "lcd16x2";
+const int   CONFIG_SERIAL = 115200;
+const int   CONFIG_PORT   = 80;
 //////////////////////////////////////////////////////////////////////////
 
-// LCD Characters Table
-const char lcdChars[]={' ','0','1','2','3','4','5','6','7','8','9','a','b','c','d'\
-,'e','f','g','h','i','j','k','l','m','n','o','p','q','r','s','t','u','v','w','x'\
-,'y','z','A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R'\
-,'S','T','U','V','W','X','Y','Z','&',':',',','.','*','|','-','+','=','_','#','@'\
-,'{','%','[',']','(',')','~','"','<','>','?','}'};
+// LCD Valid Characters
+const char lcdChars[]={" 0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ&:',.*|-+=_#@{%[]()~<>?}"};
+
+static const char *i18n_day_sectors[] =
+{
+  ("late night"),
+  ("early morning"),
+  ("morning"),
+  ("almost noon"),
+  ("noon"),
+  ("afternoon"),
+  ("evening"),
+  ("late evening")
+};
+
+static char *i18n_hour_sectors[] =
+{
+  /* %0 will be replaced with the, 
+   * current hour %1 with the comming hour */
+  "%0 o'clock ",
+  "five past %0 ",
+  "ten past %0 ",
+  "quarter past %0 ",
+  "twenty past %0 ",
+  "twenty five past %0 ",
+  "half past %0 ",
+  "twenty five to %1 ",
+  "twenty to %1 ",
+  "quarter to %1 ",
+  "ten to %1 ",
+  "five to %1 ",
+  "%1 o'clock "
+};
+
+static char *i18n_hour_names[] =
+{
+  "one",
+  "two",
+  "three",
+  "four",
+  "five",
+  "six",
+  "seven",
+  "eight",
+  "nine",
+  "ten",
+  "eleven",
+  "twelve"
+};
+
+// Ten-minutes in ms
+#define tenMin 600000
 
 // RTOS Multi-Core Handle
 TaskHandle_t Task1;
 TaskHandle_t Task2;
+
+// Set Button
+#define setButtonPin 12
+unsigned long setButtonMillis = 0;
+bool setButtonLast = 0;  
+bool setButton = 0;
+
+// Power Control
+#define clearButtonPin 5 // on MCP chip
+bool clearButton = 0;
+bool lastclearButton = 0;
+unsigned long clearButtonMillis = 0;
+uint8_t debounceDelay = 50; // button debounce delay in ms
+uint8_t startDelay = 5; // delay on initial start in seconds
 
 // 16x2 LCD Display
 #define lcdAddr 0x27 // I2C address
@@ -47,7 +107,6 @@ uint8_t bar5[8] = {0x1F,0x1F,0x1F,0x1F,0x1F,0x1F,0x1F,0x1F};
 Neotimer lcdDelayTimer = Neotimer();
 Neotimer lcdDimmer = Neotimer(100000); // ms before dimming display backlight
 const uint8_t lcdClearCharSpeed = 75; // ms delay between drawing each character (clearing display)
-const uint32_t lcdCharLimit = 500; // max scrolling characters (clears display after limit)
 uint8_t charBuffer0[20];
 uint8_t charBuffer1[20];
 uint8_t chrarSize = 0;
@@ -55,58 +114,41 @@ uint8_t rowCount0 = 0;
 uint8_t rowCount1 = 0;
 
 // Shared resources
-#define httpBufferSize 4096 // HTTP request buffer (bytes)
+#define httpBufferSize 8096 // HTTP request buffer (bytes)
 char httpReq[httpBufferSize] = {'\0'};
-uint32_t lcdMessageStart = 0;
+char lcdMessage[httpBufferSize] = {'\0'};
 uint32_t lcdMessageEnd = 0;
 bool eventlcdMessage = 0;
 uint32_t lcdDelay = 0;
 uint8_t lcdReset = 0;  
 uint8_t lcdLine = 0;
 
-// Weather Search
-String jsonBuffer;
-bool weatherNew = 1; // download new data flag
-bool weatherTrigger = 0; // event trigger flag
-Neotimer owmTimer = Neotimer(600000); // 10 minute timer
-String openWeatherMapApiKey = "842b247f09feaabbf1176be9d6221469"; // API key
-String openWeatherMapURL = "http://api.openweathermap.org/data/2.5/weather?q=";
-String countryCode = "US";
-String city = "Buffalo";
-String weatherData; 
+// Web Server
+WiFiServer server(CONFIG_PORT);
+char httpHeader[] = {"####?|"}; // API signature
+unsigned long HTTPlastTime = 0; 
+unsigned long HTTPcurTime = millis(); 
+unsigned long httpLineCount = 0;
+unsigned long httpReqCount = 0;
+const long timeoutTime = 1500; // HTTP timeout (ms)
 
-// Set Button
-#define setButtonPin 12
-unsigned long setButtonMillis = 0;
-bool setButtonLast = 0;  
-bool setButton = 0;
-
-// Power Control
-#define clearButtonPin 5 // on MCP chip
-bool clearButton = 0;
-bool lastclearButton = 0;
-unsigned long clearButtonMillis = 0;
-uint8_t debounceDelay = 50; // button debounce delay in ms
-uint8_t startDelay = 5; // delay on initial start in seconds
+// Wi-Fi
+String ipAddress = "";
+unsigned long WiFiDownInterval = tenMin; // WiFi reconnect timeout (ms)
+unsigned long WiFiLastMillis = 0;
 
 // NTP
 const char* ntpServer = "pool.ntp.org";
 const long gmtOffset_sec = -18000;
 const int daylightOffset_sec = 3600;
+bool eventPrintTime = 0; 
+Neotimer clockTimer = Neotimer(tenMin); // 10 minute timer
 
-// Wi-Fi
-String ipAddress = "";
-unsigned long WiFiDownInterval = 30000; // WiFi reconnect timeout (ms)
-unsigned long WiFiLastMillis = 0;
-
-// Web Server
-WiFiServer server(CONFIG_PORT);
-char httpHdr[] = {"####?|"}; // API signature
-unsigned long HTTPlastTime = 0; 
-unsigned long HTTPcurTime = millis(); 
-unsigned long httpLineCount = 0;
-unsigned long httpReqCount = 0;
-const long timeoutTime = 1000; // HTTP timeout (ms)
+// Weather Search
+bool weatherNew = 1; // download new data flag
+bool weatherTrigger = 0; // event trigger flag
+Neotimer owmTimer = Neotimer(tenMin); // 10 minute timer
+String weatherData; 
 
 //////////////////////////////////////////////////////////////////////////
 // Enable Serial Messages (0 = off)
@@ -129,7 +171,7 @@ void setup() {
   xTaskCreatePinnedToCore(
    WebServer,    /* task function. */
    "Task1",     /* name of task. */
-   16000,       /* Stack size of task */
+   16384,       /* Stack size of task */
    NULL,        /* parameter of the task */
    1,           /* priority of the task */
    &Task1,      /* Task handle to keep track of created task */
@@ -139,7 +181,7 @@ void setup() {
   xTaskCreatePinnedToCore(
    LCDDraw,     /* task function. */
    "Task2",     /* name of task. */
-   10000,       /* Stack size of task */
+   16384,       /* Stack size of task */
    NULL,        /* parameter of the task */
    3,           /* priority of the task */
    &Task2,      /* Task handle to keep track of created task */
@@ -266,10 +308,10 @@ void webServer()
             // loop through characters (detect header signature)
             uint32_t _matches = 0;
             uint32_t _charstart = 0;            
-            uint8_t _hdrcount = sizeof(httpHdr) - 2;
+            uint8_t _hdrcount = sizeof(httpHeader) - 2;
             for(uint32_t _idx = 0; _idx < httpReqCount; _idx++) {
               // find matching characters
-              if (httpReq[_idx] == httpHdr[_matches]) {
+              if (httpReq[_idx] == httpHeader[_matches]) {
                 if (_matches >= _hdrcount){
                   // all characters matched
                   client.println("command received.");
@@ -333,8 +375,6 @@ void decodeMessage(uint32_t _startpos, uint32_t _httpcount) {
   }
   // store line value
   uint32_t _line = atoi(_linebuffer); // convert to integer
-  debug("line data: "); // 
-  debugln(_line); 
   // find third delimiter position
   uint32_t _count = 0;
   uint32_t _delaypos = 0; 
@@ -361,20 +401,6 @@ void decodeMessage(uint32_t _startpos, uint32_t _httpcount) {
   }
   // store delay value
   uint32_t _delay = atoi(_delaybuffer); // convert to integer
-  debug("delay data: ");
-  debugln(_delay);
-  // display message  
-  debugln(" ");
-  debugln("trimmed request: ");
-  for(uint32_t _idx = _delaypos + 1; _idx < _httpcount; _idx++) { 
-    char _v = httpReq[_idx];
-    debug(_v);
-  }
-  // store shared message data 
-  lcdMessageStart = _delaypos + 1; 
-  lcdMessageEnd = _httpcount; 
-  lcdDelay = _delay;
-  lcdLine = _line;
   // invalid range detection
   if (_line > 4) { 
     return;
@@ -384,8 +410,27 @@ void decodeMessage(uint32_t _startpos, uint32_t _httpcount) {
     lcdReset = _line - 1; // write clear trigger
     return;
   }
-  // trigger event
-  eventlcdMessage = 1;
+  // write message to shared buffer  
+  debugln(" ");
+  if (eventlcdMessage == 0){ // only if not drawing
+    // store shared message data 
+    uint32_t _msgstart = _delaypos + 1;
+    lcdMessageEnd = _httpcount - _msgstart; 
+    lcdDelay = _delay;
+    lcdLine = _line;
+    debugln(" ");
+    debugln("trimmed request: ");
+    uint32_t _lcdmsgidx = 0;
+    for(uint32_t _idx = _delaypos + 1; _idx < _httpcount; _idx++) { 
+      lcdMessage[_lcdmsgidx] = httpReq[_idx]; // write to message array
+      _lcdmsgidx++; // increment index
+      debug(httpReq[_idx]); // print entire message
+    }
+    // trigger event
+    eventlcdMessage = 1;
+  } else {
+    debugln("display busy. ");
+  } 
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -411,11 +456,12 @@ void LCDDraw( void * pvParameters ){
   lcd.print("Z-Terminal");   
   lcd.setCursor(0,1);
   lcd.print("IP: " + ipAddress);  
-  delay(2000);
+  delay(1500);
   lcd.clear();
   lcd.setCursor(0,0);
-  // dimming timer
-  lcdDim();
+  // start clock timer
+  clockTimer.reset(); 
+  clockTimer.start();
   // setup done
   for(;;){ // LCD display main loop
   ///////////////////  
@@ -425,7 +471,7 @@ void LCDDraw( void * pvParameters ){
       delay(10);
       lcdMessageEvent();
       eventlcdMessage = 0; 
-    }
+    } 
     // clear display event (main only!)
     if( lcdReset > 0) {
        drawChar(0,0,0);
@@ -443,10 +489,24 @@ void mainEvents() {
   weatherEvent();
   // display dim event
   if(lcdDimmer.done()){
-  	debugln("Dimming backlight...");
+  	debugln("dimming backlight...");
     digitalWrite(lcdBacklight, LOW);
     lcdDimmer.reset();
   }
+  // show the time every 10-minutes
+  if(clockTimer.done()){
+    eventPrintTime = 1;
+    clockTimer.reset();
+    clockTimer.start();
+  }  
+  // display time event
+  if (eventPrintTime == 1) {  
+    lcdDim();
+    delay(10);
+    printLocalTime();
+    eventPrintTime = 0; 
+
+  }     
 }
 
 // disable LCD dimming then start dimming timer
@@ -460,24 +520,33 @@ void lcdDim(){
 
 // convert message into character stream 
 void lcdMessageEvent() { // (run only from event timer)
+  uint32_t _end = lcdMessageEnd;
   uint32_t _delay = lcdDelay;
   uint32_t _line = lcdLine;
+  debug("line data: ");
+  debugln(_line);  
+  debug("delay data: ");
+  debugln(_delay);    
+  debug("end position: ");
+  debugln(_end);
   uint32_t _charidx;
   debugln("character stream: ");
   // loop through each character in the request array (message only)
-  for(uint32_t _idx = lcdMessageStart; _idx < lcdMessageEnd; _idx++) { 
-    // convert each character into array index positions
-    _charidx = (charLookup(httpReq[_idx]));
-    // draw each character on display
-    if (_line <= 1) {
-      drawChar(_line,_charidx,_delay);
-      debugln(_charidx);
-    }
+  for(uint32_t _idx = 0; _idx < _end; _idx++) { 
     // stop drawing if request canceled 
     if (eventlcdMessage == 0) {
       return;
     }
+    // convert each character into array index positions
+    _charidx = (charLookup(lcdMessage[_idx]));
+    // draw each character on display
+    if (_line <= 1) {
+      drawChar(_line,_charidx,_delay);
+      debug(_charidx);
+      debug(',');
+    }
   }
+  debugln(' ');
 }
 
 // character search
@@ -528,12 +597,12 @@ void drawChar(bool _line, uint8_t _char, uint32_t _delay) {
     return; // exit function 
   }
   // invalid characters become spaces
-  if( _char >= chrarSize){ 
+  if( _char >= chrarSize - 1){ 
     return; // exit function 
   }
   /////////////////////////////////////////////////////////////////////// line 0
   // calculate percentage of trailing character delay
-  float trldelay = (_delay / 100.0) * 10; // % 
+  float trldelay = (_delay / 100.0) * 7; // % 
   uint32_t _trldelay = round(trldelay);
   _delay = _delay - _trldelay; // correct delay time
   uint8_t _trlcount = lcdCols - 2;
@@ -552,8 +621,8 @@ void drawChar(bool _line, uint8_t _char, uint32_t _delay) {
       lcd.print(lcdChars[_char]); 
       // draw trailing characters
       for(uint8_t _idx = 0; _idx <= lcdCols - 2; _idx++) {
-        lcd.setCursor(_trlcount, _line);
         charDelay(_trldelay); // ms delay between drawing 
+        lcd.setCursor(_trlcount, _line);
         lcd.print(lcdChars[charBuffer0[_trlcount]]);
         _trlcount--; // decrement index
       }
@@ -585,7 +654,7 @@ void drawChar(bool _line, uint8_t _char, uint32_t _delay) {
       _trlcount = lcdCols - 2;
       for(uint8_t _idx = 0; _idx <= lcdCols - 2; _idx++) {
         lcd.setCursor(_trlcount, _line); 
-        charDelay(_trldelay); // ms delay between drawing 
+        //charDelay(_trldelay); // ms delay between drawing 
         lcd.print(lcdChars[charBuffer1[_trlcount]]);
         _trlcount--; // decrement index
       }
@@ -689,12 +758,10 @@ void readSetButton() {
     // if button state has changed
     if (reading != setButton) {
       setButton = reading;
-      if (setButton == 1) { 
-        // button change event
-        if (eventlcdMessage == 0) { 
-          // Trigger display of weather
-          weatherTrigger = 1;
-        }   
+      // button change event
+      if (setButton == 1) {
+        // trigger display of weather
+        weatherTrigger = 1;
       }
     } 
   }
@@ -705,9 +772,17 @@ void readSetButton() {
 void weatherEvent() {
   if (weatherTrigger == 1){
     if (weatherNew == 1){
-	  String serverPath = openWeatherMapURL + city + "," + countryCode + "&APPID=" + openWeatherMapApiKey;    
-      jsonBuffer = httpGETRequest(serverPath.c_str()); // call API server
-      JSONVar weatherObject = JSON.parse(jsonBuffer); // receive JSON
+      // build API URL
+      String city = "Buffalo"; 
+      String countryCode = "US";
+      String openWeatherMapApiKey = "842b247f09feaabbf1176be9d6221469"; // API key
+      String openWeatherMapURL = "http://api.openweathermap.org/data/2.5/weather?q=";
+	    String serverPath = openWeatherMapURL + city + "," + countryCode + "&APPID=" + openWeatherMapApiKey;    
+      // call API server
+      String jsonBuffer = httpGETRequest(serverPath.c_str()); 
+      // decode JSON response data
+      JSONVar weatherObject = JSON.parse(jsonBuffer);
+      // parse weather data
       if (JSON.typeof(weatherObject) == "undefined") {
       	debugln("Weather data download failed.");
         weatherData = "Parsing input failed!";
@@ -716,13 +791,13 @@ void weatherEvent() {
       	debugln("Downloading weather data...");
       	// parse temperature and convert K to F 
         String _tempstr0 = JSON.stringify(weatherObject["main"]["temp"]);
-        String _tempstr1 = JSON.stringify(weatherObject["main"]["feels_like"]);
-        float _temp0 = KtoF(_tempstr0.toFloat());
-        float _temp1 = KtoF(_tempstr1.toFloat());
-        _tempstr0 = String(_temp0); // convert back to strings
-        _tempstr1 = String(_temp1);
+        float _tmpnum = KtoF(_tempstr0.toFloat());
+        _tempstr0 = String(_tmpnum); // convert back to strings
         _tempstr0.remove(_tempstr0.length()-1,1); // remove last decimal
-        _tempstr1.remove(_tempstr1.length()-1,1);
+        String _tempstr1 = JSON.stringify(weatherObject["main"]["feels_like"]);
+        _tmpnum = KtoF(_tempstr1.toFloat());
+        _tempstr1 = String(_tmpnum); // convert back to strings
+        _tempstr1.remove(_tempstr1.length()-1,1); // remove last decimal
         // weather description 
         String _desc = JSON.stringify(weatherObject["weather"][0]["description"]);
         _desc.remove(_desc.indexOf('"'),1); 
@@ -743,15 +818,17 @@ void weatherEvent() {
     } else { // reset after 5-min, show last data
       debugln("Showing last weather data..."); 	
     }
+    if (eventlcdMessage == 0){ // only if not drawing
     // display event
-	  lcdLine = 0;
-    lcdDelay = 200;
-    int _len = weatherData.length() + 1; 
-    weatherData.toCharArray(httpReq, _len);
-    lcdMessageStart = 0;
-    lcdMessageEnd = _len;
-    //lcdMessage = weatherData;
-    eventlcdMessage = 1;
+      lcdLine = 1;
+      lcdDelay = 250;
+      int _len = weatherData.length() + 1; 
+      weatherData.toCharArray(lcdMessage, _len);
+      lcdMessageEnd = _len;
+      eventlcdMessage = 1;
+    } else {
+      debugln("display busy. ");
+    }
     // end event
   	weatherTrigger = 0;
   } // reset timer   
@@ -800,50 +877,83 @@ void printLocalTime(){
   if(!getLocalTime(&timeinfo)){
     debugln("Failed to obtain time");
     return;
-  }
-
+  } /* get the month label*/
   char timeMonth[10];
   strftime(timeMonth,10, "%b", &timeinfo);
   debug("timeMonth: ");
   debugln(timeMonth);  
-
+  /* get the day of the month */
   char timeDay[3];
   strftime(timeDay,3, "%d", &timeinfo);
   int x = atoi(timeDay);
   debug("timeDay: ");
   debugln(x);
-
+  /* get the year */
   char timeYear[5];
   strftime(timeYear,5, "%Y", &timeinfo);
   debug("timeYear: ");
   debugln(timeYear);
-
+  /* get the current second */
   char timeSec[3];
   strftime(timeSec,3, "%S", &timeinfo);
   debug("timeSec: ");
   debugln(timeSec);
-
-  char timeMin[3];
-  strftime(timeMin,3, "%M", &timeinfo);
-  debug("timeMin: ");
-  debugln(timeMin);
-
-  char timeHour12[3];
-  strftime(timeHour12,3, "%I", &timeinfo);
-  debug("timeHour12: ");
-  debugln(timeHour12);  
-
-  char timeHour[3];
-  strftime(timeHour,3, "%H", &timeinfo);
-  debug("timeHour: ");
-  debugln(timeHour);
-
+  /* get the day of the week */
   char timeWeekDay[10];
   strftime(timeWeekDay,10, "%A", &timeinfo);
   debug("timeWeekDay: ");
   debugln(timeWeekDay);
-
-  debugln();
+  /* get the hour and minute */
+  char timeHour[3];
+  strftime(timeHour,3, "%H", &timeinfo);
+  int hour = atoi(timeHour);
+  debug("timeHour: ");
+  debugln(timeHour);
+  char timeMin[3];
+  strftime(timeMin,3, "%M", &timeinfo);
+  int minute = atoi(timeMin);
+  debug("timeMin: ");
+  debugln(timeMin);
+  /* get the time of the day */
+  String _tod = (i18n_day_sectors[hour / 3]);
+  /* get the hour sector */
+  int sector = 0;
+  if (minute > 6) {
+    sector = ((minute - 7) / 15 + 1) * 3;
+  }
+  /* translated time string */
+  String time_format = (i18n_hour_sectors[sector]);
+  /* detect am/pm */
+  bool is_pm = (hour >= 12 && hour != 24);
+  /* convert military time to 12-hour */
+  if (hour % 12 > 0)
+    hour = hour % 12 - 1;
+  else
+    hour = 12 - hour % 12 - 1;
+  /* replace %0 with current hour label */ 
+  String curr_hour = (i18n_hour_names[hour]);
+  time_format.replace("%0",curr_hour);
+  /* get the next hour */ 
+  int _next;
+  if (hour == 11)
+     _next = 0;
+  else
+    _next = hour + 1;
+  /* replace %1 with next hour label */ 
+  String next_hour = (i18n_hour_names[_next]);
+  time_format.replace("%1",next_hour);
+  time_format = _tod + " " + time_format;
+  if (eventlcdMessage == 0){ // only if not drawing
+  // display event
+    lcdLine = 1;
+    lcdDelay = 250;
+    int _len = time_format.length() + 1; 
+    time_format.toCharArray(lcdMessage, _len);
+    lcdMessageEnd = _len;
+    eventlcdMessage = 1;
+  } else {
+    debugln("display busy. ");
+  }
 }
 
 void loop() {
