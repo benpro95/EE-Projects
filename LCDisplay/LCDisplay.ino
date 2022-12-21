@@ -24,12 +24,13 @@ const int   CONFIG_PORT   = 80;
 // LCD Valid Characters
 const char lcdChars[]={" 0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ&:',.*|-+=_#@{%[]()~<>?}"};
 
+// Fuzzy Clock Tables
 static const char *i18n_day_sectors[] =
 {
   ("late night"),
   ("early morning"),
   ("morning"),
-  ("almost noon"),
+  ("mid morning"),
   ("noon"),
   ("afternoon"),
   ("evening"),
@@ -74,7 +75,7 @@ static char *i18n_hour_names[] =
 // Ten-minutes in ms
 #define tenMin 600000
 
-// RTOS Multi-Core Handle
+// RTOS Multi-Core Support
 TaskHandle_t Task1;
 TaskHandle_t Task2;
 
@@ -90,7 +91,7 @@ bool clearButton = 0;
 bool lastclearButton = 0;
 unsigned long clearButtonMillis = 0;
 uint8_t debounceDelay = 50; // button debounce delay in ms
-uint8_t startDelay = 5; // delay on initial start in seconds
+uint8_t startDelay = 4; // delay on initial start in seconds
 
 // 16x2 LCD Display
 #define lcdAddr 0x27 // I2C address
@@ -114,9 +115,9 @@ uint8_t rowCount0 = 0;
 uint8_t rowCount1 = 0;
 
 // Shared resources
-#define httpBufferSize 8096 // HTTP request buffer (bytes)
-char httpReq[httpBufferSize] = {'\0'};
+#define httpBufferSize 16384 // HTTP request buffer (bytes)
 char lcdMessage[httpBufferSize] = {'\0'};
+char httpReq[httpBufferSize] = {'\0'};
 uint32_t lcdMessageEnd = 0;
 bool eventlcdMessage = 0;
 uint32_t lcdDelay = 0;
@@ -141,8 +142,8 @@ unsigned long WiFiLastMillis = 0;
 const char* ntpServer = "pool.ntp.org";
 const long gmtOffset_sec = -18000;
 const int daylightOffset_sec = 3600;
-bool eventPrintTime = 0; 
 Neotimer clockTimer = Neotimer(tenMin); // 10 minute timer
+bool eventPrintTime = 0;
 
 // Weather Search
 bool weatherNew = 1; // download new data flag
@@ -373,8 +374,8 @@ void decodeMessage(uint32_t _startpos, uint32_t _httpcount) {
     _linebuffer[_linecount] = httpReq[_idx];
     _linecount++;
   }
-  // store line value
-  uint32_t _line = atoi(_linebuffer); // convert to integer
+  // convert to integer, store line value
+  uint32_t _line = atoi(_linebuffer); 
   // find third delimiter position
   uint32_t _count = 0;
   uint32_t _delaypos = 0; 
@@ -395,29 +396,39 @@ void decodeMessage(uint32_t _startpos, uint32_t _httpcount) {
   for(uint32_t _idx = _linepos + 1; _idx < _delaypos; _idx++) { 
     if (_delaycount >= _maxchars) {  
       break;
-    } // store in new array
+    } // store in new array 
     _delaybuffer[_delaycount] = httpReq[_idx];
     _delaycount++;
   }
-  // store delay value
-  uint32_t _delay = atoi(_delaybuffer); // convert to integer
-  // invalid range detection
-  if (_line > 4) { 
+  // convert to integer, store delay value
+  uint32_t _delay = atoi(_delaybuffer); 
+  // display the weather
+  if (_line == 6) {
+    weatherTrigger = 1;
+    return;
+  }    
+  // display the time
+  if (_line == 5) {
+    eventPrintTime = 1;
     return;
   }
-  // clear display trigger (only 2-4 range)
+  // exit when beyond range
+  if (_line > 4) { 
+    return;
+  }  
+  // clear display trigger (only 2-4 range) 1-2-3
   if (_line > 1) {
-    lcdReset = _line - 1; // write clear trigger
+    // write clear trigger
+    lcdReset = _line - 1; 
     return;
   }
   // write message to shared buffer  
   debugln(" ");
   if (eventlcdMessage == 0){ // only if not drawing
     // store shared message data 
-    uint32_t _msgstart = _delaypos + 1;
-    lcdMessageEnd = _httpcount - _msgstart; 
-    lcdDelay = _delay;
-    lcdLine = _line;
+    lcdMessageEnd = (_httpcount - (_delaypos + 1)); // position of the end of message
+    lcdDelay = _delay; // delay between drawing characters in (ms)
+    lcdLine = _line; // (only 0-1 range) (0 = top row, 1 = bottom row)
     debugln(" ");
     debugln("trimmed request: ");
     uint32_t _lcdmsgidx = 0;
@@ -502,10 +513,8 @@ void mainEvents() {
   // display time event
   if (eventPrintTime == 1) {  
     lcdDim();
-    delay(10);
     printLocalTime();
-    eventPrintTime = 0; 
-
+    eventPrintTime = 0;
   }     
 }
 
@@ -569,7 +578,7 @@ void drawChar(bool _line, uint8_t _char, uint32_t _delay) {
     // loop through all display characters
     for(uint8_t _count = 0; _count < lcdCols; _count++) { 
       // draw spaces
-      if (_reset > 1) {
+      if (_reset > 2) {
         // clear both lines 
         lcd.setCursor(_count, 0);
         lcd.print(' ');
