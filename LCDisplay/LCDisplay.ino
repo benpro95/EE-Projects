@@ -22,7 +22,7 @@ const int   CONFIG_PORT   = 80;
 //////////////////////////////////////////////////////////////////////////
 
 // LCD Valid Characters
-const char lcdChars[]={" 0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ&:',.*|-+=_#@{%[]()~<>?}"};
+const char lcdChars[]={" 0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ&:',.*|-+=_#@%[]()<>?{};"};
 
 // Fuzzy Clock Tables
 static const char *i18n_day_sectors[] =
@@ -107,7 +107,8 @@ uint8_t bar4[8] = {0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E};
 uint8_t bar5[8] = {0x1F,0x1F,0x1F,0x1F,0x1F,0x1F,0x1F,0x1F};
 Neotimer lcdDelayTimer = Neotimer();
 Neotimer lcdDimmer = Neotimer(100000); // ms before dimming display backlight
-const uint8_t lcdClearCharSpeed = 75; // ms delay between drawing each character (clearing display)
+const uint8_t lcdClearCharSpeed = 50; // ms delay between drawing each character (clearing display)
+const uint32_t lcdDefaultDelay = 275; // ms delay used when none is specified
 uint8_t charBuffer0[20];
 uint8_t charBuffer1[20];
 uint8_t chrarSize = 0;
@@ -422,6 +423,20 @@ void decodeMessage(uint32_t _startpos, uint32_t _httpcount) {
     lcdReset = _line - 1; 
     return;
   }
+  // set default delay if none specified
+  if (_delay == 0) {
+    _delay = lcdDefaultDelay;
+    // also alternate the last line used
+    //if (lcdLine < 2){
+    //  if (lcdLine == 0){
+    //    _line = 1;
+    //  } else {
+    //    _line = 0;  
+    //  } 
+   // } else {
+   //   _line = 0;
+    //}
+  }
   // write message to shared buffer  
   debugln(" ");
   if (eventlcdMessage == 0){ // only if not drawing
@@ -479,13 +494,12 @@ void LCDDraw( void * pvParameters ){
     // display message event (main only!)
     if (eventlcdMessage > 0) {  
       lcdDim();
-      delay(10);
       lcdMessageEvent();
       eventlcdMessage = 0; 
     } 
     // clear display event (main only!)
     if( lcdReset > 0) {
-       drawChar(0,0,0);
+       drawChar0(0,0,0,lcdReset);
     }
     // ran in main and during delay loop 
     mainEvents();      
@@ -529,6 +543,8 @@ void lcdDim(){
 
 // convert message into character stream 
 void lcdMessageEvent() { // (run only from event timer)
+  uint32_t _trlch = 0;
+  uint32_t _reset = 0;
   uint32_t _end = lcdMessageEnd;
   uint32_t _delay = lcdDelay;
   uint32_t _line = lcdLine;
@@ -542,18 +558,22 @@ void lcdMessageEvent() { // (run only from event timer)
   debugln("character stream: ");
   // loop through each character in the request array (message only)
   for(uint32_t _idx = 0; _idx < _end; _idx++) { 
+    // convert each character into array index positions
+    _charidx = (charLookup(lcdMessage[_idx]));
+    // invalid characters
+    if( _charidx > chrarSize - 3){ 
+      return; // exit 
+    }
+    _reset = lcdReset; // poll reset state
+    // draw each character on display
+    _trlch = drawChar0(1,_charidx,_delay,_reset);
+    drawChar1(0,_trlch,_delay,_reset);
+    debug(_charidx);
+    debug(',');
     // stop drawing if request canceled 
     if (eventlcdMessage == 0) {
       return;
-    }
-    // convert each character into array index positions
-    _charidx = (charLookup(lcdMessage[_idx]));
-    // draw each character on display
-    if (_line <= 1) {
-      drawChar(_line,_charidx,_delay);
-      debug(_charidx);
-      debug(',');
-    }
+    }    
   }
   debugln(' ');
 }
@@ -570,9 +590,9 @@ int charLookup(char _char) {
 }
 
 // scroll text on display
-void drawChar(bool _line, uint8_t _char, uint32_t _delay) {
+int drawChar0(bool _line, uint8_t _char, uint32_t _delay, uint8_t _reset) {
+  uint32_t _lastidx = 0;
   // clear LCD routine
-  uint8_t _reset = lcdReset;
   if( _reset > 0){
     lcdDim(); // disable dimming and reset timer
     // loop through all display characters
@@ -591,95 +611,128 @@ void drawChar(bool _line, uint8_t _char, uint32_t _delay) {
       delay(lcdClearCharSpeed);
     } // reset cursor
     lcd.setCursor(0, _line);
-    if( lcdReset == 1){ // reset row 0
+    if( _reset == 1){ // reset row 0
       rowCount0 = 0;
     }
-    if( lcdReset == 2){ // reset row 1
+    if( _reset == 2){ // reset row 1
       rowCount1 = 0;
     }
-    if( lcdReset == 3){ // reset both rows
+    if( _reset == 3){ // reset both rows
+      rowCount0 = 0;
+      rowCount1 = 0;
+    }   
+    lcdReset = 0; // end reset event
+    eventlcdMessage = 0; // end message event
+    return 0; // exit 
+  } 
+  /////////////////////////////////////////////////////////////////////// line 0
+  uint8_t _trlcount = lcdCols - 2;
+  // store row position (first)     
+  rowCount0++; 
+  // drawing behavior
+  if( rowCount0 > lcdCols ){ 
+    // store last trailing character
+    _lastidx = charBuffer0[0];
+    // overflow behavior
+    for(uint8_t _idx = 0; _idx <= lcdCols; _idx++) { 
+      charBuffer0[_idx] = charBuffer0[_idx + 1]; // rearrange characters
+    } 
+    // print last character
+    lcd.setCursor(lcdCols - 1, _line);
+    lcd.print(lcdChars[_char]); 
+    // draw trailing characters
+    for(uint8_t _idx = 0; _idx <= lcdCols - 2; _idx++) {
+      //charDelay(_trldelay); // ms delay between drawing 
+      lcd.setCursor(_trlcount, _line);
+      lcd.print(lcdChars[charBuffer0[_trlcount]]);
+      _trlcount--; // decrement index
+    }
+    // lock trailing behavior on
+    rowCount0 = lcdCols;       
+  } else { 
+    // before overflow behavior
+    if(rowCount0 != 0){ // stops character drawing after clearing display
+      lcd.setCursor(rowCount0 - 1, _line);
+      lcd.print(lcdChars[_char]);
+    }
+  }
+  // store each character (last)
+  charBuffer0[rowCount0 - 1] = _char;
+  // character delay
+  if (_char != 0){ // no delay on spaces
+    charDelay(_delay);
+  } 
+  return _lastidx;
+}
+
+// scroll text on display
+void drawChar1(bool _line, uint8_t _char, uint32_t _delay, uint8_t _reset) {
+  // clear LCD routine
+  if( _reset > 0){
+    lcdDim(); // disable dimming and reset timer
+    // loop through all display characters
+    for(uint8_t _count = 0; _count < lcdCols; _count++) { 
+      // draw spaces
+      if (_reset > 2) {
+        // clear both lines 
+        lcd.setCursor(_count, 0);
+        lcd.print(' ');
+        lcd.setCursor(_count, 1);
+      } else {
+        // clear a single line
+        lcd.setCursor(_count, _reset - 1);
+      }  
+      lcd.print(' ');
+      delay(lcdClearCharSpeed);
+    } // reset cursor
+    lcd.setCursor(0, _line);
+    if( _reset == 1){ // reset row 0
+      rowCount0 = 0;
+    }
+    if( _reset == 2){ // reset row 1
+      rowCount1 = 0;
+    }
+    if( _reset == 3){ // reset both rows
       rowCount0 = 0;
       rowCount1 = 0;
     }   
     lcdReset = 0; // end reset event
     eventlcdMessage = 0; // end message event
     return; // exit function 
-  }
-  // invalid characters become spaces
-  if( _char >= chrarSize - 1){ 
-    return; // exit function 
-  }
-  /////////////////////////////////////////////////////////////////////// line 0
-  // calculate percentage of trailing character delay
-  float trldelay = (_delay / 100.0) * 7; // % 
-  uint32_t _trldelay = round(trldelay);
-  _delay = _delay - _trldelay; // correct delay time
-  uint8_t _trlcount = lcdCols - 2;
-  // compute each row separately
-  if( _line == 0){
-    // store row position (first)     
-    rowCount0++; 
-    // drawing behavior
-    if( rowCount0 > lcdCols ){ 
-      // overflow behavior
-      for(uint8_t _idx = 0; _idx <= lcdCols; _idx++) { 
-        charBuffer0[_idx] = charBuffer0[_idx + 1]; // rearrange characters
-      } 
-      // print last character
-      lcd.setCursor(lcdCols - 1, _line);
-      lcd.print(lcdChars[_char]); 
-      // draw trailing characters
-      for(uint8_t _idx = 0; _idx <= lcdCols - 2; _idx++) {
-        charDelay(_trldelay); // ms delay between drawing 
-        lcd.setCursor(_trlcount, _line);
-        lcd.print(lcdChars[charBuffer0[_trlcount]]);
-        _trlcount--; // decrement index
-      }
-      // lock trailing behavior on
-      rowCount0 = lcdCols;       
-    } else { 
-      // before overflow behavior
-      if(rowCount0 != 0){ // stops character drawing after clearing display
-        lcd.setCursor(rowCount0 - 1, _line);
-        lcd.print(lcdChars[_char]);
-      }
+  }  
+  /////////////////////////////////////////////////////////////////////// line 1      
+  uint8_t _trlcount = lcdCols - 2;  
+  // store row position (first)     
+  rowCount1++; 
+  // drawing behavior
+  if( rowCount1 > lcdCols ){ 
+    // overflow behavior
+    for(uint8_t _idx = 0; _idx <= lcdCols; _idx++) { 
+      charBuffer1[_idx] = charBuffer1[_idx + 1]; // rearrange characters
     }
-    // store each character (last)
-    charBuffer0[rowCount0 - 1] = _char;   
+    // print last character
+    lcd.setCursor(lcdCols - 1, _line);
+    lcd.print(lcdChars[_char]);       
+    // draw trailing characters
+    _trlcount = lcdCols - 2;
+    for(uint8_t _idx = 0; _idx <= lcdCols - 2; _idx++) {
+      lcd.setCursor(_trlcount, _line); 
+      //charDelay(_trldelay); // ms delay between drawing 
+      lcd.print(lcdChars[charBuffer1[_trlcount]]);
+      _trlcount--; // decrement index
+    }
+    // lock trailing behavior on
+    rowCount1 = lcdCols;       
   } else {
-    /////////////////////////////////////////////////////////////////////// line 1      
-    // store row position (first)     
-    rowCount1++; 
-    // drawing behavior
-    if( rowCount1 > lcdCols ){ 
-      // overflow behavior
-      for(uint8_t _idx = 0; _idx <= lcdCols; _idx++) { 
-        charBuffer1[_idx] = charBuffer1[_idx + 1]; // rearrange characters
-      }
-      // print last character
-      lcd.setCursor(lcdCols - 1, _line);
-      lcd.print(lcdChars[_char]);       
-      // draw trailing characters
-      _trlcount = lcdCols - 2;
-      for(uint8_t _idx = 0; _idx <= lcdCols - 2; _idx++) {
-        lcd.setCursor(_trlcount, _line); 
-        //charDelay(_trldelay); // ms delay between drawing 
-        lcd.print(lcdChars[charBuffer1[_trlcount]]);
-        _trlcount--; // decrement index
-      }
-      // lock trailing behavior on
-      rowCount1 = lcdCols;       
-    } else {
-      // before overflow behavior
-      if(rowCount1 != 0){ // stops character drawing after clearing display
-        lcd.setCursor(rowCount1 - 1, _line);
-        lcd.print(lcdChars[_char]);
-        charDelay(_delay); 
-      }
+    // before overflow behavior
+    if(rowCount1 != 0){ // stops character drawing after clearing display
+      lcd.setCursor(rowCount1 - 1, _line);
+      lcd.print(lcdChars[_char]);
+      charDelay(_delay); 
     }
-    // store each character (last)
-    charBuffer1[rowCount1 - 1] = _char;         
   }
+  // store each character (last)
+  charBuffer1[rowCount1 - 1] = _char;         
   // character delay
   if (_char != 0){ // no delay on spaces
     charDelay(_delay);
@@ -828,12 +881,22 @@ void weatherEvent() {
       debugln("Showing last weather data..."); 	
     }
     if (eventlcdMessage == 0){ // only if not drawing
-    // display event
-      lcdLine = 1;
-      lcdDelay = 250;
+      // choose the opposite of the last line used
+      if (lcdLine < 2){
+        if (lcdLine == 0){
+          lcdLine = 1;
+        } else {
+          lcdLine = 0;  
+        } 
+      } else {
+        lcdLine = 0;
+      }
+      // store message data
+      lcdDelay = lcdDefaultDelay;
       int _len = weatherData.length() + 1; 
       weatherData.toCharArray(lcdMessage, _len);
       lcdMessageEnd = _len;
+      // display message event
       eventlcdMessage = 1;
     } else {
       debugln("display busy. ");
@@ -952,13 +1015,14 @@ void printLocalTime(){
   String next_hour = (i18n_hour_names[_next]);
   time_format.replace("%1",next_hour);
   time_format = _tod + " " + time_format;
-  if (eventlcdMessage == 0){ // only if not drawing
-  // display event
-    lcdLine = 1;
-    lcdDelay = 250;
-    int _len = time_format.length() + 1; 
+  if (eventlcdMessage == 0){ // only if not drawing  
+    // store message data
+    lcdLine = 0;
+    lcdDelay = lcdDefaultDelay;
+    uint32_t _len = time_format.length() + 1; 
     time_format.toCharArray(lcdMessage, _len);
     lcdMessageEnd = _len;
+    // display event
     eventlcdMessage = 1;
   } else {
     debugln("display busy. ");
