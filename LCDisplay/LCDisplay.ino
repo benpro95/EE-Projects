@@ -479,9 +479,9 @@ void LCDDraw( void * pvParameters ){
   // WiFi status
   lcd.clear();
   lcd.setCursor(0,0);
-  lcd.print("Z-Terminal");   
+  lcd.write("Z-Terminal");   
   lcd.setCursor(0,1);
-  lcd.print("IP: " + ipAddress);  
+  lcd.write("IP: " + ipAddress);  
   delay(1500);
   lcd.clear();
   lcd.setCursor(0,0);
@@ -601,13 +601,13 @@ int drawChar0(bool _line, uint8_t _char, uint32_t _delay, uint8_t _reset) {
       if (_reset > 2) {
         // clear both lines 
         lcd.setCursor(_count, 0);
-        lcd.print(' ');
+        lcd.write(' ');
         lcd.setCursor(_count, 1);
       } else {
         // clear a single line
         lcd.setCursor(_count, _reset - 1);
       }  
-      lcd.print(' ');
+      lcd.write(' ');
       delay(lcdClearCharSpeed);
     } // reset cursor
     lcd.setCursor(0, _line);
@@ -639,12 +639,12 @@ int drawChar0(bool _line, uint8_t _char, uint32_t _delay, uint8_t _reset) {
     } 
     // print last character
     lcd.setCursor(lcdCols - 1, _line);
-    lcd.print(lcdChars[_char]); 
+    lcd.write(lcdChars[_char]); 
     // draw trailing characters
     for(uint8_t _idx = 0; _idx <= lcdCols - 2; _idx++) {
       //charDelay(_trldelay); // ms delay between drawing 
       lcd.setCursor(_trlcount, _line);
-      lcd.print(lcdChars[charBuffer0[_trlcount]]);
+      lcd.write(lcdChars[charBuffer0[_trlcount]]);
       _trlcount--; // decrement index
     }
     // lock trailing behavior on
@@ -653,7 +653,7 @@ int drawChar0(bool _line, uint8_t _char, uint32_t _delay, uint8_t _reset) {
     // before overflow behavior
     if(rowCount0 != 0){ // stops character drawing after clearing display
       lcd.setCursor(rowCount0 - 1, _line);
-      lcd.print(lcdChars[_char]);
+      lcd.write(lcdChars[_char]);
     }
   }
   // store each character (last)
@@ -676,13 +676,13 @@ void drawChar1(bool _line, uint8_t _char, uint32_t _delay, uint8_t _reset) {
       if (_reset > 2) {
         // clear both lines 
         lcd.setCursor(_count, 0);
-        lcd.print(' ');
+        lcd.write(' ');
         lcd.setCursor(_count, 1);
       } else {
         // clear a single line
         lcd.setCursor(_count, _reset - 1);
       }  
-      lcd.print(' ');
+      lcd.write(' ');
       delay(lcdClearCharSpeed);
     } // reset cursor
     lcd.setCursor(0, _line);
@@ -712,13 +712,13 @@ void drawChar1(bool _line, uint8_t _char, uint32_t _delay, uint8_t _reset) {
     }
     // print last character
     lcd.setCursor(lcdCols - 1, _line);
-    lcd.print(lcdChars[_char]);       
+    lcd.write(lcdChars[_char]);       
     // draw trailing characters
     _trlcount = lcdCols - 2;
     for(uint8_t _idx = 0; _idx <= lcdCols - 2; _idx++) {
       lcd.setCursor(_trlcount, _line); 
       //charDelay(_trldelay); // ms delay between drawing 
-      lcd.print(lcdChars[charBuffer1[_trlcount]]);
+      lcd.write(lcdChars[charBuffer1[_trlcount]]);
       _trlcount--; // decrement index
     }
     // lock trailing behavior on
@@ -727,7 +727,7 @@ void drawChar1(bool _line, uint8_t _char, uint32_t _delay, uint8_t _reset) {
     // before overflow behavior
     if(rowCount1 != 0){ // stops character drawing after clearing display
       lcd.setCursor(rowCount1 - 1, _line);
-      lcd.print(lcdChars[_char]);
+      lcd.write(lcdChars[_char]);
       charDelay(_delay); 
     }
   }
@@ -865,7 +865,7 @@ void weatherEvent() {
         _desc.remove(_desc.indexOf('"'),1); 
         _desc.remove(_desc.lastIndexOf('"'),1); 
         // build message 
-        weatherData = "Weather in " + city + " " + _desc + " " + _tempstr0 + "F feels like " + _tempstr1 + "F ";
+        weatherData = "Weather in " + city + " " + _desc + " " + _tempstr0 + "F  feels like " + _tempstr1 + "F ";
         _tempstr0 = "";
         _tempstr1 = "";
         _desc = "";
