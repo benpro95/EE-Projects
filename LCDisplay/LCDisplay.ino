@@ -352,7 +352,7 @@ void webServer()
 // decode LCD message and trigger display event
 void decodeMessage(uint32_t _startpos, uint32_t _httpcount) { 
   //////////// start and end positions of control characters & message
-  uint8_t _maxchars = 8; // max characters for line & delay commands
+  uint8_t _maxchars = 12; // max characters for line & delay commands
   uint32_t _linepos = 0;
   char _delimiter = '|';  
   // find second delimiter position
@@ -403,28 +403,28 @@ void decodeMessage(uint32_t _startpos, uint32_t _httpcount) {
   // convert to integer, store second command value
   uint32_t _cmd2 = atoi(_cmd2buffer); 
   // display the weather
-  if (_cmd1 == 6) {
+  if (_cmd1 == 5) {
     weatherTrigger = 1;
     return;
   }    
   // display the time
-  if (_cmd1 == 5) {
+  if (_cmd1 == 4) {
     eventPrintTime = 1;
     return;
   }
   // exit when beyond range
-  if (_cmd1 > 4) { 
+  if (_cmd1 > 3) { 
     return;
   }  
-  // clear display trigger (2-4 range)
-  if (_cmd1 > 1) {
+  // clear display trigger (1-3 range)
+  if (_cmd1 > 0) {
     // write clear trigger
-    lcdReset = _cmd1 - 1; 
+    lcdReset = _cmd1; 
     return;
   }
   // write message to shared buffer  
   debugln(" ");
-  if (eventlcdMessage == 0){ // only if not drawing
+  if ((eventlcdMessage == 0) && (_cmd1 == 0)){ // only if not drawing and line command is 0
     // store shared message data 
     lcdMessageEnd = (_httpcount - (_cmd2pos + 1)); // position of the end of message
     lcdDelay = _cmd2; // delay between drawing characters in (ms)
@@ -543,10 +543,10 @@ void lcdMessageEvent() { // (run only from event timer)
     // invalid characters
     if( _charidx > chrarSize - 3){ 
       return; // exit 
-    }
-    _reset = lcdReset; // check reset state
-    // draw each character on display
-    drawChar(_charidx,_delay,_reset);
+    } // read reset state
+    _reset = lcdReset;
+    charDelay(_delay); // character delay
+    drawChar(_charidx,_delay,_reset); // draw each character
     debug(_charidx);
     debug(',');
     // stop drawing if request canceled 
@@ -554,6 +554,7 @@ void lcdMessageEvent() { // (run only from event timer)
       return;
     }    
   }
+  drawChar(0,_delay,_reset); // draw a trailing space
   debugln(' ');
 }
 
@@ -569,11 +570,12 @@ int charLookup(char _char) {
 }
 
 // scroll text on display
-void drawChar(uint8_t _char, uint32_t _delayin, uint8_t _reset) {
+void drawChar(uint8_t _char, uint32_t _delay, uint8_t _reset) {
   bool _line = 1; // 1 = text flows bottom to top, 0 = top to bottom
   // clear LCD routine
   if( _reset > 0){
-    lcdDim(); // disable dimming and reset timer
+    // disable dimming then reset timer
+    lcdDim(); 
     // loop through all display characters
     for(uint8_t _count = 0; _count < lcdCols; _count++) { 
       // draw spaces
@@ -602,15 +604,10 @@ void drawChar(uint8_t _char, uint32_t _delayin, uint8_t _reset) {
     }   
     lcdReset = 0; // end reset event
     eventlcdMessage = 0; // end message event
-    return; // exit 
-  } 
-  // calculate trailing delay 
-  float trldelay = (_delayin / 100.0) * 5; // % 
+    return; 
+  } ///////////////////////////////////////////////////////////////////// line 0
   uint32_t _lastidx = 0;
-  uint32_t _trldelay = round(trldelay);
-  uint32_t _delay = _delayin - _trldelay; // correct delay time
   uint8_t _trlcount;
-  /////////////////////////////////////////////////////////////////////// line 0
   // count row position   
   rowCount0++; 
   // drawing behavior
@@ -629,7 +626,6 @@ void drawChar(uint8_t _char, uint32_t _delayin, uint8_t _reset) {
     for(uint8_t _idx = 0; _idx <= lcdCols - 2; _idx++) {
       lcd.setCursor(_trlcount, _line);
       lcd.write(lcdChars[charBuffer0[_trlcount]]);
-      charDelay(_trldelay); // ms delay between drawing 
       _trlcount--; // decrement index
     }
     // lock trailing behavior on after 15th character
@@ -643,7 +639,7 @@ void drawChar(uint8_t _char, uint32_t _delayin, uint8_t _reset) {
   }
   // store each character
   charBuffer0[rowCount0 - 1] = _char;
-  /////////////////////////////////////////////////////////////////////// line 1      
+  /////////////////////////////////////////////////////////////////////// line 1     
   _char = _lastidx; // trailing character
   _line = !_line; // invert line
   // count row position    
@@ -662,7 +658,6 @@ void drawChar(uint8_t _char, uint32_t _delayin, uint8_t _reset) {
     for(uint8_t _idx = 0; _idx <= lcdCols - 2; _idx++) {
       lcd.setCursor(_trlcount, _line);
       lcd.write(lcdChars[charBuffer1[_trlcount]]);
-      charDelay(_trldelay); // ms delay between drawing 
       _trlcount--; // decrement index
     }
     // lock trailing behavior on after 15th character
@@ -675,34 +670,28 @@ void drawChar(uint8_t _char, uint32_t _delayin, uint8_t _reset) {
     }
   }
   // store each character
-  charBuffer1[rowCount1 - 1] = _char;         
-  // character delay
-  if (_char != 0){ // no delay on spaces
-    charDelay(_delay);
-  }
+  charBuffer1[rowCount1 - 1] = _char;
 }
 
 // character delay 
-void charDelay(int _delay) {  
+void charDelay(uint32_t _delay) {  
+  // prevent dimming while drawing
+  lcdDimmer.reset();
+  lcdDimmer.start(); 
   // set default speed if not in range
-  if (_delay < 4096) {
-    if (_delay > 10) {
-      // prevent dimming while drawing
-      lcdDimmer.reset();
-      lcdDimmer.start();
-      // restart character delay timer	
-  	  lcdDelayTimer.reset();
-  	  lcdDelayTimer.set(_delay);
-  	  lcdDelayTimer.start();
-  	  for(;;) { // adjustable delay	
-  	    mainEvents(); // keep checking for events during delay
-  	    if(lcdDelayTimer.done()){
-  	      lcdDelayTimer.reset();
-  	      break; // exit loop when timer done
-  	    } 
-  	  }
-    }    
-  }
+  if ((_delay < 5) || (_delay > 4096)) {
+    _delay = 5;
+  }  
+  // restart character delay timer
+  lcdDelayTimer.set(_delay);
+  lcdDelayTimer.start();
+  for(;;) { // adjustable delay	
+    mainEvents(); // keep checking for events during delay
+    if(lcdDelayTimer.done()){
+      lcdDelayTimer.reset();
+      break; // exit loop when timer done
+	  }
+  }    
 }
 
 // display progress bar for # of seconds 
@@ -809,7 +798,7 @@ void weatherEvent() {
         _desc.remove(_desc.indexOf('"'),1); 
         _desc.remove(_desc.lastIndexOf('"'),1); 
         // build message 
-        weatherData = "Weather in " + city + " " + _desc + " " + _tempstr0 + "F feels like " + _tempstr1 + "F ";
+        weatherData = "weather in " + city + " " + _desc + " " + _tempstr0 + "F feels like " + _tempstr1 + "F";
         _tempstr0 = "";
         _tempstr1 = "";
         _desc = "";
