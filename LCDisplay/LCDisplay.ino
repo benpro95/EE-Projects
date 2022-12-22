@@ -25,7 +25,7 @@ const int   CONFIG_PORT   = 80;
 const char lcdChars[]={" 0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ&:',.*|-+=_#@%[]()<>?{};"};
 
 // Fuzzy Clock Tables
-static const char *i18n_day_sectors[] =
+static const char *clock_day_sectors[] =
 {
   ("late night"),
   ("early morning"),
@@ -37,7 +37,7 @@ static const char *i18n_day_sectors[] =
   ("late evening")
 };
 
-static char *i18n_hour_sectors[] =
+static char *clock_hour_sectors[] =
 {
   /* %0 will be replaced with the, 
    * current hour %1 with the comming hour */
@@ -56,7 +56,7 @@ static char *i18n_hour_sectors[] =
   "%1 o'clock "
 };
 
-static char *i18n_hour_names[] =
+static char *clock_hour_names[] =
 {
   "one",
   "two",
@@ -123,7 +123,6 @@ uint32_t lcdMessageEnd = 0;
 bool eventlcdMessage = 0;
 uint32_t lcdDelay = 0;
 uint8_t lcdReset = 0;  
-uint8_t lcdLine = 0;
 
 // Web Server
 WiFiServer server(CONFIG_PORT);
@@ -376,80 +375,65 @@ void decodeMessage(uint32_t _startpos, uint32_t _httpcount) {
     _linecount++;
   }
   // convert to integer, store line value
-  uint32_t _line = atoi(_linebuffer); 
+  uint32_t _cmd1 = atoi(_linebuffer); 
   // find third delimiter position
   uint32_t _count = 0;
-  uint32_t _delaypos = 0; 
+  uint32_t _cmd2pos = 0; 
   for(uint32_t _idx = _startpos; _idx < _httpcount; _idx++) {
     char _vchr = httpReq[_idx];   
     if (_vchr == _delimiter) {
       if (_count == 1) {
         // store index position
-        _delaypos = _idx;
+        _cmd2pos = _idx;
         break;
       }  
       _count++;
     }
   } 
-  char _delaybuffer[_maxchars];
-  uint8_t _delaycount = 0;
-  // loop through delay characters
-  for(uint32_t _idx = _linepos + 1; _idx < _delaypos; _idx++) { 
-    if (_delaycount >= _maxchars) {  
+  char _cmd2buffer[_maxchars];
+  uint8_t _cmd2count = 0;
+  // loop through second command characters
+  for(uint32_t _idx = _linepos + 1; _idx < _cmd2pos; _idx++) { 
+    if (_cmd2count >= _maxchars) {  
       break;
     } // store in new array 
-    _delaybuffer[_delaycount] = httpReq[_idx];
-    _delaycount++;
+    _cmd2buffer[_cmd2count] = httpReq[_idx];
+    _cmd2count++;
   }
-  // convert to integer, store delay value
-  uint32_t _delay = atoi(_delaybuffer); 
+  // convert to integer, store second command value
+  uint32_t _cmd2 = atoi(_cmd2buffer); 
   // display the weather
-  if (_line == 6) {
+  if (_cmd1 == 6) {
     weatherTrigger = 1;
     return;
   }    
   // display the time
-  if (_line == 5) {
+  if (_cmd1 == 5) {
     eventPrintTime = 1;
     return;
   }
   // exit when beyond range
-  if (_line > 4) { 
+  if (_cmd1 > 4) { 
     return;
   }  
-  // clear display trigger (only 2-4 range) 1-2-3
-  if (_line > 1) {
+  // clear display trigger (2-4 range)
+  if (_cmd1 > 1) {
     // write clear trigger
-    lcdReset = _line - 1; 
+    lcdReset = _cmd1 - 1; 
     return;
-  }
-  // set default delay if none specified
-  if (_delay == 0) {
-    _delay = lcdDefaultDelay;
-    // also alternate the last line used
-    //if (lcdLine < 2){
-    //  if (lcdLine == 0){
-    //    _line = 1;
-    //  } else {
-    //    _line = 0;  
-    //  } 
-   // } else {
-   //   _line = 0;
-    //}
   }
   // write message to shared buffer  
   debugln(" ");
   if (eventlcdMessage == 0){ // only if not drawing
     // store shared message data 
-    lcdMessageEnd = (_httpcount - (_delaypos + 1)); // position of the end of message
-    lcdDelay = _delay; // delay between drawing characters in (ms)
-    lcdLine = _line; // (only 0-1 range) (0 = top row, 1 = bottom row)
+    lcdMessageEnd = (_httpcount - (_cmd2pos + 1)); // position of the end of message
+    lcdDelay = _cmd2; // delay between drawing characters in (ms)
     debugln(" ");
     debugln("trimmed request: ");
-    uint32_t _lcdmsgidx = 0;
-    for(uint32_t _idx = _delaypos + 1; _idx < _httpcount; _idx++) { 
-      lcdMessage[_lcdmsgidx] = httpReq[_idx]; // write to message array
-      _lcdmsgidx++; // increment index
+    uint32_t _lcdidx = 0;
+    for(uint32_t _idx = _cmd2pos + 1; _idx < _httpcount; _idx++) { 
+      lcdMessage[_lcdidx] = httpReq[_idx]; // write to message array
+      _lcdidx++; // increment index
       debug(httpReq[_idx]); // print entire message
     }
     // trigger event
@@ -479,9 +463,9 @@ void LCDDraw( void * pvParameters ){
   // WiFi status
   lcd.clear();
   lcd.setCursor(0,0);
-  lcd.write("Z-Terminal");   
+  lcd.print("Z-Terminal");   
   lcd.setCursor(0,1);
-  lcd.write("IP: " + ipAddress);  
+  lcd.print("IP: " + ipAddress);  
   delay(1500);
   lcd.clear();
   lcd.setCursor(0,0);
@@ -499,7 +483,7 @@ void LCDDraw( void * pvParameters ){
     } 
     // clear display event (main only!)
     if( lcdReset > 0) {
-       drawChar0(0,0,0,lcdReset);
+       drawChar(0,0,lcdReset);
     }
     // ran in main and during delay loop 
     mainEvents();      
@@ -543,13 +527,9 @@ void lcdDim(){
 
 // convert message into character stream 
 void lcdMessageEvent() { // (run only from event timer)
-  uint32_t _trlch = 0;
   uint32_t _reset = 0;
   uint32_t _end = lcdMessageEnd;
-  uint32_t _delay = lcdDelay;
-  uint32_t _line = lcdLine;
-  debug("line data: ");
-  debugln(_line);  
+  uint32_t _delay = lcdDelay; 
   debug("delay data: ");
   debugln(_delay);    
   debug("end position: ");
@@ -564,10 +544,9 @@ void lcdMessageEvent() { // (run only from event timer)
     if( _charidx > chrarSize - 3){ 
       return; // exit 
     }
-    _reset = lcdReset; // poll reset state
+    _reset = lcdReset; // check reset state
     // draw each character on display
-    _trlch = drawChar0(1,_charidx,_delay,_reset);
-    drawChar1(0,_trlch,_delay,_reset);
+    drawChar(_charidx,_delay,_reset);
     debug(_charidx);
     debug(',');
     // stop drawing if request canceled 
@@ -590,8 +569,8 @@ int charLookup(char _char) {
 }
 
 // scroll text on display
-int drawChar0(bool _line, uint8_t _char, uint32_t _delay, uint8_t _reset) {
-  uint32_t _lastidx = 0;
+void drawChar(uint8_t _char, uint32_t _delayin, uint8_t _reset) {
+  bool _line = 1; // 1 = text flows bottom to top, 0 = top to bottom
   // clear LCD routine
   if( _reset > 0){
     lcdDim(); // disable dimming and reset timer
@@ -623,11 +602,16 @@ int drawChar0(bool _line, uint8_t _char, uint32_t _delay, uint8_t _reset) {
     }   
     lcdReset = 0; // end reset event
     eventlcdMessage = 0; // end message event
-    return 0; // exit 
+    return; // exit 
   } 
+  // calculate trailing delay 
+  float trldelay = (_delayin / 100.0) * 5; // % 
+  uint32_t _lastidx = 0;
+  uint32_t _trldelay = round(trldelay);
+  uint32_t _delay = _delayin - _trldelay; // correct delay time
+  uint8_t _trlcount;
   /////////////////////////////////////////////////////////////////////// line 0
-  uint8_t _trlcount = lcdCols - 2;
-  // store row position (first)     
+  // count row position   
   rowCount0++; 
   // drawing behavior
   if( rowCount0 > lcdCols ){ 
@@ -641,13 +625,14 @@ int drawChar0(bool _line, uint8_t _char, uint32_t _delay, uint8_t _reset) {
     lcd.setCursor(lcdCols - 1, _line);
     lcd.write(lcdChars[_char]); 
     // draw trailing characters
+    _trlcount = lcdCols - 2;
     for(uint8_t _idx = 0; _idx <= lcdCols - 2; _idx++) {
-      //charDelay(_trldelay); // ms delay between drawing 
       lcd.setCursor(_trlcount, _line);
       lcd.write(lcdChars[charBuffer0[_trlcount]]);
+      charDelay(_trldelay); // ms delay between drawing 
       _trlcount--; // decrement index
     }
-    // lock trailing behavior on
+    // lock trailing behavior on after 15th character
     rowCount0 = lcdCols;       
   } else { 
     // before overflow behavior
@@ -656,53 +641,12 @@ int drawChar0(bool _line, uint8_t _char, uint32_t _delay, uint8_t _reset) {
       lcd.write(lcdChars[_char]);
     }
   }
-  // store each character (last)
+  // store each character
   charBuffer0[rowCount0 - 1] = _char;
-  // character delay
-  if (_char != 0){ // no delay on spaces
-    charDelay(_delay);
-  } 
-  return _lastidx;
-}
-
-// scroll text on display
-void drawChar1(bool _line, uint8_t _char, uint32_t _delay, uint8_t _reset) {
-  // clear LCD routine
-  if( _reset > 0){
-    lcdDim(); // disable dimming and reset timer
-    // loop through all display characters
-    for(uint8_t _count = 0; _count < lcdCols; _count++) { 
-      // draw spaces
-      if (_reset > 2) {
-        // clear both lines 
-        lcd.setCursor(_count, 0);
-        lcd.write(' ');
-        lcd.setCursor(_count, 1);
-      } else {
-        // clear a single line
-        lcd.setCursor(_count, _reset - 1);
-      }  
-      lcd.write(' ');
-      delay(lcdClearCharSpeed);
-    } // reset cursor
-    lcd.setCursor(0, _line);
-    if( _reset == 1){ // reset row 0
-      rowCount0 = 0;
-    }
-    if( _reset == 2){ // reset row 1
-      rowCount1 = 0;
-    }
-    if( _reset == 3){ // reset both rows
-      rowCount0 = 0;
-      rowCount1 = 0;
-    }   
-    lcdReset = 0; // end reset event
-    eventlcdMessage = 0; // end message event
-    return; // exit function 
-  }  
   /////////////////////////////////////////////////////////////////////// line 1      
-  uint8_t _trlcount = lcdCols - 2;  
-  // store row position (first)     
+  _char = _lastidx; // trailing character
+  _line = !_line; // invert line
+  // count row position    
   rowCount1++; 
   // drawing behavior
   if( rowCount1 > lcdCols ){ 
@@ -716,49 +660,48 @@ void drawChar1(bool _line, uint8_t _char, uint32_t _delay, uint8_t _reset) {
     // draw trailing characters
     _trlcount = lcdCols - 2;
     for(uint8_t _idx = 0; _idx <= lcdCols - 2; _idx++) {
-      lcd.setCursor(_trlcount, _line); 
-      //charDelay(_trldelay); // ms delay between drawing 
+      lcd.setCursor(_trlcount, _line);
       lcd.write(lcdChars[charBuffer1[_trlcount]]);
+      charDelay(_trldelay); // ms delay between drawing 
       _trlcount--; // decrement index
     }
-    // lock trailing behavior on
+    // lock trailing behavior on after 15th character
     rowCount1 = lcdCols;       
   } else {
     // before overflow behavior
     if(rowCount1 != 0){ // stops character drawing after clearing display
       lcd.setCursor(rowCount1 - 1, _line);
       lcd.write(lcdChars[_char]);
-      charDelay(_delay); 
     }
   }
-  // store each character (last)
+  // store each character
   charBuffer1[rowCount1 - 1] = _char;         
   // character delay
   if (_char != 0){ // no delay on spaces
     charDelay(_delay);
-  }  
+  }
 }
 
 // character delay 
 void charDelay(int _delay) {  
   // set default speed if not in range
   if (_delay < 4096) {
-    if (_delay < 3) {
-      _delay = 3;	// min speed limit
-    } // prevent dimming while drawing
-    lcdDimmer.reset();
-    lcdDimmer.start();
-    // restart character delay timer	
-	  lcdDelayTimer.reset();
-	  lcdDelayTimer.set(_delay);
-	  lcdDelayTimer.start();
-	  for(;;) { // adjustable delay	
-	    mainEvents(); // keep checking for events during delay
-	    if(lcdDelayTimer.done()){
-	      lcdDelayTimer.reset();
-	      break; // exit loop when timer done
-	    } 
-	  }  
+    if (_delay > 10) {
+      // prevent dimming while drawing
+      lcdDimmer.reset();
+      lcdDimmer.start();
+      // restart character delay timer	
+  	  lcdDelayTimer.reset();
+  	  lcdDelayTimer.set(_delay);
+  	  lcdDelayTimer.start();
+  	  for(;;) { // adjustable delay	
+  	    mainEvents(); // keep checking for events during delay
+  	    if(lcdDelayTimer.done()){
+  	      lcdDelayTimer.reset();
+  	      break; // exit loop when timer done
+  	    } 
+  	  }
+    }    
   }
 }
 
@@ -798,9 +741,10 @@ void readClearButton() {
     // if button state has changed
     if (reading != clearButton) {
       clearButton = reading;
+      // button change event
       if (clearButton == 1) { 
-        // button change event
-        lcdReset = 3; // both lines
+        // clear both lines
+        lcdReset = 3; 
       }
     } 
   }
@@ -865,7 +809,7 @@ void weatherEvent() {
         _desc.remove(_desc.indexOf('"'),1); 
         _desc.remove(_desc.lastIndexOf('"'),1); 
         // build message 
-        weatherData = "Weather in " + city + " " + _desc + " " + _tempstr0 + "F  feels like " + _tempstr1 + "F ";
+        weatherData = "Weather in " + city + " " + _desc + " " + _tempstr0 + "F feels like " + _tempstr1 + "F ";
         _tempstr0 = "";
         _tempstr1 = "";
         _desc = "";
@@ -881,16 +825,6 @@ void weatherEvent() {
       debugln("Showing last weather data..."); 	
     }
     if (eventlcdMessage == 0){ // only if not drawing
-      // choose the opposite of the last line used
-      if (lcdLine < 2){
-        if (lcdLine == 0){
-          lcdLine = 1;
-        } else {
-          lcdLine = 0;  
-        } 
-      } else {
-        lcdLine = 0;
-      }
       // store message data
       lcdDelay = lcdDefaultDelay;
       int _len = weatherData.length() + 1; 
@@ -987,14 +921,14 @@ void printLocalTime(){
   debug("timeMin: ");
   debugln(timeMin);
   /* get the time of the day */
-  String _tod = (i18n_day_sectors[hour / 3]);
+  String _tod = (clock_day_sectors[hour / 3]);
   /* get the hour sector */
   int sector = 0;
   if (minute > 6) {
     sector = ((minute - 7) / 15 + 1) * 3;
   }
   /* translated time string */
-  String time_format = (i18n_hour_sectors[sector]);
+  String time_format = (clock_hour_sectors[sector]);
   /* detect am/pm */
   bool is_pm = (hour >= 12 && hour != 24);
   /* convert military time to 12-hour */
@@ -1003,7 +937,7 @@ void printLocalTime(){
   else
     hour = 12 - hour % 12 - 1;
   /* replace %0 with current hour label */ 
-  String curr_hour = (i18n_hour_names[hour]);
+  String curr_hour = (clock_hour_names[hour]);
   time_format.replace("%0",curr_hour);
   /* get the next hour */ 
   int _next;
@@ -1012,12 +946,11 @@ void printLocalTime(){
   else
     _next = hour + 1;
   /* replace %1 with next hour label */ 
-  String next_hour = (i18n_hour_names[_next]);
+  String next_hour = (clock_hour_names[_next]);
   time_format.replace("%1",next_hour);
   time_format = _tod + " " + time_format;
   if (eventlcdMessage == 0){ // only if not drawing  
     // store message data
-    lcdLine = 0;
     lcdDelay = lcdDefaultDelay;
     uint32_t _len = time_format.length() + 1; 
     time_format.toCharArray(lcdMessage, _len);
