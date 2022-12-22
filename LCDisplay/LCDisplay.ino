@@ -153,7 +153,7 @@ String weatherData;
 
 //////////////////////////////////////////////////////////////////////////
 // Enable Serial Messages (0 = off)
-#define DEBUG 1
+#define DEBUG 0
 /////////////////
 #if DEBUG == 1
 #define debugstart(x) Serial.begin(x)
