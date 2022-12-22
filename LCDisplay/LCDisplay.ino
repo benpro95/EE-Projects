@@ -542,7 +542,7 @@ void lcdMessageEvent() { // (run only from event timer)
     _charidx = (charLookup(lcdMessage[_idx]));
     // invalid characters
     if( _charidx > chrarSize - 3){ 
-      return; // exit 
+      break;  
     } // read reset state
     _reset = lcdReset;
     charDelay(_delay); // character delay
@@ -551,10 +551,11 @@ void lcdMessageEvent() { // (run only from event timer)
     debug(',');
     // stop drawing if request canceled 
     if (eventlcdMessage == 0) {
-      return;
+      break;
     }    
   }
-  drawChar(0,_delay,_reset); // draw a trailing space
+  charDelay(_delay); // character delay
+  drawChar(0,_delay,0); // draw a trailing space
   debugln(' ');
 }
 
