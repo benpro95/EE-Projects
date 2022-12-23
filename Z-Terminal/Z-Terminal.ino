@@ -33,13 +33,13 @@ static const char *clock_day_sectors[] =
   ("early morning"),
   ("morning"),
   ("mid morning"),
-  ("noon"),
+  (""),
   ("afternoon"),
   ("evening"),
   ("late evening")
 };
 
-static char *clock_hour_sectors[] =
+static const char *clock_hour_sectors[] =
 {
   /* %0 will be replaced with the, 
    * current hour %1 with the comming hour */
@@ -58,7 +58,7 @@ static char *clock_hour_sectors[] =
   "%1 o'clock "
 };
 
-static char *clock_hour_names[] =
+static const char *clock_hour_names[] =
 {
   "one",
   "two",
@@ -100,22 +100,22 @@ uint8_t startDelay = 4; // delay on initial start in seconds
 LiquidCrystal_I2C lcd(lcdAddr);
 const uint8_t lcdCols = 16; // number of columns in the LCD
 const uint8_t lcdRows = 2;  // number of rows in the LCD
-#define lcdBacklight 13 // display backlight pin
 // Custom Characters (progress bar)
 uint8_t bar1[8] = {0x10,0x10,0x10,0x10,0x10,0x10,0x10,0x10};
 uint8_t bar2[8] = {0x18,0x18,0x18,0x18,0x18,0x18,0x18,0x18};
 uint8_t bar3[8] = {0x1C,0x1C,0x1C,0x1C,0x1C,0x1C,0x1C,0x1C};
 uint8_t bar4[8] = {0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E};
 uint8_t bar5[8] = {0x1F,0x1F,0x1F,0x1F,0x1F,0x1F,0x1F,0x1F};
+#define lcdBacklight 13 // display backlight pin
 Neotimer lcdDelayTimer = Neotimer();
-Neotimer lcdDimmer = Neotimer(100000); // ms before dimming display backlight
+Neotimer lcdDimmer = Neotimer(80000); // ms before dimming display backlight
 const uint8_t lcdClearCharSpeed = 50; // ms delay between drawing each character (clearing display)
-const uint32_t lcdDefaultDelay = 275; // ms delay used when none is specified
-uint8_t charBuffer0[20];
-uint8_t charBuffer1[20];
-uint8_t chrarSize = 0;
-uint8_t rowCount0 = 0;
-uint8_t rowCount1 = 0;
+const uint32_t lcdDefaultDelay = 250; // ms delay used when none is specified
+uint8_t charBuffer0[20]; // trailing character buffer (row 0)
+uint8_t charBuffer1[20]; // trailing character buffer (row 1)
+uint8_t chrarSize = 0; // character array size
+uint8_t rowCount0 = 0; // collumn count (row 0)
+uint8_t rowCount1 = 0; // collumn count (row 1)
 
 // Shared resources
 #define httpBufferSize 16384 // HTTP request buffer (bytes)
@@ -128,7 +128,7 @@ uint8_t lcdReset = 0;
 
 // Web Server
 WiFiServer server(CONFIG_PORT);
-char httpHeader[] = {"####?|"}; // API signature
+char httpHeader[] = {"####?|"}; // API header signature
 unsigned long HTTPlastTime = 0; 
 unsigned long HTTPcurTime = millis(); 
 unsigned long httpLineCount = 0;
@@ -154,8 +154,8 @@ Neotimer owmTimer = Neotimer(tenMin); // 10 minute timer
 String weatherData; 
 
 //////////////////////////////////////////////////////////////////////////
-// Enable Serial Messages (0 = off)
-#define DEBUG 0
+// Enable Serial Messages (0 = off) (1 = on)
+#define DEBUG 1
 /////////////////
 #if DEBUG == 1
 #define debugstart(x) Serial.begin(x)
@@ -465,9 +465,9 @@ void LCDDraw( void * pvParameters ){
   // WiFi status
   lcd.clear();
   lcd.setCursor(0,0);
-  lcd.print("Z-Terminal");   
+  lcd.print("Z-Terminal - IP:");   
   lcd.setCursor(0,1);
-  lcd.print("IP: " + ipAddress);  
+  lcd.print(ipAddress);
   delay(1500);
   lcd.clear();
   lcd.setCursor(0,0);
