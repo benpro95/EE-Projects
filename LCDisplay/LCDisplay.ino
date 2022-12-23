@@ -14,8 +14,10 @@
 
 //////////////////////////////////////////////////////////////////////////
 // Wi-Fi Configuration
-const char* CONFIG_SSID   = "mach_kernel";
-const char* CONFIG_PSK    = "phonics.87.reply.218";
+//const char* CONFIG_SSID   = "mach_kernel";
+//const char* CONFIG_PSK    = "phonics.87.reply.218";
+const char* CONFIG_SSID   = "phome";
+const char* CONFIG_PSK    = "Provenzano383";
 const char* HOSTNAME      = "lcd16x2";
 const int   CONFIG_SERIAL = 115200;
 const int   CONFIG_PORT   = 80;

@@ -1,10 +1,10 @@
 SET ARDUINO_CLI=C:\Program Files\Arduino\arduino-cli.exe
-SET ARDUINO_LIB=Z:\Arduino\libraries
+SET ARDUINO_LIB=C:\Users\Cindy\AppData\Local\Arduino15\libraries
 
 SET SKETCH_PATH=.
 SET SKETCH_NAME=LCDisplay.ino
 SET BOARD_TYPE=esp32:esp32:lolin32
-SET COM_PORT=COM8
+SET COM_PORT=COM3
 
 rmdir /s /q "%LocalAppData%\Arduino15\build"
 mkdir "%LocalAppData%\Arduino15\build"
