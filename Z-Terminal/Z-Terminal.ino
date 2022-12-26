@@ -3,10 +3,9 @@
 //////////////////////////////////////////////////////////////////////////
 
 // Libraries //
-#include <Arduino.h>
+#include <Time.h>
 #include <WiFi.h>
 #include <Wire.h>
-#include "time.h"
 #include <neotimer.h>
 #include <HTTPClient.h>
 #include <Arduino_JSON.h>
@@ -29,33 +28,35 @@ const char lcdChars[]={" 0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRS
 // Fuzzy Clock Tables
 static const char *clock_day_sectors[] =
 {
-  ("late night"),
-  ("early morning"),
-  ("morning"),
-  ("mid morning"),
-  (""),
-  ("afternoon"),
-  ("evening"),
-  ("late evening")
+  (" late night"),
+  (" early morning"),
+  (" morning"),
+  (" mid morning"),
+  (" afternoon"),
+  (" late afternoon"),
+  (" evening"),
+  (" late evening"),
+  ("midnight "),
+  ("noon ")
 };
 
 static const char *clock_hour_sectors[] =
 {
   /* %0 will be replaced with the, 
    * current hour %1 with the comming hour */
-  "%0 o'clock ",
-  "five past %0 ",
-  "ten past %0 ",
-  "quarter past %0 ",
-  "twenty past %0 ",
-  "twenty five past %0 ",
-  "half past %0 ",
-  "twenty five to %1 ",
-  "twenty to %1 ",
-  "quarter to %1 ",
-  "ten to %1 ",
-  "five to %1 ",
-  "%1 o'clock "
+  " %0 o'clock ",
+  " five past %0 ",
+  " ten past %0 ",
+  " quarter past %0 ",
+  " twenty past %0 ",
+  " twenty five past %0 ",
+  " half past %0 ",
+  " twenty five to %1 ",
+  " twenty to %1 ",
+  " quarter to %1 ",
+  " ten to %1 ",
+  " five to %1 ",
+  " %1 o'clock "
 };
 
 static const char *clock_hour_names[] =
@@ -74,8 +75,9 @@ static const char *clock_hour_names[] =
   "twelve"
 };
 
-// Ten-minutes in ms
+// Timer constants
 #define tenMin 600000
+#define fiveMin 300000
 
 // RTOS Multi-Core Support
 TaskHandle_t Task1;
@@ -144,7 +146,7 @@ unsigned long WiFiLastMillis = 0;
 const char* ntpServer = "pool.ntp.org";
 const long gmtOffset_sec = -18000;
 const int daylightOffset_sec = 3600;
-Neotimer clockTimer = Neotimer(tenMin); // 10 minute timer
+Neotimer clockTimer = Neotimer(fiveMin); // 5 minute timer
 bool eventPrintTime = 0;
 
 // Weather Search
@@ -897,33 +899,52 @@ void printLocalTime(){
   debug("timeSec: ");
   debugln(timeSec);
   /* get the day of the week */
-  char timeWeekDay[10];
-  strftime(timeWeekDay,10, "%A", &timeinfo);
+  char _timeWeekDay[10];
+  strftime(_timeWeekDay,10, "%A", &timeinfo);
+  String timeWeekDay = String(_timeWeekDay);
   debug("timeWeekDay: ");
   debugln(timeWeekDay);
-  /* get the hour and minute */
+  /* get the hour 12-hour */
+  char hour12[3];
+  strftime(hour12,3, "%I", &timeinfo);
+  debug("hour12: ");
+  debugln(hour12); 
+  /* get the hour 24-hour */
   char timeHour[3];
   strftime(timeHour,3, "%H", &timeinfo);
   int hour = atoi(timeHour);
   debug("timeHour: ");
   debugln(timeHour);
+  /* get the minute */
   char timeMin[3];
   strftime(timeMin,3, "%M", &timeinfo);
   int minute = atoi(timeMin);
+  String minstr = String(timeMin);
   debug("timeMin: ");
   debugln(timeMin);
-  /* get the time of the day */
-  String _tod = (clock_day_sectors[hour / 3]);
+/* get the time of the day */  
+  bool _twelve = 0;
+  String _tod;
+  _tod = (clock_day_sectors[hour / 3]); 
+  // midnight
+  if (hour == 0 && minute <= 30){ 
+    _tod = (clock_day_sectors[8]);
+    _twelve = 1;
+  } // noon
+  if (hour == 12 && minute <= 30){ 
+    _tod = (clock_day_sectors[9]);
+    _twelve = 1;
+  }
   /* get the hour sector */
   int sector = 0;
-  if (minute > 6) {
-    sector = ((minute - 7) / 15 + 1) * 3;
+  if (minute > 2) {
+    sector = (minute - 3) / 5 + 1;
   }
   /* translated time string */
   String time_format = (clock_hour_sectors[sector]);
-  /* detect am/pm */
+  /* detect AM/PM */
   bool is_pm = (hour >= 12 && hour != 24);
-  /* convert military time to 12-hour */
+  /* convert range to match array indexes */
   if (hour % 12 > 0)
     hour = hour % 12 - 1;
   else
@@ -936,11 +957,16 @@ void printLocalTime(){
   if (hour == 11)
      _next = 0;
   else
-    _next = hour + 1;
+     _next = hour + 1;
   /* replace %1 with next hour label */ 
   String next_hour = (clock_hour_names[_next]);
   time_format.replace("%1",next_hour);
-  time_format = _tod + " " + time_format;
+  /* build time string */
+  if (_twelve == 1){
+    time_format = timeWeekDay + time_format + _tod;
+  } else {
+    time_format = timeWeekDay + _tod + time_format;
+  }
   if (eventlcdMessage == 0){ // only if not drawing  
     // store message data
     lcdDelay = lcdDefaultDelay;
