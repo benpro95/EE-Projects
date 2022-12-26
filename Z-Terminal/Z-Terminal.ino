@@ -443,7 +443,7 @@ void decodeMessage(uint32_t _startpos, uint32_t _httpcount) {
     // trigger event
     eventlcdMessage = 1;
   } else {
-    debugln("display busy. ");
+    debugln("display busy.");
   } 
 }
 
@@ -544,10 +544,7 @@ void lcdMessageEvent() { // (run only from event timer)
   for(uint32_t _idx = 0; _idx < _end; _idx++) { 
     // convert each character into array index positions
     _charidx = (charLookup(lcdMessage[_idx]));
-    // invalid characters
-    if( _charidx > chrarSize - 3){ 
-      break;  
-    } // read reset state
+    // read reset state
     _reset = lcdReset;
     charDelay(_delay); // character delay
     drawChar(_charidx,_delay,_reset); // draw each character
@@ -558,8 +555,6 @@ void lcdMessageEvent() { // (run only from event timer)
       break;
     }    
   }
-  charDelay(_delay); // character delay
-  drawChar(0,_delay,0); // draw a trailing space
   debugln(' ');
 }
 
@@ -610,7 +605,12 @@ void drawChar(uint8_t _char, uint32_t _delay, uint8_t _reset) {
     lcdReset = 0; // end reset event
     eventlcdMessage = 0; // end message event
     return; 
-  } ///////////////////////////////////////////////////////////////////// line 0
+  }
+  // invalid characters
+  if( _char > chrarSize - 3){ 
+    return;  
+  }
+   ///////////////////////////////////////////////////////////////////// line 0
   uint32_t _lastidx = 0;
   uint8_t _trlcount;
   // count row position   
@@ -619,20 +619,25 @@ void drawChar(uint8_t _char, uint32_t _delay, uint8_t _reset) {
   if( rowCount0 > lcdCols ){ 
     // store last trailing character
     _lastidx = charBuffer0[0];
-    // overflow behavior
+    // rearrange trailing characters 
     for(uint8_t _idx = 0; _idx <= lcdCols; _idx++) { 
-      charBuffer0[_idx] = charBuffer0[_idx + 1]; // rearrange characters
-    } 
-    // print last character
-    lcd.setCursor(lcdCols - 1, _line);
-    lcd.write(lcdChars[_char]); 
-    // draw trailing characters
-    _trlcount = lcdCols - 2;
-    for(uint8_t _idx = 0; _idx <= lcdCols - 2; _idx++) {
-      lcd.setCursor(_trlcount, _line);
-      lcd.write(lcdChars[charBuffer0[_trlcount]]);
-      _trlcount--; // decrement index
+      charBuffer0[_idx] = charBuffer0[_idx + 1];
     }
+    // write display output data
+    char tmpchr0;
+    char datout0[lcdCols + 1]={0}; // temporary array
+    for(uint8_t _idx = 0; _idx <= lcdCols - 1; _idx++) { 
+      if( _idx == (lcdCols - 1)){
+      	tmpchr0 = lcdChars[_char]; // new character 15th
+        strncat(datout0, &tmpchr0, 1);
+      } else {
+      	uint8_t _tmpidx = charBuffer0[_idx]; // 0-14 from buffer
+      	tmpchr0 = lcdChars[_tmpidx]; // convert index position
+        strncat(datout0, &tmpchr0, 1);
+      }
+    } // write to display
+    lcd.setCursor(0, _line);
+    lcd.write(datout0); 
     // lock trailing behavior on after 15th character
     rowCount0 = lcdCols;       
   } else { 
@@ -645,7 +650,7 @@ void drawChar(uint8_t _char, uint32_t _delay, uint8_t _reset) {
   // store each character
   charBuffer0[rowCount0 - 1] = _char;
   /////////////////////////////////////////////////////////////////////// line 1     
-  _char = _lastidx; // trailing character
+  _char = _lastidx; // trailing character index from line 0
   _line = !_line; // invert line
   // count row position    
   rowCount1++; 
@@ -655,16 +660,21 @@ void drawChar(uint8_t _char, uint32_t _delay, uint8_t _reset) {
     for(uint8_t _idx = 0; _idx <= lcdCols; _idx++) { 
       charBuffer1[_idx] = charBuffer1[_idx + 1]; // rearrange characters
     }
-    // print last character
-    lcd.setCursor(lcdCols - 1, _line);
-    lcd.write(lcdChars[_char]);       
-    // draw trailing characters
-    _trlcount = lcdCols - 2;
-    for(uint8_t _idx = 0; _idx <= lcdCols - 2; _idx++) {
-      lcd.setCursor(_trlcount, _line);
-      lcd.write(lcdChars[charBuffer1[_trlcount]]);
-      _trlcount--; // decrement index
-    }
+    // write display output data
+    char tmpchr1;
+    char datout1[lcdCols + 1]={0}; // temporary array
+    for(uint8_t _idx = 0; _idx <= lcdCols - 1; _idx++) { 
+      if( _idx == (lcdCols - 1)){
+      	tmpchr1 = lcdChars[_char]; // new character 15th
+        strncat(datout1,&tmpchr1,1);
+      } else {
+      	uint8_t _tmpidx = charBuffer1[_idx]; // 0-14 from buffer
+      	tmpchr1 = lcdChars[_tmpidx]; // convert index position
+        strncat(datout1,&tmpchr1,1);
+      }
+    } // write to display
+    lcd.setCursor(0, _line);
+    lcd.write(datout1); 
     // lock trailing behavior on after 15th character
     rowCount1 = lcdCols;       
   } else {
@@ -803,7 +813,7 @@ void weatherEvent() {
         _desc.remove(_desc.indexOf('"'),1); 
         _desc.remove(_desc.lastIndexOf('"'),1); 
         // build message 
-        weatherData = "weather in " + city + " " + _desc + " " + _tempstr0 + "F feels like " + _tempstr1 + "F";
+        weatherData = "weather in " + city + " " + _desc + " " + _tempstr0 + "F feels like " + _tempstr1 + "F ";
         _tempstr0 = "";
         _tempstr1 = "";
         _desc = "";
@@ -873,6 +883,13 @@ String httpGETRequest(const char* serverName) {
 
 // Time-date using NTP 
 void printLocalTime(){
+  //int _inc = 5; // minute increment
+  //for(int _hour = 0; _hour < 24; _hour++) {
+  //  for(int _min = 0; _min < 60; _min++) {
+  //   clock(_hour,_min);
+  //    _min = _min + _inc - 1;
+  //  }
+  //}
   struct tm timeinfo;
   if(!getLocalTime(&timeinfo)){
     debugln("Failed to obtain time");
@@ -963,9 +980,9 @@ void printLocalTime(){
   time_format.replace("%1",next_hour);
   /* build time string */
   if (_twelve == 1){
-    time_format = timeWeekDay + time_format + _tod;
+    time_format = timeWeekDay + time_format + _tod + " ";
   } else {
-    time_format = timeWeekDay + _tod + time_format;
+    time_format = timeWeekDay + _tod + time_format + " ";
   }
   if (eventlcdMessage == 0){ // only if not drawing  
     // store message data
