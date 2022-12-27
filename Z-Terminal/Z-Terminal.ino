@@ -980,9 +980,9 @@ void printLocalTime(){
   time_format.replace("%1",next_hour);
   /* build time string */
   if (_twelve == 1){
-    time_format = timeWeekDay + time_format + _tod + " ";
+    time_format = timeWeekDay + time_format + _tod;
   } else {
-    time_format = timeWeekDay + _tod + time_format + " ";
+    time_format = timeWeekDay + _tod + time_format;
   }
   if (eventlcdMessage == 0){ // only if not drawing  
     // store message data
