@@ -94,7 +94,7 @@ void setup() {
 //////////////////////////////////////////////////////////////////////////
 // parallel task 0
 void WebServer( void * pvParameters ){
-  disableCore0WDT(); // disable on core 0 (firmware bug)
+  //disableCore0WDT(); // disable watchdog on core 0 
   // start serial
   debugstart(CONFIG_SERIAL);
   debug("Web running on core ");
@@ -184,7 +184,7 @@ void webServer()
             client.println("Content-type:text/html");
             client.println("Connection: close");
             client.println();
-            // transmit example: (curl http://hostname.home/message -H "Accept: ####?|mode|command|data")
+            // transmit example: (curl http://hostname.home -H "Accept: ####?|mode|command|data")
             debugln("HTTP request");
             for(uint32_t _idx = 0; _idx < httpReqCount; _idx++) {
               char _vchr = httpReq[_idx];    
@@ -231,6 +231,8 @@ void webServer()
     client.stop();
     debugln("client disconnected.");
     debugln("");
+  } else { // watchdog timer fix!
+    delay(10);
   }
 }
 
@@ -333,13 +335,14 @@ void Xmit( void * pvParameters ){
   digitalWrite(triggerPin, LOW);
   // built-in LED
   pinMode(onBoardLED, OUTPUT);  
-  digitalWrite(onBoardLED, HIGH);      
+  digitalWrite(onBoardLED, LOW);      
   // RF transmit output on pin #19
   mySwitch.enableTransmit(19);
   mySwitch.setPulseLength(183);
   mySwitch.setProtocol(1);
   mySwitch.setRepeatTransmit(0);
-  delay(500);
+  delay(500); // LED off
+  digitalWrite(onBoardLED, HIGH);       
   // setup done
   for(;;){ // Xmit main loop
   ///////////////////  
@@ -383,7 +386,7 @@ void xmitEvent() {
   if (xmitMode == 2) {
     // GPIO on
     if (xmitCommand == 0) {
-      if (xmitData == triggerPin) {
+      if ((xmitData == onBoardLED) || (xmitData == triggerPin)) {
         debugln("enabling GPIO pin...");
         digitalWrite(xmitData, HIGH);
       }
