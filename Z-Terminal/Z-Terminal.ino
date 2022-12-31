@@ -195,7 +195,7 @@ void setup() {
 //////////////////////////////////////////////////////////////////////////
 // parallel task 0
 void WebServer( void * pvParameters ){
-  disableCore0WDT(); // disable on core 0 (firmware bug)
+  //disableCore0WDT(); // disable watchdog on core 0 
   // built-in LED
   pinMode(LED_BUILTIN, OUTPUT);  
   digitalWrite(LED_BUILTIN, HIGH);    
@@ -348,15 +348,33 @@ void webServer()
     client.stop();
     debugln("client disconnected.");
     debugln("");
+  } else { // watchdog timer fix!
+    delay(10);
   }
 }
 
 // decode LCD message and trigger display event
 void decodeMessage(uint32_t _startpos, uint32_t _httpcount) { 
+  // count delimiters
+  char _delimiter = '|'; 
+  uint32_t _delims = 0;
+  for(uint32_t _idx = _startpos; _idx < _httpcount; _idx++) {
+    char _vchr = httpReq[_idx];  
+    if (_vchr == _delimiter) {
+      _delims++;
+    }
+  } 
+  // exit if all delimiters not found
+  debugln(" ");
+  if (_delims >= 2){ 
+    debugln("processing data...");
+  } else {
+    debugln("invalid data.");
+    return;
+  }  
   //////////// start and end positions of control characters & message
   uint8_t _maxchars = 12; // max characters for line & delay commands
   uint32_t _linepos = 0;
-  char _delimiter = '|';  
   // find second delimiter position
   for(uint32_t _idx = _startpos; _idx < _httpcount; _idx++) {  
     char _vchr = httpReq[_idx];  
