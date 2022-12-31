@@ -1,20 +1,61 @@
-// Configuration
-const char* CONFIG_SSID      = "mach_kernel";
-const char* CONFIG_PSK       = "phonics.87.reply.218";
-const char* HOSTNAME         = "xmit";
-const int   CONFIG_SERIAL    = 115200;
-const int   CONFIG_PORT      = 80;
-/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+ //////////////////////////////////////////////////////////////////////////
+// by Ben Provenzano III
+//////////////////////////////////////////////////////////////////////////
 
 // Include libraries
-#include <Arduino.h>
 #include <WiFi.h>
-#include "IRremote.h" //v2.9 local
 #include <RCSwitch.h>
+#include "IRremote.h" //v2.9 local
 
-// Enable Serial Messages (0 disable)
-#define DEBUG 0
+//////////////////////////////////////////////////////////////////////////
+// Wi-Fi Configuration
+const char* CONFIG_SSID   = "mach_kernel";
+const char* CONFIG_PSK    = "phonics.87.reply.218";
+const char* HOSTNAME      = "xmit2";
+const int   CONFIG_SERIAL = 115200;
+const int   CONFIG_PORT   = 80;
+//////////////////////////////////////////////////////////////////////////
 
+// RTOS Multi-Core Support
+TaskHandle_t Task1;
+TaskHandle_t Task2;
+
+// Shared resources
+#define httpBufferSize 2048 // HTTP request buffer (bytes)
+char httpReq[2048] = {'\0'};
+uint32_t xmitMessageEnd = 0;
+uint32_t xmitMode = 0;
+long xmitCommand = 0;
+long xmitData = 0;
+bool eventXmit = 0;
+
+// Web Server
+WiFiServer server(CONFIG_PORT);
+char httpHeader[] = {"####?|"}; // API header signature
+unsigned long HTTPlastTime = 0; 
+unsigned long HTTPcurTime = millis(); 
+unsigned long httpLineCount = 0;
+unsigned long httpReqCount = 0;
+const long timeoutTime = 1500; // HTTP timeout (ms)
+
+// Wi-Fi
+unsigned long WiFiDownInterval = 600000; // WiFi reconnect timeout (10-min)
+unsigned long WiFiLastMillis = 0;
+
+// GPIO
+#define triggerPin 32 // PC power trigger
+#define onBoardLED 5 // built-in LED
+
+// Transmits IR on pin #4
+IRsend irsend;
+
+// Create RF send object
+RCSwitch mySwitch = RCSwitch();
+
+//////////////////////////////////////////////////////////////////////////
+// Enable Serial Messages (0 = off) (1 = on)
+#define DEBUG 1
+/////////////////
 #if DEBUG == 1
 #define debugstart(x) Serial.begin(x)
 #define debug(x) Serial.print(x)
@@ -25,79 +66,60 @@ const int   CONFIG_PORT      = 80;
 #define debugln(x)
 #endif
 
-// Create webserver object
-WiFiServer server(CONFIG_PORT);
-
-// Create IR send object
-// Transmits on pin #4
-IRsend irsend;
-
-// Create RF send object
-RCSwitch mySwitch = RCSwitch();
-
-// WiFi Constants
-unsigned long previousMillis = 0;
-unsigned long interval = 30000;
-// Validate Constants
-long intout;
-int base = 10;
-char* behind;
-
-// Variables to store the HTTP request
-String req;
-String req_trunc;
-
-// Current time
-unsigned long currentTime = millis();
-// Previous time
-unsigned long previousTime = 0;        
-// Define timeout time in milliseconds
-const long timeoutTime = 2000;
-
-/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
-
-// Setup instructions
+//////////////////////////////////////////////////////////////////////////
+// initialization
 void setup() {
-
-  // Start serial and LED
-  debugstart(CONFIG_SERIAL);
-  debugln();
-  debugln("Starting setup");
-
-  // Trigger Out 3.5mm Jack 
-  pinMode(32, OUTPUT);
-  digitalWrite(32, 0);
-
-  // Built-in LED (turn-on, active low)
-  pinMode(5, OUTPUT);
-  digitalWrite(5, 0);
-
-  // RF transmit output on pin #19
-  mySwitch.enableTransmit(19);
-  mySwitch.setPulseLength(183);
-  mySwitch.setProtocol(1);
-  //mySwitch.setRepeatTransmit(3);
+  // Web task - parallel a task
+  xTaskCreatePinnedToCore(
+   WebServer,    /* task function. */
+   "Task1",     /* name of task. */
+   16384,       /* Stack size of task */
+   NULL,        /* parameter of the task */
+   1,           /* priority of the task */
+   &Task1,      /* Task handle to keep track of created task */
+   0);          /* pin task to core 0 */  
+  delay(500);  
+  // LCD task - parallel a task
+  xTaskCreatePinnedToCore(
+   Xmit,        /* task function. */
+   "Task2",     /* name of task. */
+   16384,       /* Stack size of task */
+   NULL,        /* parameter of the task */
+   3,           /* priority of the task */
+   &Task2,      /* Task handle to keep track of created task */
+   1);          /* pin task to core 1 */  
   delay(500);
+}
 
-  // Start WiFi connection
+//////////////////////////////////////////////////////////////////////////
+// parallel task 0
+void WebServer( void * pvParameters ){
+  disableCore0WDT(); // disable on core 0 (firmware bug)
+  // start serial
+  debugstart(CONFIG_SERIAL);
+  debug("Web running on core ");
+  debugln(xPortGetCoreID());
+  // start WiFi connection
   debug("Connecting to: ");
   debugln(CONFIG_SSID);
-  WiFi.mode(WIFI_STA);
-  WiFi.disconnect(true);
-  WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE);
-  WiFi.setHostname(HOSTNAME);
-  WiFi.begin(CONFIG_SSID, CONFIG_PSK);
-
-  // Wait for WiFi connection
+  int _tryCount = 0;
   while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    debug(".");
+    _tryCount++;
+    WiFi.mode(WIFI_STA);
+    WiFi.disconnect(true);
+    WiFi.config(INADDR_NONE, INADDR_NONE, INADDR_NONE);
+    WiFi.setHostname(HOSTNAME);
+    WiFi.begin(CONFIG_SSID, CONFIG_PSK);
+    vTaskDelay( 4000 );
+    if ( _tryCount == 10 )
+    {
+      ESP.restart();
+    }
   }
   debugln();
   debugln("WiFi connected!");
   WiFi.setAutoReconnect(true);
   WiFi.persistent(true);
-
   // Print WiFi connection information
   debug("  SSID: ");
   debugln(WiFi.SSID());
@@ -106,205 +128,292 @@ void setup() {
   debugln(" dBm");
   debug("  Local IP: ");
   debugln(WiFi.localIP());
-
+  debug("  Port: ");
+  debugln(CONFIG_PORT);  
   // Start webserver
   debugln("Starting webserver...");
   server.begin();
   delay(1000);
-  debugln("Webserver started!");
-
-  // Print webserver information
-  debug("  Host: ");
-  debugln(WiFi.localIP());
-  debug("  Port: ");
-  debugln(CONFIG_PORT);
-
-  // Setup complete
-  debugln("Setup completed");
-  debugln();
-  digitalWrite(5, 1);
-
+  debugln("Webserver started.");
+  // setup done
+  for(;;){ //
+  ///////////////////
+    // if WiFi is down, try reconnecting
+    unsigned long WiFiCurMillis = millis();
+    if ((WiFi.status() != WL_CONNECTED) && \
+     (WiFiCurMillis - WiFiLastMillis >= WiFiDownInterval)) {
+      debug(millis());
+      debugln("Reconnecting to WiFi...");
+      WiFi.disconnect();
+      WiFi.reconnect();
+      WiFiLastMillis = WiFiCurMillis;
+    }  
+    // light web server
+    webServer();
+  }
 }
 
-/* - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
-
-// Loop instructions
-void loop() {
-
-  // if WiFi is down, try reconnecting every CHECK_WIFI_TIME seconds
-  unsigned long currentMillis = millis();
-  if ((WiFi.status() != WL_CONNECTED) && (currentMillis - previousMillis >=interval)) {
-    debug(millis());
-    debugln("Reconnecting to WiFi...");
-    WiFi.disconnect();
-    WiFi.reconnect();
-    previousMillis = currentMillis;
-  }  
-
-  // Wait for new client
+// HTTP request server
+void webServer() 
+{ // wait for new client
   WiFiClient client = server.available();
   if (client) {
-
-    currentTime = millis();
-    previousTime = currentTime;
-    debugln("New Client.");                 // print a message out in the serial port
-    String currentLine = "";                // make a String to hold incoming data from the client
-    while (client.connected() && currentTime - previousTime <= timeoutTime) {
-      currentTime = millis();
+    HTTPcurTime = millis();
+    HTTPlastTime = HTTPcurTime;
+    debugln("New Client.");                 // print a message out in the serial port              
+    char curLine[httpBufferSize] = {'\0'};  // make an array to hold incoming data from the client
+    while (client.connected() && HTTPcurTime - HTTPlastTime <= timeoutTime) {
+      HTTPcurTime = millis();
       // loop while the client's connected
       if (client.available()) {             // if there's bytes to read from the client,
         char c = client.read();             // read a byte, then
-        debug(c);                           // print it out the serial monitor
-        req += c;
-        if (c == '\n') {                    // if the byte is a newline character
+        // add each character to array 
+        if (httpReqCount < httpBufferSize && httpReqCount >= 0){
+          httpReq[httpReqCount] = c;
+          httpReqCount++;
+        } else {
+          httpReqCount = 0;   
+        } // if the byte is a newline character
+        if (c == '\n') { 
           // if the current line is blank, you got two newline characters in a row.
-          // that's the end of the client HTTP request, so send a response:
-          if (currentLine.length() == 0) {
+          // that's the end of the client HTTP request, send a response:
+          if (httpLineCount == 0) {
             // HTTP headers always start with a response code (e.g. HTTP/1.1 200 OK)
             // and a content-type so the client knows what's coming, then a blank line:
             client.println("HTTP/1.1 200 OK");
             client.println("Content-type:text/html");
             client.println("Connection: close");
             client.println();
-
-             // Only process a xmit request  
-             if (req.indexOf(F("/xmit/")) != -1) {
-
-              // Truncate request string
-              String req_trunc = req;
-              req_trunc.remove(0, ((req_trunc.lastIndexOf("/xmit/")) + 6));
-              req_trunc.remove((req_trunc.indexOf(" ")));
-              debug("Valid request: ");
-              debugln(req_trunc);
-              
-              ///////////////////////////////////////////////      
-                    
-              // IR Transmit (must be in integer format)
-              if(req_trunc.indexOf("irtx.") >=0)
-              {
-                if(req_trunc.indexOf("nec.") >=4)
-                {
-                  // NEC IR Transmit 32-bit
-                  debug("IR NEC\n");
-                  req_trunc = req_trunc.substring(9,21);
-                  intout = strtol(req_trunc.c_str(), &behind, base);
-                   irsend.sendNEC(intout, 32);
-                  delay(30);
-                  intout = 0;
-                  behind = 0;
-                  base = 10;                     
-                }
-                if(req_trunc.indexOf("sony20.") >=4)
-                {
-                  // SONY IR Transmit 20-bit
-                  debug("IR Sony 20-bit\n");
-                  req_trunc = req_trunc.substring(12,24);
-                  intout = strtol(req_trunc.c_str(), &behind, base);
-                   irsend.sendSony(intout, 20);
-                  delay(30);
-                  intout = 0;
-                  behind = 0;
-                  base = 10;                     
-                }
-                if(req_trunc.indexOf("sony12.") >=4)
-                {
-                  // SONY IR Transmit 12-bit
-                  debug("IR Sony 12-bit\n");
-                  req_trunc = req_trunc.substring(12,24);
-                  intout = strtol(req_trunc.c_str(), &behind, base);
-                  for (int i = 0; i < 3; i++) {
-                    irsend.sendSony(intout, 12);
-                  }
-                  delay(30);
-                  intout = 0;
-                  behind = 0;
-                  base = 10;   
-                }  
-              }
-
-              // FET Control
-              if(req_trunc.indexOf("fet.") >=0)
-              {
-                if(req_trunc.indexOf("on.") >=3)
-                {
-                  // FET on
-                  debug("FET on\n");
-                  req_trunc = req_trunc.substring(7,9);
-                  intout = strtol(req_trunc.c_str(), &behind, base);
-                  if (intout == 32 ) {
-                    digitalWrite(intout, HIGH);
-                  }
-                  delay(30);
-                  intout = 0;
-                  behind = 0;
-                  base = 10;   
-                }
-                if(req_trunc.indexOf("off.") >=3)
-                {
-                  // FET off
-                  debug("FET off\n");
-                  req_trunc = req_trunc.substring(8,10);
-                  intout = strtol(req_trunc.c_str(), &behind, base);
-                  if (intout == 32 || intout == 5) {
-                    digitalWrite(intout, LOW);
-                  }  
-                  delay(30);
-                  intout = 0;
-                  behind = 0;
-                  base = 10;                     
-                }
-                if(req_trunc.indexOf("tgl.") >=3)
-                {
-                  // FET toggle
-                  debug("FET toggled\n");
-                  req_trunc = req_trunc.substring(8,10);
-                  intout = strtol(req_trunc.c_str(), &behind, base);
-                  if (intout == 32 || intout == 5) {
-                    digitalWrite(intout, HIGH);
-                    delay(300);
-                    digitalWrite(intout, LOW);
-                  }  
-                  delay(30);
-                  intout = 0;
-                  behind = 0;
-                  base = 10;                  
-                }
-              }    
-
-              // 433MHz RF Control
-              if(req_trunc.indexOf("rftx.") >=0)
-              {
-                debug("RF transmit\n");
-                req_trunc = req_trunc.substring(5,20);
-                intout = strtol(req_trunc.c_str(), &behind, base);
-                 mySwitch.send(intout, 24);
-                delay(30);
-                intout = 0;
-                behind = 0;
-                base = 10;
-              }
-                
-              req_trunc = "";
-              ///////////////////////////////////////////////                    
-            }            
-            // The HTTP response ends with another blank line
+            // transmit example: (curl http://hostname.home/message -H "Accept: ####?|mode|command|data")
+            debugln("HTTP request");
+            for(uint32_t _idx = 0; _idx < httpReqCount; _idx++) {
+              char _vchr = httpReq[_idx];    
+              debug(_vchr); 
+            }
+            debugln("---------");
+            // loop through characters (detect header signature)
+            uint32_t _matches = 0;
+            uint32_t _charstart = 0;            
+            uint8_t _hdrcount = sizeof(httpHeader) - 2;
+            for(uint32_t _idx = 0; _idx < httpReqCount; _idx++) {
+              // find matching characters
+              if (httpReq[_idx] == httpHeader[_matches]) {
+                if (_matches >= _hdrcount){
+                  // all characters matched
+                  client.println("command received.");
+                  // pass array start-end positions to message function
+                  decodeMessage(_idx + 1, httpReqCount);
+                  break;
+                } // count matches 
+                _matches++;
+              }  
+            }      
+            // the HTTP response ends with another blank line
             client.println();
-            
-            // Break out of the while loop
-            break;
+            break; // break out of the while loop
           } else { // if you got a newline, then clear currentLine
-            currentLine = "";
+            httpLineCount = 0;  
           }
-        } else if (c != '\r') {  // if you got anything else but a carriage return character,
-          currentLine += c;      // add it to the end of the currentLine
+        } else if (c != '\r') {  // if you have anything else but a carriage return character
+          // add it to the end of the current line
+          if (httpLineCount < httpBufferSize && httpLineCount >= 0){
+            curLine[httpLineCount] = c;
+            httpLineCount++;
+          } else {
+            httpLineCount = 0;   
+          }
         }
       }
     }
-    // Clear the request variable
-    req = "";
-    // Close the connection
+    // reset the HTTP request array index counter
+    httpReqCount = 0;
+    // close the connection
     client.stop();
-    debugln("Client disconnected.");
+    debugln("client disconnected.");
     debugln("");
   }
+}
+
+// decode LCD message and trigger display event
+void decodeMessage(uint32_t _startpos, uint32_t _httpcount) { 
+  // count delimiters
+  char _delimiter = '|'; 
+  uint32_t _delims = 0;
+  for(uint32_t _idx = _startpos; _idx < _httpcount; _idx++) {
+    char _vchr = httpReq[_idx];  
+    if (_vchr == _delimiter) {
+      _delims++;
+    }
+  } 
+  // exit if all delimiters not found
+  debugln(" ");
+  if (_delims >= 2){ 
+    debugln("processing data...");
+  } else {
+    debugln("invalid data.");
+    return;
+  }  
+  //////////// start and end positions of control characters & message
+  uint8_t _maxchars = 24; // max characters for commands
+  uint32_t _linepos = 0;
+  // find second delimiter position
+  for(uint32_t _idx = _startpos; _idx < _httpcount; _idx++) {  
+    char _vchr = httpReq[_idx];  
+    if (_vchr == _delimiter) {
+      // store index position
+      _linepos = _idx;
+      break;
+    }
+  }
+  // loop through line characters  
+  uint8_t _linecount = 0;
+  char _linebuffer[_maxchars];
+  for(uint32_t _idx = _startpos; _idx < _linepos; _idx++) {
+    if (_linecount >= _maxchars) {
+      break;
+    } // store in new array
+    _linebuffer[_linecount] = httpReq[_idx];
+    _linecount++;
+  }
+  // find third delimiter position
+  uint8_t _count = 0;
+  uint32_t _cmd2pos = 0; 
+  for(uint32_t _idx = _startpos; _idx < _httpcount; _idx++) {
+    char _vchr = httpReq[_idx];   
+    if (_vchr == _delimiter) {
+      if (_count == 1) {
+        // store index position
+        _cmd2pos = _idx;
+        break;
+      }  
+      _count++;
+    }
+  } 
+  // loop through second command characters
+  uint32_t _cmd2count = 0;  
+  char _cmd2buffer[_maxchars];
+  for(uint32_t _idx = _linepos + 1; _idx < _cmd2pos; _idx++) { 
+    if (_cmd2count >= _maxchars) {  
+      break;
+    } // store in new array 
+    _cmd2buffer[_cmd2count] = httpReq[_idx];
+    _cmd2count++;
+  }    
+  // convert to integer, store mode
+  uint32_t _mode = atoi(_linebuffer); 
+  // exit if out of range
+  if (_mode > 4) {
+    debugln("invalid mode.");
+    return;
+  } 
+  // loop through and write data portion 
+  uint32_t _lcdidx = 0;
+  char _databuffer[_maxchars];
+  for(uint32_t _idx = _cmd2pos + 1; _idx < _httpcount; _idx++) { 
+    _databuffer[_lcdidx] = httpReq[_idx]; // write to message array
+    _lcdidx++; // increment index
+  }
+  // convert to integers and write to shared buffer
+  xmitMode = _mode;
+  xmitData = atol(_databuffer);
+  xmitCommand = atol(_cmd2buffer);
+  // position of the end of message  
+  xmitMessageEnd = (_httpcount - (_cmd2pos + 1)); 
+  // trigger event
+  eventXmit = 1;
+}
+
+//////////////////////////////////////////////////////////////////////////
+// parallel task 1
+void Xmit( void * pvParameters ){
+  debug("Xmit running on core ");
+  debugln(xPortGetCoreID());
+  // Trigger Out 3.5mm Jack 
+  pinMode(triggerPin, OUTPUT);
+  digitalWrite(triggerPin, LOW);
+  // built-in LED
+  pinMode(onBoardLED, OUTPUT);  
+  digitalWrite(onBoardLED, HIGH);      
+  // RF transmit output on pin #19
+  mySwitch.enableTransmit(19);
+  mySwitch.setPulseLength(183);
+  mySwitch.setProtocol(1);
+  mySwitch.setRepeatTransmit(0);
+  delay(500);
+  // setup done
+  for(;;){ // Xmit main loop
+  ///////////////////  
+    if (eventXmit == 1) { 
+      delay(10); 
+      xmitEvent();
+      eventXmit = 0; 
+    } else {
+      delay(10);  
+    }
+  }
+}
+
+void xmitEvent() {
+  // IR Transmit
+  if (xmitMode == 0) {
+    if (xmitCommand == 0) {
+      // NEC IR Transmit 32-bit
+      debugln("transmitting IR NEC...");
+      irsend.sendNEC(xmitData, 32);                  
+    }
+    if (xmitCommand == 1) {
+      // SONY IR Transmit 20-bit
+      debugln("transmitting IR Sony 20-bit...");
+      irsend.sendSony(xmitData, 20);                    
+    }
+    if (xmitCommand == 2) {
+      // SONY IR Transmit 12-bit
+      debugln("transmitting IR Sony 12-bit...");
+      for (int i = 0; i < 3; i++) {
+        irsend.sendSony(xmitData, 12);
+      } 
+    }  
+  }
+  // RF Transmit
+  if ((xmitMode == 1) && (xmitCommand == 0)) {
+    debugln("transmitting RF...");
+    mySwitch.send(xmitData, 24); 
+  }
+  // GPIO control
+  if (xmitMode == 2) {
+    // GPIO on
+    if (xmitCommand == 0) {
+      if (xmitData == triggerPin) {
+        debugln("enabling GPIO pin...");
+        digitalWrite(xmitData, HIGH);
+      }
+    }
+    // GPIO off
+    if (xmitCommand == 1) {
+      if ((xmitData == onBoardLED) || (xmitData == triggerPin)) {
+        debugln("disabling GPIO pin...");
+        digitalWrite(xmitData, LOW);
+      }                
+    }
+    // GPIO toggle
+    if (xmitCommand == 2) {
+      if ((xmitData == onBoardLED) || (xmitData == triggerPin)) {
+        debugln("toggling GPIO pin...");
+        digitalWrite(xmitData, HIGH);
+        delay(300);
+        digitalWrite(xmitData, LOW);
+      }                  
+    }
+  } 
+  debug("Xmit mode: ");
+  debugln(xmitMode);
+  debug("Xmit command: ");
+  debugln(xmitCommand);
+  debug("Xmit data: ");
+  debugln(xmitData);
+}
+
+void loop() {
+  // main loop disabled
+  delay(1000);
 }
