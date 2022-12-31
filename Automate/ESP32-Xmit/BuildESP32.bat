@@ -4,7 +4,7 @@ SET ARDUINO_LIB=Z:\Arduino\libraries
 SET SKETCH_PATH=.
 SET SKETCH_NAME=ESP32-Xmit.ino
 SET BOARD_TYPE=esp32:esp32:lolin32
-SET COM_PORT=COM7
+SET COM_PORT=COM9
 
 rmdir /s /q "%LocalAppData%\Arduino15\build"
 mkdir "%LocalAppData%\Arduino15\build"

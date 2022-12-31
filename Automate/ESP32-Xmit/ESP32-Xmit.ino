@@ -340,7 +340,7 @@ void Xmit( void * pvParameters ){
   mySwitch.enableTransmit(19);
   mySwitch.setPulseLength(183);
   mySwitch.setProtocol(1);
-  mySwitch.setRepeatTransmit(0);
+  //mySwitch.setRepeatTransmit(0);
   delay(500); // LED off
   digitalWrite(onBoardLED, HIGH);       
   // setup done
