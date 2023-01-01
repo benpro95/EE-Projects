@@ -17,12 +17,11 @@ const int   CONFIG_PORT   = 80;
 //////////////////////////////////////////////////////////////////////////
 
 // RTOS Multi-Core Support
-TaskHandle_t Task1;
 TaskHandle_t Task2;
 
 // Shared resources
-#define httpBufferSize 2048 // HTTP request buffer (bytes)
-char httpReq[2048] = {'\0'};
+#define httpBufferSize 256 // HTTP request buffer (bytes)
+char httpReq[httpBufferSize] = {'\0'};
 uint32_t xmitMessageEnd = 0;
 uint32_t xmitMode = 0;
 long xmitCommand = 0;
@@ -69,17 +68,22 @@ RCSwitch mySwitch = RCSwitch();
 //////////////////////////////////////////////////////////////////////////
 // initialization
 void setup() {
-  // Web task - parallel a task
-  xTaskCreatePinnedToCore(
-   Xmit,        /* task function. */
-   "Task1",     /* name of task. */
-   16384,       /* Stack size of task */
-   NULL,        /* parameter of the task */
-   1,           /* priority of the task */
-   &Task1,      /* Task handle to keep track of created task */
-   0);          /* pin task to core 0 */  
-  delay(500);  
-  // transmit task (must be on core 0)
+  // trigger Out 3.5mm Jack 
+  pinMode(triggerPin, OUTPUT);
+  digitalWrite(triggerPin, LOW);
+  // built-in LED
+  pinMode(onBoardLED, OUTPUT);  
+  digitalWrite(onBoardLED, LOW);      
+  delay(1500); // LED off
+  debug("Xmit running on core ");
+  debugln(xPortGetCoreID());
+  // RF transmit output on pin #19
+  mySwitch.enableTransmit(19);
+  mySwitch.setPulseLength(183);
+  mySwitch.setProtocol(1);
+  //mySwitch.setRepeatTransmit(3);
+  digitalWrite(onBoardLED, HIGH);    
+  // web server parallel task
   xTaskCreatePinnedToCore(
    WebServer,   /* task function. */
    "Task2",     /* name of task. */
@@ -190,7 +194,7 @@ void webServer()
               char _vchr = httpReq[_idx];    
               debug(_vchr); 
             }
-            debugln("---------");
+            debugln("");
             // loop through characters (detect header signature)
             uint32_t _matches = 0;
             uint32_t _charstart = 0;            
@@ -199,10 +203,9 @@ void webServer()
               // find matching characters
               if (httpReq[_idx] == httpHeader[_matches]) {
                 if (_matches >= _hdrcount){
-                  // all characters matched
-                  client.println("command received.");
                   // pass array start-end positions to message function
                   decodeMessage(_idx + 1, httpReqCount);
+                  client.println("command received.");
                   break;
                 } // count matches 
                 _matches++;
@@ -237,7 +240,15 @@ void webServer()
 }
 
 // decode LCD message and trigger display event
-void decodeMessage(uint32_t _startpos, uint32_t _httpcount) { 
+void decodeMessage(uint32_t _startpos, uint32_t _httpcount) {
+  if (eventXmit == 1) { 
+    for(;;){ // event already running
+      delay(2); // wait unit done then process
+      if (eventXmit == 0) {
+        break;
+      }
+    }
+  }  
   // count delimiters
   char _delimiter = '|'; 
   uint32_t _delims = 0;
@@ -325,37 +336,6 @@ void decodeMessage(uint32_t _startpos, uint32_t _httpcount) {
   eventXmit = 1;
 }
 
-//////////////////////////////////////////////////////////////////////////
-// parallel task 1
-void Xmit( void * pvParameters ){
-  // Trigger Out 3.5mm Jack 
-  pinMode(triggerPin, OUTPUT);
-  digitalWrite(triggerPin, LOW);
-  // built-in LED
-  pinMode(onBoardLED, OUTPUT);  
-  digitalWrite(onBoardLED, LOW);      
-  delay(1500); // LED off
-  debug("Xmit running on core ");
-  debugln(xPortGetCoreID());
-  // RF transmit output on pin #19
-  mySwitch.enableTransmit(19);
-  mySwitch.setPulseLength(183);
-  mySwitch.setProtocol(1);
-  //mySwitch.setRepeatTransmit(3);
-  digitalWrite(onBoardLED, HIGH);       
-  // setup done
-  for(;;){ // Xmit main loop
-  ///////////////////  
-    if (eventXmit == 1) { 
-      delay(10); 
-      xmitEvent();
-      eventXmit = 0; 
-    } else {
-      delay(10);  
-    }
-  }
-}
-
 void xmitEvent() {
   // IR Transmit
   if (xmitMode == 0) {
@@ -417,6 +397,11 @@ void xmitEvent() {
 }
 
 void loop() {
-  // main loop disabled
-  delay(1000);
+  if (eventXmit == 1) { 
+    delay(10); 
+    xmitEvent();
+    eventXmit = 0; 
+  } else {
+    delay(10);  
+  }
 }
