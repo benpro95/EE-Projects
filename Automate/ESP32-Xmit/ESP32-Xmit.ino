@@ -71,7 +71,7 @@ RCSwitch mySwitch = RCSwitch();
 void setup() {
   // Web task - parallel a task
   xTaskCreatePinnedToCore(
-   WebServer,    /* task function. */
+   Xmit,        /* task function. */
    "Task1",     /* name of task. */
    16384,       /* Stack size of task */
    NULL,        /* parameter of the task */
@@ -79,13 +79,13 @@ void setup() {
    &Task1,      /* Task handle to keep track of created task */
    0);          /* pin task to core 0 */  
   delay(500);  
-  // LCD task - parallel a task
+  // transmit task (must be on core 0)
   xTaskCreatePinnedToCore(
-   Xmit,        /* task function. */
+   WebServer,   /* task function. */
    "Task2",     /* name of task. */
    16384,       /* Stack size of task */
    NULL,        /* parameter of the task */
-   3,           /* priority of the task */
+   2,           /* priority of the task */
    &Task2,      /* Task handle to keep track of created task */
    1);          /* pin task to core 1 */  
   delay(500);
@@ -328,20 +328,20 @@ void decodeMessage(uint32_t _startpos, uint32_t _httpcount) {
 //////////////////////////////////////////////////////////////////////////
 // parallel task 1
 void Xmit( void * pvParameters ){
-  debug("Xmit running on core ");
-  debugln(xPortGetCoreID());
   // Trigger Out 3.5mm Jack 
   pinMode(triggerPin, OUTPUT);
   digitalWrite(triggerPin, LOW);
   // built-in LED
   pinMode(onBoardLED, OUTPUT);  
   digitalWrite(onBoardLED, LOW);      
+  delay(1500); // LED off
+  debug("Xmit running on core ");
+  debugln(xPortGetCoreID());
   // RF transmit output on pin #19
   mySwitch.enableTransmit(19);
   mySwitch.setPulseLength(183);
   mySwitch.setProtocol(1);
-  //mySwitch.setRepeatTransmit(0);
-  delay(500); // LED off
+  //mySwitch.setRepeatTransmit(3);
   digitalWrite(onBoardLED, HIGH);       
   // setup done
   for(;;){ // Xmit main loop
