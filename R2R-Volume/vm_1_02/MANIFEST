@@ -1,0 +1,55 @@
+#
+#  @(#)MANIFEST	1.7 16/12/19
+#
+#  MANIFEST: list of files that should go into the bundle created by
+#  "make dist" or "make tardist".
+#
+#  Volu-Master(tm)
+#  Arduino controller-based digital volume control and
+#  input/output selector
+#
+#  LCDuino-1/Volu-Master Team: Bryan Levin, Ti Kan
+#
+#  Project websites:
+#	http://www.amb.org/audio/lcduino-1/
+#	http://www.amb.org/audio/delta1/
+#	http://www.amb.org/audio/delta2/
+#  Discussion forum:
+#	http://www.amb.org/forum/
+#
+#  Author:
+#	Bryan Levin (Sercona Audio), Ti Kan (AMB Laboratories)
+#	Copyright (c) 2009-2016 Bryan Levin, Ti Kan
+#	All rights reserved.
+#  
+#  
+#  LICENSE
+#  -------
+#  This program is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version. 
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+MANIFEST
+CHANGELOG.txt
+COPYING.txt
+INSTALL.txt
+README.txt
+Makefile-1.0
+Makefile-1.5
+Makefile-1.6
+config.h
+common.h
+vm_1_02.ino
+lcd1_libs.h
+lcd1_libs.cpp
+volcontrol.h
+volcontrol.cpp

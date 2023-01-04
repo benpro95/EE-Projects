@@ -1,0 +1,129 @@
+Circuit: * C:\Documents and Settings\Administrator\Desktop\New Folder (2)\PASSD1.asc
+
+WARNING: Node N011 is floating.
+WARNING: Node N009 is floating.
+
+WARNING: Less than two connections to node N011.  This node is used by C2.
+WARNING: Less than two connections to node N009.  This node is used by C5.
+Direct Newton iteration failed to find .op point.  (Use ".option noopiter" to skip.)
+Starting Gmin stepping
+Gmin = 10
+Gmin = 1.07374
+vernier = 0.5
+vernier = 0.25
+vernier = 0.125
+vernier = 0.0625
+Gmin = 1.12184
+vernier = 0.03125
+vernier = 0.015625
+Gmin = 1.05835
+vernier = 0.0208333
+vernier = 0.0104167
+Gmin = 1.03119
+vernier = 0.00520833
+vernier = 0.00694444
+vernier = 0.00347222
+Gmin = 1.02539
+vernier = 0.00462963
+vernier = 0.00231481
+Gmin = 1.01977
+vernier = 0.00308642
+vernier = 0.00154321
+vernier = 0.00205761
+Gmin = 1.01572
+vernier = 0.00102881
+vernier = 0.00137174
+Gmin = 1.01319
+vernier = 0.00068587
+Gmin = 1.01129
+vernier = 0.000914493
+vernier = 0.00121932
+vernier = 0.000609662
+Gmin = 1.00959
+vernier = 0.000812882
+vernier = 0.000406441
+Gmin = 1.00862
+vernier = 0.000541921
+vernier = 0.000722562
+vernier = 0.000541921
+Gmin = 1.00752
+vernier = 0.000406441
+vernier = 0.000541921
+vernier = 0.000406441
+Gmin = 1.00694
+vernier = 0.000541921
+vernier = 0.000406441
+Gmin = 0
+Gmin stepping failed
+
+Starting source stepping with srcstepmethod=0
+Source Step = 3.0303%
+Source Step = 33.3333%
+Source Step = 63.6364%
+Source Step = 85.0379%
+vernier = 0.015625
+Source Step = 84.8722%
+Source Step = 84.9018%
+Source Step = 84.9313%
+Source Step = 84.9609%
+Source Step = 84.9905%
+vernier = 0.00146484
+Source Step = 85.0275%
+Source Step = 85.0719%
+Source Step = 85.1163%
+Source Step = 85.1607%
+Source Step = 85.2051%
+vernier = 0.00219727
+Source Step = 85.2583%
+Source Step = 85.3249%
+Source Step = 85.3915%
+Source Step = 85.4581%
+Source Step = 85.5247%
+vernier = 0.0032959
+Source Step = 85.6013%
+Source Step = 85.7011%
+Source Step = 85.801%
+Source Step = 85.9009%
+Source Step = 86.0008%
+vernier = 0.00494385
+Source Step = 86.1106%
+Source Step = 86.2604%
+Source Step = 86.4102%
+Source Step = 86.5601%
+Source Step = 86.7099%
+vernier = 0.00741577
+Source Step = 86.8672%
+Source Step = 87.0919%
+Source Step = 87.3166%
+Source Step = 87.5413%
+Source Step = 87.7661%
+Source Step = 87.9908%
+vernier = 0.0111237
+Source Step = 88.3279%
+Source Step = 88.6649%
+Source Step = 89.002%
+Source Step = 89.3391%
+Source Step = 89.6762%
+vernier = 0.0166855
+Source Step = 90.1649%
+Source Step = 90.6706%
+Source Step = 91.1762%
+Source Step = 91.6818%
+Source Step = 92.1874%
+vernier = 0.0250282
+Source Step = 92.8953%
+Source Step = 93.6537%
+Source Step = 94.4122%
+Source Step = 95.1706%
+Source Step = 95.929%
+vernier = 0.0375423
+Source Step = 96.9529%
+Source Step = 98.0906%
+Source Step = 99.2282%
+Source stepping succeeded in finding the operating point.
+
+.step fg=20
+Heightened Def Con from 1.02178e-009 to 4.02178e-009
+Heightened Def Con from 4.08602e-009 to 7.08602e-009
+.step fg=200
+.step fg=2000

@@ -1,0 +1,23 @@
+Circuit: * Z:\Users\BenPro\Documents\Electronic Projects\SPICE\New\Draft4.asc
+
+WARNING: Less than two connections to node NC_01.  This node is used by R9.
+Direct Newton iteration for .op point succeeded.
+
+Date: Fri Feb 07 21:14:44 2014
+Total elapsed time: 0.726 seconds.
+
+tnom = 27
+temp = 27
+method = modified trap
+totiter = 60381
+traniter = 60360
+tranpoints = 30181
+accept = 20791
+rejected = 9390
+matrix size = 21
+fillins = 8
+solver = Normal
+Matrix Compiler1:      86 opcodes  0.4/[0.1]/0.3
+Matrix Compiler2:     136 opcodes  0.2/[0.2]/0.3
+
+

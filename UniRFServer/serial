@@ -1,0 +1,166 @@
+#!/usr/bin/python
+#
+# created by Ben Provenzano III - December 26th 2016
+#
+# main automation controller script v4
+# written for python v2.6-3.0
+#
+
+import argparse
+import sys
+import serial
+import time
+
+ser = serial.Serial("/dev/ttyACM0")
+
+class automate(object):
+
+    def __init__(self):
+        parser = argparse.ArgumentParser(
+            description='Home Automation Server',
+            usage='''main <command>
+
+Main Automation Controller Script v4
+by Ben Provenzano III - December 26th 2016
+
+Commands:
+
+* 2-Wire TTL for DAM1021 Audio DAC (back of HiFi)
+usb
+optical
+coax
+
+* 12V Switched Multi-Out (back of HiFi)
+ext1on
+ext1off
+ext2on
+ext2off
+ext3on
+ext3off
+
+* Manual Power-On-Self-Test 
+post
+
+''')
+        parser.add_argument('command', help='')
+        args = parser.parse_args(sys.argv[1:2])
+        if not hasattr(self, args.command):
+            print 'unrecognized command'
+            parser.print_help()
+            exit(1)
+        getattr(self, args.command)()
+
+    def post(self):
+        parser = argparse.ArgumentParser(
+            description='Run Boot/Test Sequence')
+        args = parser.parse_args(sys.argv[2:])
+        ser.write("\n")
+        time.sleep(0.01)
+        ser.write("\n")
+        time.sleep(0.01)
+        ser.write("\n")
+        time.sleep(0.01)
+        ser.write("\n")
+        time.sleep(0.01)
+        ser.write("\n")
+        time.sleep(0.01)
+        ser.write("boot\n")
+        ser.flush()
+        ser.close()
+
+## 2-Wire TTL Controller for DAM1021 Audio DAC (UniServer)
+
+    def usb(self):
+        parser = argparse.ArgumentParser(
+            description='Send command "usb" ')
+        args = parser.parse_args(sys.argv[2:])
+        ser.write("\n")
+        time.sleep(0.01)
+        ser.write("usb\n")
+        ser.flush()
+        ser.close()
+
+    def optical(self):
+        parser = argparse.ArgumentParser(
+            description='Send command "optical" ')
+        args = parser.parse_args(sys.argv[2:])
+        ser.write("\n")
+        time.sleep(0.01)
+        ser.write("optical\n")
+        ser.flush()
+        ser.close()
+
+    def coaxial(self):
+        parser = argparse.ArgumentParser(
+            description='Send command "coaxial" ')
+        args = parser.parse_args(sys.argv[2:])
+        ser.write("\n")
+        time.sleep(0.01)
+        ser.write("coaxial\n")
+        ser.flush()
+        ser.close()
+
+## 12V Switched Multi-Out (UniServer)
+
+    def ext1on(self):
+        parser = argparse.ArgumentParser(
+            description='Send command "ext1on" ')
+        args = parser.parse_args(sys.argv[2:])
+        ser.write("\n")
+        time.sleep(0.01)
+        ser.write("ext1on\n")
+        ser.flush()
+        ser.close()
+
+    def ext1off(self):
+        parser = argparse.ArgumentParser(
+            description='Send command "ext1off" ')
+        args = parser.parse_args(sys.argv[2:])
+        ser.write("\n")
+        time.sleep(0.01)
+        ser.write("ext1off\n")
+        ser.flush()
+        ser.close()
+
+    def ext2on(self):
+        parser = argparse.ArgumentParser(
+            description='Send command "ext2on" ')
+        args = parser.parse_args(sys.argv[2:])
+        ser.write("\n")
+        time.sleep(0.01)
+        ser.write("ext2on\n")
+        ser.flush()
+        ser.close()
+
+    def ext2off(self):
+        parser = argparse.ArgumentParser(
+            description='Send command "ext2off" ')
+        args = parser.parse_args(sys.argv[2:])
+        ser.write("\n")
+        time.sleep(0.01)
+        ser.write("ext2off\n")
+        ser.flush()
+        ser.close()
+
+    def ext3on(self):
+        parser = argparse.ArgumentParser(
+            description='Send command "ext3on" ')
+        args = parser.parse_args(sys.argv[2:])
+        ser.write("\n")
+        time.sleep(0.01)
+        ser.write("ext3on\n")
+        ser.flush()
+        ser.close()
+
+    def ext3off(self):
+        parser = argparse.ArgumentParser(
+            description='Send command "ext3off" ')
+        args = parser.parse_args(sys.argv[2:])
+        ser.write("\n")
+        time.sleep(0.01)
+        ser.write("ext3off\n")
+        ser.flush()
+        ser.close()
+
+if __name__ == '__main__':
+    automate()

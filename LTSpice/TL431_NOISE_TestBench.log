@@ -1,0 +1,79 @@
+Circuit: * C:\Documents and Settings\Administrator\Desktop\TL431_NOISE_TestBench.asc
+
+Direct Newton iteration failed to find .op point.  (Use ".option noopiter" to skip.)
+Starting Gmin stepping
+Gmin = 10
+Gmin = 1.07374
+Gmin = 0.115292
+Gmin = 0.0123794
+Gmin = 0.00132923
+Gmin = 0.000142725
+vernier = 0.5
+vernier = 0.25
+vernier = 0.125
+vernier = 0.0625
+Gmin = 0.000138367
+vernier = 0.03125
+vernier = 0.015625
+vernier = 0.0208333
+Gmin = 0.000136392
+vernier = 0.0277778
+Gmin = 0.000128154
+vernier = 0.037037
+vernier = 0.0493827
+Gmin = 0.000115451
+vernier = 0.0658435
+vernier = 0.0877914
+Gmin = 9.78002e-005
+vernier = 0.117055
+Gmin = 7.54162e-005
+vernier = 0.156073
+vernier = 0.208098
+Gmin = 4.89353e-005
+vernier = 0.277464
+vernier = 0.369952
+Gmin = 2.4773e-005
+vernier = 0.493269
+Gmin = 8.65562e-006
+vernier = 0.657691
+vernier = 0.876922
+Gmin = 1.57141e-006
+vernier = 1
+Gmin = 1.77353e-007
+vernier = 0.5
+vernier = 0.25
+vernier = 0.125
+Gmin = 1.15102e-007
+vernier = 0.0625
+vernier = 0.03125
+vernier = 0.015625
+vernier = 0.0078125
+Gmin = 1.17092e-007
+vernier = 0.00390625
+vernier = 0.00195313
+vernier = 0.000976563
+vernier = 0.000488281
+Gmin = 1.1712e-007
+Gmin = 0
+Gmin stepping succeeded in finding the operating point.
+
+
+Date: Sun Apr 01 07:50:46 2012
+Total elapsed time: 1.422 seconds.
+
+tnom = 27
+temp = 27
+method = modified trap
+totiter = 4896
+traniter = 2092
+tranpoints = 1047
+accept = 1047
+rejected = 0
+matrix size = 110
+fillins = 79
+solver = Normal
+Thread vector: 28.5/16.6[3] 12.9/5.4[3] 6.6/3.6[3] 1.6/3.1[1]  2592/500
+Matrix Compiler1: 14.4 KB object code size  7.7/3.5/[1.5]
+Matrix Compiler2: 11.2 KB object code size  4.5/2.8/[1.7]
+
+

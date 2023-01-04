@@ -1,0 +1,45 @@
+Circuit: * C:\Documents and Settings\Administrator\Desktop\New Folder\Example_BJT_THD_TEST.asc
+
+Questionable use of curly braces in "b_time timescale 0 v={time}"
+    Error: undefined symbol in: "[time]"
+WARNING: Less than two connections to node TIMESCALE.  This node is used by B:U2:_TIME.
+WARNING: Less than two connections to node S_TIME.  This node is used by B:U2:_STROBETIME.
+WARNING: Less than two connections to node E_TIME.  This node is used by B:U2:_ENDTIME.
+WARNING: Less than two connections to node H2SF.  This node is used by B:U2:_H2S.
+WARNING: Less than two connections to node H2CF.  This node is used by B:U2:_H2C.
+WARNING: Less than two connections to node H3SF.  This node is used by B:U2:_H3S.
+WARNING: Less than two connections to node H3CF.  This node is used by B:U2:_H3C.
+WARNING: Less than two connections to node H4SF.  This node is used by B:U2:_H4S.
+WARNING: Less than two connections to node H4CF.  This node is used by B:U2:_H4C.
+WARNING: Less than two connections to node H5SF.  This node is used by B:U2:_H5S.
+WARNING: Less than two connections to node H5CF.  This node is used by B:U2:_H5C.
+WARNING: Less than two connections to node H6SF.  This node is used by B:U2:_H6S.
+WARNING: Less than two connections to node H6CF.  This node is used by B:U2:_H6C.
+WARNING: Less than two connections to node H7SF.  This node is used by B:U2:_H7S.
+WARNING: Less than two connections to node H7CF.  This node is used by B:U2:_H7C.
+WARNING: Less than two connections to node H8SF.  This node is used by B:U2:_H8S.
+WARNING: Less than two connections to node H8CF.  This node is used by B:U2:_H8C.
+WARNING: Less than two connections to node H9SF.  This node is used by B:U2:_H9S.
+WARNING: Less than two connections to node H9CF.  This node is used by B:U2:_H9C.
+WARNING: Less than two connections to node H10SF.  This node is used by B:U2:_H10S.
+WARNING: Less than two connections to node H10CF.  This node is used by B:U2:_H10C.
+Direct Newton iteration for .op point succeeded.
+Ignoring empty pin current: Ix(u2:analyzer_in)
+Ignoring empty pin current: Ix(u2:analyzer_in)
+.step fg=20 ag=0.0001
+.step fg=43.0887 ag=0.0001
+.step fg=92.8318 ag=0.0001
+.step fg=200 ag=0.0001
+.step fg=430.887 ag=0.0001
+.step fg=928.318 ag=0.0001
+.step fg=2000 ag=0.0001
+.step fg=4308.87 ag=0.0001
+.step fg=9283.18 ag=0.0001
+.step fg=20000 ag=0.0001
+.step fg=20 ag=0.000316228
+.step fg=43.0887 ag=0.000316228
+.step fg=92.8318 ag=0.000316228
+.step fg=200 ag=0.000316228
+.step fg=430.887 ag=0.000316228
+.step fg=928.318 ag=0.000316228
+.step fg=2000 ag=0.000316228

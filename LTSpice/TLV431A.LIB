@@ -1,0 +1,89 @@
+*	|==========================================================
+*	|
+*	|
+*	|
+*	|			 TLV431A
+*	|
+*	|			ON Semiconductor
+*	|
+*	|		 Low Voltage Precision Adjustable Shunt Regulator
+*	|
+*	|
+*	|
+*	|
+*	|	This model was developed by
+*	|
+*	|	AEI (Analytic Engineering)
+*	|
+*	|	182 Morris Avenue
+*	|
+*	|	Holtsville, NY 11742
+*	|
+*	|	Copyright 2001 AEI
+*	|
+*	|	All Rights Reserved
+*	|
+*	|
+*	|
+*	|	The content of this model is subject to change
+*	|
+*	|	without notice and may not be modified or altered
+*	|
+*	|	without permission from On Semiconductor. This model
+*	|
+*	|	has been carefully checked and is believed to be
+*	|
+*	|	accurate, however neither AEI nor On Semiconductor
+*	|
+*	|	assume liability for the use of this model or the
+*	|
+*	|	results obtained from using it.
+*	|
+*	|
+*	|
+*	|	For more information regarding modeling services,
+*	|
+*	|	model libraries or simulation productors, please
+*	|
+*	|	call AEI at (631) 654-0253 ext 116 or 106.
+*	|
+*	|	email: Sales@aeng.com.
+*	|
+*	|
+*	|
+*	|==========================================================
+*SPICE_NET
+.AC DEC 200 10 2MEG
+.OP
+.SUBCKT TL431 7 6 11
+*             K A FDBK
+.MODEL DCLAMP D (IS=13.5N RS=25M N=1.59 
++ CJO=45P VJ=.75 M=.302 TT=50.4N BV=36V IBV=1MA)
+.MODEL DCL2 D RS=660K
+V1 1 6 1.24
+R1 6 2 15.6
+C1 2 6 .5U
+R2 2 3 100
+C2 3 4 1.3U
+R3 4 6 8
+G2 6 8 3 6  .86
+D1 5 8 DCLAMP
+D2 7 8 DCLAMP
+D4 6 8 DCLAMP
+V4 5 6 2
+G1 6 2 1 11 0.11
+VCLAMP 9 6 14.5
+D3  7 9 DCL2
+.ENDS
+*INCLUDE ON.LIB
+*ALIAS  V(2)=VOUT
+.PRINT AC  V(2)  VP(2)  V(1)  VP(1) 
+.PRINT AC  I(V1) IP(V1)
+R1 1 0 8.25K
+R2 1 2 15K
+C1 1 4 9U
+V1 4 0 AC 1
+R3 2 3 230
+V2 3 0 5.8
+X1 2 0 1 TL431
+.END

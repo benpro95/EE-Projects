@@ -1,0 +1,40 @@
+@(#)CHANGELOG.txt	1.9 16/12/19
+Volu-Master(tm) firmware for LCDuino-1
+Change Log
+---------------------------------------
+
+v1.02:	- The MinVol/MaxVol menu now allows the minimum and
+	  maximum settings to be the same, which locks the
+	  volume to the chosen setting.
+	- When pressing the front pushbutton to turn off the power,
+	  the amount of time required to hold the pushbutton down
+	  has been reduced slightly.
+	- Some Arduino 1.6.x libraries and headers have changed
+	  locations, so Makefile-1.6 now auto-detects them
+	  and set the paths appropriately.  This has been tested up
+	  to Arduino 1.6.13.
+	- Change Makefile-1.0 to make it auto-detect the location
+	  of the avrdude program.
+
+v1.01:
+	- Changes to make the code compatible with Arduino 1.0.x,
+	  1.5.x and 1.6.x.
+	- Separate Makefiles are supplied for each of these Arduino
+	  environments.
+	- Arduino prior to 1.0 are no longer supported.
+	- Fixes to feature selection in config.h to avoid compile
+	  errors when certain combinations are specified.
+	- The unsupported USE_PGA_I2C and USE_SPDIF code are now
+	  disabled by default to reduce memory usage.
+	- When selecting input or output ports, the "pop-up"
+	  notification screen that shows the old and new ports
+	  now only appears when in "big font" display mode.
+	  In other display modes, the changes are shown directly
+	  in the corresponding fields on the screen.
+	- Several other minor user interface enhancements.
+	- Code formatting clean-up to make it more readable.
+
+v1.00:
+	- Initial release
+	- Must use Arduino 0022 or 0023
+	- Must compile with avr-gcc/avr-g++ 4.3.x.

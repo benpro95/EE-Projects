@@ -8,8 +8,11 @@
 *.JPEG
 *.PSD 
 *.psd
-
 *.mp4
 *.MP4
 *.mov
 *.MOV
+*.raw
+*.RAW
+Libraries
+Thumbs.db

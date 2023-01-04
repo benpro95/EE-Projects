@@ -1,0 +1,280 @@
+@(#)INSTALL.txt	1.6 16/12/19
+Volu-Master(tm) firmware for LCDuino-1
+Compilation and flashing Instructions
+
+SUMMARY
+-------
+
+The Volu-Master firmware can be compiled and flashed to your LCDuino-1
+using a computer running the following OS platforms:
+
+- Linux (with kernel 2.6.31 and later)
+- Mac OS X (10.3 and later)
+- Windows (XP, Vista, 7, 8, 8.1, 10)
+
+Note that the ATmega328P MCU on your LCDuino-1 must have a bootloader
+pre-flashed.  If your MCU is from AMB audio shop, then it has the
+bootloader.  New MCUs from regular distributors are completely
+uninitialized.  The bootloader only needs to be flashed once.
+Flashing the bootloader requires an AVR programmer and is beyond the
+scope of these instructions.
+
+Please see the LCDuino-1 website about the required FTDI TTL-232R-3.3
+cable.
+
+There are two ways to compile and flash the Volu-Master firmware:
+
+- Using the Arduino IDE
+- Using the Makefile
+
+In both cases, you need to install the Arduino software on your
+computer:
+
+- Arduino software
+  versions 1.0,x, 1.5.x and 1.6.x are supported.
+  Download: http://www.arduino.cc/en/Main/Software/
+  For Windows, it is recommended that you download the "ZIP file for
+  non-admin install" variant.  It allows you to have multiple
+  versions of Arduino software installed at the same time.
+
+If you will be using the Arduino IDE, the following software is
+also needed:
+
+- Java runtime environment
+  version 1.6.0 or later
+  For Linux, usually found as an optional installable package
+  in your Linux distro (either OpenJDK or Sun/Oracle Java).
+  For Windows and Mac OS X,
+  Download: http://www.java.com/
+
+- rxtx-java
+  version 2.1 or later.
+  For Linux only, usually found as an optional installable package
+  in your Linux distro.
+
+- FTDI Virtual COM Port driver
+  version 2.04 or later.
+  For Windows and Mac OS X only,
+  Download: http://www.ftdichip.com/Drivers/VCP.htm
+
+If you will be using the Makefile method, the following software is
+also needed:
+
+- Cygwin
+  DLL version 1.7 or later
+  For Windows only,
+  Download: http://www.cygwin.com/install.html
+
+From this point forward it is assumed that you have downloaded and
+installed all the above needed software on your computer.
+
+If you have not already done so, extract the Volu-Master firmware
+source code ZIP archive on your computer.  On Windows, the extracted
+folder should be on the local C: drive, not on any other drive
+or network share.
+
+
+FEATURE SELECTION
+-----------------
+
+The Volu-Master firmware has a number of features, but they cannot
+all be compiled into a single binary and flashed onto the MCU.
+This is due to limitations of the ATmega328P MCU's available flash
+space as well as its RAM space.  The default pre-flashed Atmel MCU
+from AMB has the most important and usable features enabled.
+One of the reasons you may want to compile and re-flash the firmware,
+other than a version update, is to enable a different set of features
+and options than the default. 
+
+The features and options are coded in a modular fashion, and
+conditionally-compiled using C-preprocessor #ifdef... #endif
+directives.  The corresponding #define lines for each of these
+features are found in the config.h header file, where you could
+control whether you want to enable or disable the features.
+
+Disabled features are commented-out with leading slashes "//" before
+the #define directive.  Remove the slashes to enable a feature,
+or add slashes to disable a feature.  Each of these features are
+described in additional comments.
+
+Note: All source code files are in Unix format (i.e., Line breaks
+contain only the LF (linefeed) character, not the CR/LF (carriage
+return/linefeed) pair. On Windows, the Notepad editor will not display
+line breaks properly. Use an editor capable of handling Unix files
+properly, or use the Arduino IDE's built-in editor.
+
+Please be aware that some features (which are disabled by default) are
+only partially-implemented or not fully-tested. These features are not
+officially supported unless otherwise noted.
+
+Once you've made your changes, save the file and proceed to the next
+step to compile the firmware.
+
+Before you could flash the firmware, make sure your Atmel MCU chip is
+installed on your LCDuino-1 board, and it must contain pre-flashed
+bootloader.
+
+With Volu-Master, disconnect power to the LCDuino-1 board (by unplugging
+J3).  If your LCDuino-1 is being used in a alpha10 pre-amplifier, then
+unplug the pre-amp's AC power cord. Then, connect the FTDI TTL-232R
+cable between LCDuino-1's J3 and an available USB port on your computer.
+Make sure the FTDI cable is connected to J3 in the correct orientation:
+the cable's green wire should be closest to VR1 (the contrast adjustment
+trimpot).  After you connect the cable, LCDuino-1's power LED (LEDP)
+should illuminate.  If this is the first time you've connected the
+cable to the computer, a message may be displayed on the screen about
+installing the driver for it. Let the installation complete automatically.
+
+The two methods to compile and flash the firmware are described below.
+
+
+USING THE ARDUINO IDE
+---------------------
+
+The procedure for using the Arduino IDE is the same on Linux, Mac OS X
+and Windows.
+
+1. Start the Arduino IDE program by clicking on its desktop icon (or,
+   if no icon was installed, the program executable file can be found
+   in the directory where you installed the Arduino Software. You may
+   run it directly). The Arduino window should appear on your computer
+   screen.
+
+2. Click File > Open... and navigate to your firmware source code
+   directory.  Select the vm_x_yy.ino file, where x_yy is the firmware
+   version (e.g., 1_02).
+
+3. The Arduino IDE will load the .ino file (the main source file),
+   and automatically load all other needed files.  The files are selectable
+   by clicking on the tabs containing the file names.  You may edit the
+   files using the built-in editor, and don't forget to save your edits
+   before closing the Arduino IDE window.
+
+4. Click Tools > Board and select Arduino Duemilanove or Nano w/ ATmega328.
+
+5. Click Tools > Serial Port and select the virtual COM port where your
+   FTDI cable is assigned to. On Linux, this is typically /dev/ttyUSB0.
+   On Windows, it may be COM5.
+
+6. To start the compile, click the Verify button (check mark symbol) or
+   click Sketch > Verify/Compile.
+
+7. The compile status, including error messages, should be shown in
+   the output area at the bottom of the Arduino window.  If your compile
+   is successful, then you may flash the firmware onto the Atmel MCU.
+
+8. To start the flash, click the Upload button (right arrow symbol),
+   or click File > Upload to I/O Board.
+
+9. The output area will show the flash status.  If you encounter
+   an error, check the board type and serial port settings, and make
+   sure that your firmware has not exceeded the maximum supported flash
+   size.  For the ATmega328P, it's 32K bytes, but some of it is taken
+   up by the bootloader. If your flash size exceeds 30500 bytes,
+   you're getting really close to running out of flash space.
+
+
+USING THE MAKEFILE
+---------------------
+
+The procedure for using the Makefile is the same on Linux, Mac OS X and
+Windows.  Use Makefile-1.0 for Arduino-1.0.x, Makefile-1.5 for
+Arduino-1.5.x or Makefile-1.6 for Arduino-1.6.x.
+
+0. This step is for compilation on Windows only.
+
+   Cygwin maintains a virtual directory /cygdrive/c which represents
+   the root directory of your C: drive.  This becomes a problem for
+   some utilities when invoked from the Makefile to access your
+   Arduino software directory.  For example, if your Arduino software
+   was installed in this directory:
+
+   C:\Users\johndoe\arduino-1.0.6
+
+   Then its virtual path under Cygwin would be:
+
+   /cygdrive/c/Users/johndoe/arduino-1.0.6
+
+   While the make utility and many other Unix tools supplied with Cygwin
+   works with the virtual path, the avr-gcc and avr-g++ compilers do
+   not.  To resolve this problem, you need to create a mount point where
+   your Arduino directory could be found without the /cygdrive/c prefix,
+   and has the same path under Cygwin as it does under native Windows
+   (sans the drive letter).
+
+   Type the following command at a Cygwin shell prompt (not with
+   Windows Explorer or Windows command prompt, and substitute
+   /Users/johndoe with your actual path):
+
+   mkdir -p /Users/johndoe
+
+   Then, edit Cygwin's /etc/fstab file and append the following line:
+
+   C:/Users/johndoe /Users/johndoe ntfs binary 0 0
+
+   Restart the Cygwin shell, and then verify that the directory has been
+   mounted with the mount command.  Here is an example output:
+
+   C:/Users/johndoe on /Users/johndoe type ntfs (binary)
+   C:/cygwin/bin on /usr/bin type ntfs (binary,auto)
+   C:/cygwin/lib on /usr/lib type ntfs (binary,auto)
+   C:/cygwin on / type ntfs (binary,auto)
+   C: on /cygdrive/c type ntfs (binary,posix=0,user,noumount,auto) 
+
+1. At a shell prompt, change to the Volu-Master firmware source code
+   directory, and edit the appropriate Makefile-1.x.  Locate the
+   following lines:
+
+   ifndef ARDUINO_ROOT
+   ARDUINO_ROOT  = /usr/local/arduino/arduino-xxxx
+   endif
+
+   where xxxx is the Arduino version.
+
+   Change /usr/local/arduino/arduino-xxxx to point to the actual
+   location where your Arduino software was installed.  Also, locate
+   the following lines:
+
+   ifndef port
+   port          = /dev/ttyUSB0
+   endif
+
+   If necessary, change "/dev/ttyUSB0" to the virtual serial port device
+   associated with your FTDI cable interface.  On Windows, this may
+   be "COM5".
+
+2. At the shell prompt, type the following command:
+
+   make -f Makefile-1.x
+
+   where x is the minor version number of your Arduino software.
+   This compiles the firmware source code and produces a .hex
+   for flashing.  The sizes of various sections is also displayed.
+   The text + data section size should not exceed 30500 bytes.
+
+   If there are no compile errors, type the following command:
+
+   make -f Makefile-1.x upload
+
+   This will flash and verify the firmware on your LCDuino-1 file.
+   If there are no errors, the LCDuino-1 will restart and run the
+   new firmware.
+
+   To clean up your firmware source code directory (remove all generated
+   object files, library files, hex files, etc.), issue the command:
+
+   make -f Makefile-1.x clean
+
+   You should do this if you had used the Makefile method to compile
+   the firmware, but want to switch to using the Arduino IDE.
+
+
+TESTING
+-------
+
+Unplug the FTDI cable from your computer's USB port and detach the
+other end from the LCDuino-1 board, and re-connect the standard power
+source to your LCDuino-1 before testing system functionality with the
+newly-flashed firmware.
+
+

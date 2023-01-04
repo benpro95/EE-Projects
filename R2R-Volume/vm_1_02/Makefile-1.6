@@ -1,0 +1,463 @@
+#
+#  @(#)Makefile-1.6	1.10 16/12/19
+#
+#  Top-level Makefile: Please use GNU make
+#  This version is for use with Arduino 1.6.x
+#
+#  Volu-Master(tm)
+#  Arduino controller-based digital volume control and
+#  input/output selector
+#
+#  LCDuino-1/Volu-Master Team: Bryan Levin, Ti Kan
+#
+#  Project websites:
+#	http://www.amb.org/audio/lcduino-1/
+#	http://www.amb.org/audio/delta1/
+#	http://www.amb.org/audio/delta2/
+#  Discussion forum:
+#	http://www.amb.org/forum/
+#
+#  Author:
+#	Bryan Levin (Sercona Audio), Ti Kan (AMB Laboratories)
+#	Copyright (c) 2009-2016 Bryan Levin, Ti Kan
+#	All rights reserved.
+#
+#
+#  LICENSE
+#  -------
+#  This program is free software: you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation, either version 3 of the License, or
+#  (at your option) any later version.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
+#
+#  You should have received a copy of the GNU General Public License
+#  along with this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
+
+#
+# -----------------------------------------------------------------------
+# This section is where users can edit to suit the local setup
+#
+
+# The path to your Arduino software top level directory
+ifndef ARDUINO_ROOT
+ARDUINO_ROOT	= /usr/local/arduino/arduino-1.6.7
+endif
+
+# The serial port to which the LCDuino-1 is connected
+ifndef port
+port		= /dev/ttyUSB0
+#port		= COM5
+endif
+
+#
+# End of user-edit section
+# -----------------------------------------------------------------------
+#
+
+#
+# Usually, the rest of this should be left untouched/unedited
+#
+PROG_NAME 	= vm_1_02
+PRE_REL		=
+#PRE_REL	= __$(shell date +%F__%H_%M_%S_%P)
+ARDUINO_CORE	= $(ARDUINO_ROOT)/hardware/arduino/avr/cores/arduino
+ARDUINO_STD	= $(ARDUINO_ROOT)/hardware/arduino/avr/variants/standard
+AVR_BIN		= $(ARDUINO_ROOT)/hardware/tools/avr/bin
+AVR_LIB		= $(ARDUINO_ROOT)/hardware/arduino/avr/libraries
+
+#
+# Locations of programs
+#
+CXX		= $(AVR_BIN)/avr-g++
+CC		= $(AVR_BIN)/avr-gcc
+SIZE		= $(AVR_BIN)/avr-size
+OBJCOPY		= $(AVR_BIN)/avr-objcopy
+OBJDUMP		= $(AVR_BIN)/avr-objdump
+NM		= $(AVR_BIN)/avr-nm
+AR		= $(AVR_BIN)/avr-ar
+
+#
+# Compiler options
+#
+MCU		= atmega328p
+F_CPU		= 16000000L
+EXTRA_CFLAGS	= -w
+#EXTRA_CFLAGS	= -Wall -pedantic -Wunused-variable -Wextra
+CLI_BUILD_FLAGS = -DCLI_BUILD -mmcu=$(MCU) $(EXTRA_CFLAGS)
+COMMON_FLAGS	= $(CLI_BUILD_FLAGS) -c -Os -DF_CPU=$(F_CPU) -DARDUINO=10607 -DARDUINO_AVR_DUEMILANOVE -DARDUINO_ARCH_AVR -ffunction-sections -fdata-sections
+CXXFLAGS	= $(COMMON_FLAGS) -fno-exceptions -fno-threadsafe-statics
+CFLAGS		= $(COMMON_FLAGS)
+
+#
+# avrdude options
+#
+ifndef AVRDUDE_BIN
+AVRDUDE_BIN	= $(AVR_BIN)
+endif
+
+ifndef AVRDUDE_CONF
+AVRDUDE_CONF	= $(ARDUINO_ROOT)/hardware/tools/avr/etc/avrdude.conf
+endif
+
+AVRDUDE_FLAGS	= -C $(AVRDUDE_CONF) -p $(MCU) -P $(port) -c arduino -b 57600 -D
+AVRDUDE		= $(AVRDUDE_BIN)/avrdude
+
+#
+# Output targets
+#
+TARG_ELF        = $(PROG_NAME).cpp.elf
+TARG_HEX        = $(PROG_NAME).cpp.hex
+
+#
+# Makefile name
+#
+MAKEFILE	= Makefile-1.6
+
+ifneq ("$(wildcard $(AVR_LIB)/EEPROM/src)","")
+LIB_EEPROM	= $(AVR_LIB)/EEPROM/src
+else
+LIB_EEPROM	= $(AVR_LIB)/EEPROM
+endif
+
+ifneq ("$(wildcard $(AVR_LIB)/Wire/src)","")
+LIB_WIRE	= $(AVR_LIB)/Wire/src
+else
+LIB_WIRE	= $(AVR_LIB)/Wire
+endif
+
+ifneq ("$(wildcard $(AVR_LIB)/Wire/src/utility)","")
+LIB_WIRE_UTIL	= $(AVR_LIB)/Wire/src/utility
+else
+LIB_WIRE_UTIL	= $(AVR_LIB)/Wire/utility
+endif
+
+ifneq ("$(wildcard $(AVR_LIB)/SoftwareSerial/src)","")
+LIB_SOFTSERIAL	= $(AVR_LIB)/SoftwareSerial/src
+else
+LIB_SOFTSERIAL	= $(AVR_LIB)/SoftwareSerial
+endif
+
+MY_INCLUDE_PATHS = \
+	 	-I$(ARDUINO_CORE) \
+		-I$(LIB_EEPROM) \
+		-I$(LIB_WIRE) \
+		-I$(LIB_WIRE_UTIL) \
+		-I$(ARDUINO_STD) \
+		-I$(LIB_SOFTSERIAL)
+
+#
+# Arduino "core" library
+#
+CORE_LIB 	= arduino_core.a
+CORE_C_SRC = \
+		$(ARDUINO_CORE)/wiring.c \
+		$(ARDUINO_CORE)/wiring_analog.c \
+		$(ARDUINO_CORE)/wiring_digital.c \
+		$(ARDUINO_CORE)/wiring_pulse.c \
+		$(ARDUINO_CORE)/wiring_shift.c \
+		$(ARDUINO_CORE)/hooks.c \
+		$(ARDUINO_CORE)/WInterrupts.c
+CORE_CXX_SRC = \
+		$(ARDUINO_CORE)/main.cpp \
+		$(ARDUINO_CORE)/WMath.cpp \
+		$(ARDUINO_CORE)/WString.cpp \
+		$(ARDUINO_CORE)/Print.cpp \
+		$(ARDUINO_CORE)/USBCore.cpp \
+		$(ARDUINO_CORE)/HardwareSerial.cpp \
+		$(ARDUINO_CORE)/HardwareSerial0.cpp \
+		$(ARDUINO_CORE)/HardwareSerial1.cpp \
+		$(ARDUINO_CORE)/HardwareSerial2.cpp \
+		$(ARDUINO_CORE)/HardwareSerial3.cpp \
+		$(ARDUINO_CORE)/IPAddress.cpp \
+		$(ARDUINO_CORE)/Tone.cpp \
+		$(ARDUINO_CORE)/new.cpp \
+		$(ARDUINO_CORE)/Stream.cpp \
+		$(ARDUINO_CORE)/CDC.cpp \
+		$(ARDUINO_CORE)/abi.cpp
+CORE_OBJS = \
+		main.o \
+		wiring.o \
+		wiring_analog.o \
+		wiring_digital.o \
+		wiring_pulse.o \
+		wiring_shift.o \
+		hooks.o \
+		WInterrupts.o \
+		WMath.o \
+		WString.o \
+		Print.o \
+		USBCore.o \
+		HardwareSerial.o \
+		HardwareSerial0.o \
+		HardwareSerial1.o \
+		HardwareSerial2.o \
+		HardwareSerial3.o \
+		IPAddress.o \
+		Tone.o \
+		new.o \
+		Stream.o \
+		CDC.o \
+		abi.o
+
+#
+# not called "core" but still part of the Arduino lib system
+#
+SYS_OBJS = \
+		Wire.cpp.o \
+		twi.c.o
+#		SoftwareSerial.cpp.o
+
+
+#
+# Volu-Master objs
+#
+MY_OBJS = \
+		$(PROG_NAME).cpp.o \
+		volcontrol.cpp.o \
+		lcd1_libs.cpp.o
+
+#
+# Volu-Master sources
+#
+MY_SRCS = \
+		$(PROG_NAME).cpp \
+		volcontrol.cpp \
+		lcd1_libs.cpp
+
+#
+# Volu-Master headers
+#
+MY_INCLUDE_FILES = \
+		config.h \
+		common.h \
+		volcontrol.h \
+		lcd1_libs.h
+
+#
+# Subdirectories that make needs to traverse into
+#
+SUBDIRS=	
+
+.SUFFIXES:	.o .cpp .hex .elf .eep .lss .sym
+
+#
+# Our default 'make all' target
+#
+all:	$(TARG_HEX) $(CORE_LIB)
+	@for flag in ${MAKEFLAGS} ''; do \
+	case "$$flag" in *=*) ;; --*) ;; *[ik]*) set +e;; esac; done; \
+	for i in $(SUBDIRS) ;\
+	do \
+		echo "making" all "in $$i..."; \
+		$(MAKE) -C $$i $(MFLAGS) all; \
+	done
+
+#
+# Generate the "core" library
+#
+$(CORE_LIB): $(CORE_OBJS)
+	@for i in $(CORE_OBJS); do echo $(AR) rcs $(CORE_LIB) $$i; $(AR) rcs $(CORE_LIB) $$i; done
+
+
+#
+# C core components
+#
+wiring.o:	$(ARDUINO_CORE)/wiring.c
+	$(CC) $(CFLAGS) -I$(ARDUINO_CORE) $(MY_INCLUDE_PATHS) $< -o $@
+
+wiring_analog.o:	$(ARDUINO_CORE)/wiring_analog.c
+	$(CC) $(CFLAGS) -I$(ARDUINO_CORE) $(MY_INCLUDE_PATHS) $< -o $@
+
+wiring_digital.o:	$(ARDUINO_CORE)/wiring_digital.c
+	$(CXX) $(CXXFLAGS) -I$(ARDUINO_CORE) $(MY_INCLUDE_PATHS) $< -o $@
+
+wiring_pulse.o:	$(ARDUINO_CORE)/wiring_pulse.c
+	$(CXX) $(CXXFLAGS) -I$(ARDUINO_CORE) $(MY_INCLUDE_PATHS) $< -o $@
+
+wiring_shift.o:	$(ARDUINO_CORE)/wiring_shift.c
+	$(CXX) $(CXXFLAGS) -I$(ARDUINO_CORE) $(MY_INCLUDE_PATHS) $< -o $@
+
+WInterrupts.o:	$(ARDUINO_CORE)/WInterrupts.c
+	$(CC) $(CFLAGS) -I$(ARDUINO_CORE) $(MY_INCLUDE_PATHS) $< -o $@
+
+hooks.o:	$(ARDUINO_CORE)/hooks.c
+	$(CC) $(CFLAGS) -I$(ARDUINO_CORE) $(MY_INCLUDE_PATHS) $< -o $@
+
+#
+# C++ core components
+#
+main.o:		$(ARDUINO_CORE)/main.cpp
+	$(CC) $(CFLAGS) -I$(ARDUINO_CORE) $(MY_INCLUDE_PATHS) $< -o $@
+
+WMath.o:	$(ARDUINO_CORE)/WMath.cpp
+	$(CXX) $(CXXFLAGS) -I$(ARDUINO_CORE) $(MY_INCLUDE_PATHS) $< -o $@
+
+WString.o:	$(ARDUINO_CORE)/WString.cpp
+	$(CXX) $(CXXFLAGS) -I$(ARDUINO_CORE) $(MY_INCLUDE_PATHS) $< -o $@
+
+Print.o:	$(ARDUINO_CORE)/Print.cpp
+	$(CXX) $(CXXFLAGS) -I$(ARDUINO_CORE) $(MY_INCLUDE_PATHS) $< -o $@
+
+USBCore.o:	$(ARDUINO_CORE)/USBCore.cpp
+	$(CXX) $(CXXFLAGS) -I$(ARDUINO_CORE) $(MY_INCLUDE_PATHS) $< -o $@
+
+HardwareSerial.o:	$(ARDUINO_CORE)/HardwareSerial.cpp
+	$(CXX) $(CXXFLAGS) -I$(ARDUINO_CORE) $(MY_INCLUDE_PATHS) $< -o $@
+
+HardwareSerial0.o:	$(ARDUINO_CORE)/HardwareSerial0.cpp
+	$(CXX) $(CXXFLAGS) -I$(ARDUINO_CORE) $(MY_INCLUDE_PATHS) $< -o $@
+
+HardwareSerial1.o:	$(ARDUINO_CORE)/HardwareSerial1.cpp
+	$(CXX) $(CXXFLAGS) -I$(ARDUINO_CORE) $(MY_INCLUDE_PATHS) $< -o $@
+
+HardwareSerial2.o:	$(ARDUINO_CORE)/HardwareSerial2.cpp
+	$(CXX) $(CXXFLAGS) -I$(ARDUINO_CORE) $(MY_INCLUDE_PATHS) $< -o $@
+
+HardwareSerial3.o:	$(ARDUINO_CORE)/HardwareSerial3.cpp
+	$(CXX) $(CXXFLAGS) -I$(ARDUINO_CORE) $(MY_INCLUDE_PATHS) $< -o $@
+
+IPAddress.o:	$(ARDUINO_CORE)/IPAddress.cpp
+	$(CXX) $(CXXFLAGS) -I$(ARDUINO_CORE) $(MY_INCLUDE_PATHS) $< -o $@
+
+Tone.o:	$(ARDUINO_CORE)/Tone.cpp
+	$(CXX) $(CXXFLAGS) -I$(ARDUINO_CORE) $(MY_INCLUDE_PATHS) $< -o $@
+
+new.o:	$(ARDUINO_CORE)/new.cpp
+	$(CXX) $(CXXFLAGS) -I$(ARDUINO_CORE) $(MY_INCLUDE_PATHS) $< -o $@
+
+Stream.o:	$(ARDUINO_CORE)/Stream.cpp
+	$(CXX) $(CXXFLAGS) -I$(ARDUINO_CORE) $(MY_INCLUDE_PATHS) $< -o $@
+
+CDC.o:	$(ARDUINO_CORE)/CDC.cpp
+	$(CXX) $(CXXFLAGS) -I$(ARDUINO_CORE) $(MY_INCLUDE_PATHS) $< -o $@
+
+abi.o:	$(ARDUINO_CORE)/abi.cpp
+	$(CXX) $(CXXFLAGS) -I$(ARDUINO_CORE) $(MY_INCLUDE_PATHS) $< -o $@
+
+
+#
+# Arduino libs
+#
+
+#SoftwareSerial.cpp.o:	$(LIB_SOFTSERIAL)/SoftwareSerial.cpp
+#	$(CXX) $(CXXFLAGS) $(MY_INCLUDE_PATHS) $< -o $@
+
+Wire.cpp.o:	$(LIB_WIRE)/Wire.cpp
+	$(CXX) $(CXXFLAGS) $(MY_INCLUDE_PATHS) $< -o $@
+
+# NOTE! this is NOT c++ !  Build this with regular C
+twi.c.o:	$(LIB_WIRE_UTIL)/twi.c
+	$(CC) $(CFLAGS) $(MY_INCLUDE_PATHS) $< -o $@
+
+#
+# The "binary" (fully linked runnable binary for Atmel)
+#
+$(TARG_ELF):	$(MY_OBJS) $(SYS_OBJS) $(CORE_LIB)
+	$(CC) -Os -Wl,--gc-sections -mmcu=$(MCU) -o $(TARG_ELF) $(MY_OBJS) $(SYS_OBJS) $(CORE_LIB) -L. -lm 
+
+#
+# The ASCII form in 'intel hex' suitable for direct upload
+#
+$(TARG_HEX):	$(TARG_ELF)
+	$(OBJCOPY) -O ihex -R .eeprom $(TARG_ELF) $(TARG_HEX)
+	$(SIZE) $(TARG_ELF)
+
+#
+# Normally $(PROG_NAME).ino, the main program app
+#
+$(PROG_NAME).cpp:	$(PROG_NAME).ino
+	@echo "  ---> Copying $(PROG_NAME).ino to $(PROG_NAME).cpp ..."
+	cp -f $(PROG_NAME).ino $(PROG_NAME).cpp
+
+#
+# The rest of the Volu-Master source build rules
+#
+$(PROG_NAME).cpp.o:	$(PROG_NAME).cpp $(MY_INCLUDE_FILES)
+	$(CXX) $(CXXFLAGS) $(MY_INCLUDE_PATHS) -c $(PROG_NAME).cpp -o $(PROG_NAME).cpp.o
+
+volcontrol.cpp.o:	volcontrol.cpp $(MY_INCLUDE_FILES)
+	$(CXX) $(CXXFLAGS) $(MY_INCLUDE_PATHS) $< -o $@
+
+lcd1_libs.cpp.o:	lcd1_libs.cpp $(MY_INCLUDE_FILES)
+	$(CXX) $(CXXFLAGS) $(MY_INCLUDE_PATHS) $< -o $@
+
+upload: $(TARG_HEX)
+	$(AVRDUDE) $(AVRDUDE_FLAGS) -U flash:w:$(TARG_HEX):i
+
+#
+# Create extended listing file from ELF output file
+#
+list:
+	$(OBJDUMP) -h -S $(PROG_NAME).cpp.elf > $(PROG_NAME).lss
+	$(NM) -n $(PROG_NAME).cpp.elf > $(PROG_NAME).sym
+
+#
+# Install files
+#
+install:
+	for i in $(SUBDIRS) ;\
+	do \
+		echo "making" install "in $$i..."; \
+		$(MAKE) -C $$i $(MFLAGS) install; \
+	done
+
+#
+# Clean up the clutter
+#
+clean:
+	rm -f *.zip *.o *.elf *.hex $(PROG_NAME).cpp *.sym *.lss *~* $(CORE_LIB)
+	@for flag in ${MAKEFLAGS} ''; do \
+	case "$$flag" in *=*) ;; --*) ;; *[ik]*) set +e;; esac; done; \
+	for i in $(SUBDIRS) ;\
+	do \
+		echo "making" clean "in $$i..."; \
+		$(MAKE) -C $$i $(MFLAGS) clean; \
+	done
+
+#
+# Generate dependencies
+#
+depend:
+	if grep '^# DO NOT DELETE' $(MAKEFILE) > /dev/null; \
+	then \
+		sed -e '/^# DO NOT DELETE/,$$d' $(MAKEFILE) > \
+			$(MAKEFILE).$$$$ && \
+		mv $(MAKEFILE).$$$$ $(MAKEFILE); \
+	fi
+	echo '# DO NOT DELETE THIS LINE -- make depend depends on it.' \
+		>> $(MAKEFILE); \
+	$(CXX) -M $(CLI_BUILD_FLAGS) $(MY_INCLUDE_PATHS) $(MY_INCLUDE_FILES) $(MY_SRCS) >> $(MAKEFILE)
+	@for flag in ${MAKEFLAGS} ''; do \
+	case "$$flag" in *=*) ;; --*) ;; *[ik]*) set +e;; esac; done; \
+	for i in $(SUBDIRS) ;\
+	do \
+		echo "making" depend "in $$i..."; \
+		$(MAKE) -C $$i $(MFLAGS) depend; \
+	done
+
+#
+# Generate a zip format release
+#
+dist:
+	@f=`grep -v '^#' MANIFEST`; p=$(PROG_NAME) n=$(PROG_NAME)$(PRE_REL); \
+	rm -rf $$p && mkdir $$p && tar cf - $$f | (cd $$p; tar xf -) && \
+	zip -r $$n.zip $$p && rm -rf $$p
+
+#
+# Generate a gzip-compressed tar format release
+#
+tardist:
+	@f=`grep -v '^#' MANIFEST`; p=$(PROG_NAME) n=$(PROG_NAME)$(PRE_REL); \
+	rm -rf $$p && mkdir $$p && tar cf - $$f | (cd $$p; tar xf -) && \
+	tar cvzf $$n.tgz $$p && rm -rf $$p
+
+
+.PHONY: all build elf hex eep lss sym program coff extcoff clean depend sizebefore sizeafter
+
