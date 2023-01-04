@@ -11,7 +11,7 @@
 // Wi-Fi Configuration
 const char* CONFIG_SSID   = "mach_kernel";
 const char* CONFIG_PSK    = "phonics.87.reply.218";
-const char* HOSTNAME      = "xmit2";
+const char* HOSTNAME      = "xmit";
 const int   CONFIG_SERIAL = 115200;
 const int   CONFIG_PORT   = 80;
 //////////////////////////////////////////////////////////////////////////
