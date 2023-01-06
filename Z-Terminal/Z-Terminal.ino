@@ -136,7 +136,6 @@ unsigned long httpReqCount = 0;
 const long timeoutTime = 1500; // HTTP timeout (ms)
 
 // Wi-Fi
-String ipAddress = "";
 unsigned long WiFiDownInterval = tenMin; // WiFi reconnect timeout (ms)
 unsigned long WiFiLastMillis = 0;
 
@@ -230,14 +229,13 @@ void WebServer( void * pvParameters ){
   WiFi.setAutoReconnect(true);
   WiFi.persistent(true);
   // Print WiFi connection information
-  ipAddress = WiFi.localIP().toString();
   debug("  SSID: ");
   debugln(WiFi.SSID());
   debug("  RSSI: ");
   debug(WiFi.RSSI());
   debugln(" dBm");
   debug("  Local IP: ");
-  debugln(ipAddress);
+  debugln(WiFi.localIP());
   debug("  Port: ");
   debugln(CONFIG_PORT);  
   // Start webserver
@@ -483,9 +481,9 @@ void LCDDraw( void * pvParameters ){
   // WiFi status
   lcd.clear();
   lcd.setCursor(0,0);
-  lcd.print("Z-Terminal - IP:");   
+  lcd.print("Z-Terminal");   
   lcd.setCursor(0,1);
-  lcd.print(ipAddress);
+  lcd.print("v1.2");
   delay(1500);
   lcd.clear();
   lcd.setCursor(0,0);
@@ -918,9 +916,8 @@ void printLocalTime(){
   /* get the day of the month */
   char timeDay[3];
   strftime(timeDay,3, "%d", &timeinfo);
-  int x = atoi(timeDay);
   debug("timeDay: ");
-  debugln(x);
+  debugln(timeDay);
   /* get the year */
   char timeYear[5];
   strftime(timeYear,5, "%Y", &timeinfo);
@@ -936,12 +933,7 @@ void printLocalTime(){
   strftime(_timeWeekDay,10, "%A", &timeinfo);
   String timeWeekDay = String(_timeWeekDay);
   debug("timeWeekDay: ");
-  debugln(timeWeekDay);
-  /* get the hour 12-hour */
-  char hour12[3];
-  strftime(hour12,3, "%I", &timeinfo);
-  debug("hour12: ");
-  debugln(hour12); 
+  debugln(timeWeekDay); 
   /* get the hour 24-hour */
   char timeHour[3];
   strftime(timeHour,3, "%H", &timeinfo);
@@ -952,7 +944,6 @@ void printLocalTime(){
   char timeMin[3];
   strftime(timeMin,3, "%M", &timeinfo);
   int minute = atoi(timeMin);
-  String minstr = String(timeMin);
   debug("timeMin: ");
   debugln(timeMin);
 /* get the time of the day */  
