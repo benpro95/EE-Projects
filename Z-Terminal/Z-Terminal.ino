@@ -15,7 +15,7 @@
 // Wi-Fi Configuration
 const char* CONFIG_SSID   = "mach_kernel";
 const char* CONFIG_PSK    = "phonics.87.reply.218";
-const char* HOSTNAME      = "lcd16x2";
+const char* HOSTNAME      = "lcd32";
 const int   CONFIG_SERIAL = 115200;
 const int   CONFIG_PORT   = 80;
 //////////////////////////////////////////////////////////////////////////
@@ -150,7 +150,7 @@ bool eventPrintTime = 0;
 bool weatherNew = 1; // download new data flag
 bool weatherTrigger = 0; // event trigger flag
 Neotimer owmTimer = Neotimer(tenMin); // 10 minute timer
-String weatherData; 
+String weatherData;
 
 //////////////////////////////////////////////////////////////////////////
 // Enable Serial Messages (0 = off) (1 = on)
@@ -795,15 +795,9 @@ void readSetButton() {
 // display weather event
 void weatherEvent() {
   if (weatherTrigger == 1){
-    if (weatherNew == 1){
-      // build API URL
-      String city = "Buffalo"; 
-      String countryCode = "US";
-      String openWeatherMapApiKey = "842b247f09feaabbf1176be9d6221469"; // API key
-      String openWeatherMapURL = "http://api.openweathermap.org/data/2.5/weather?q=";
-	    String serverPath = openWeatherMapURL + city + "," + countryCode + "&APPID=" + openWeatherMapApiKey;    
+    if (weatherNew == 1){ 
       // call API server
-      String jsonBuffer = httpGETRequest(serverPath.c_str()); 
+      String jsonBuffer = httpGETRequest("http://api.openweathermap.org/data/2.5/weather?q=Buffalo,US&APPID=842b247f09feaabbf1176be9d6221469&units=imperial"); 
       // decode JSON response data
       JSONVar weatherObject = JSON.parse(jsonBuffer);
       // parse weather data
@@ -811,36 +805,28 @@ void weatherEvent() {
       	debugln("Weather data download failed.");
         weatherData = "Parsing input failed!";
       } else {
-      	weatherData = "";
       	debugln("Downloading weather data...");
+        String _city = JSON.stringify(weatherObject["name"]);
       	// parse temperature and convert K to F 
         String _tempstr0 = JSON.stringify(weatherObject["main"]["temp"]);
-        float _tmpnum = KtoF(_tempstr0.toFloat());
-        _tempstr0 = String(_tmpnum); // convert back to strings
-        _tempstr0.remove(_tempstr0.length()-1,1); // remove last decimal
         String _tempstr1 = JSON.stringify(weatherObject["main"]["feels_like"]);
-        _tmpnum = KtoF(_tempstr1.toFloat());
-        _tempstr1 = String(_tmpnum); // convert back to strings
-        _tempstr1.remove(_tempstr1.length()-1,1); // remove last decimal
         // weather description 
         String _desc = JSON.stringify(weatherObject["weather"][0]["description"]);
-        _desc.remove(_desc.indexOf('"'),1); 
-        _desc.remove(_desc.lastIndexOf('"'),1); 
         // build message 
-        weatherData = "weather in " + city + " " + _desc + " " + _tempstr0 + "F feels like " + _tempstr1 + "F ";
+        weatherData = "weather in " + _city + " " + _desc + " " + _tempstr0 + "F feels like " + _tempstr1 + "F ";
         _tempstr0 = "";
         _tempstr1 = "";
         _desc = "";
+        _city = "";
       }
       // clear buffers
-      serverPath = "";
       jsonBuffer = "";
-      // only allow new data to be pulled every 5-min
+      // only allow new data to be pulled every 10-min
       weatherNew = 0;
       owmTimer.reset();
       owmTimer.start();      
     } else { // reset after 5-min, show last data
-      debugln("Showing last weather data..."); 	
+      debugln("Showing last weather data...");  
     }
     if (eventlcdMessage == 0){ // only if not drawing
       // store message data
@@ -854,19 +840,13 @@ void weatherEvent() {
       debugln("display busy. ");
     }
     // end event
-  	weatherTrigger = 0;
+    weatherTrigger = 0;
   } // reset timer   
   if(owmTimer.done()){
-  	weatherData = "";
-  	owmTimer.reset();
+    weatherData = "";
+    owmTimer.reset();
     weatherNew = 1;
   }    
-}
-
-// Kelvin to Fahrenheit
-float KtoF(float _kel) {
-  float _f = (9.0 / 5) * (_kel - 273.15) + 32;	
-  return _f;
 }
 
 // Send a GET request
