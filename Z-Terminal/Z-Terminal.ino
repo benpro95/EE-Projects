@@ -106,11 +106,11 @@ uint8_t bar2[8] = {0x18,0x18,0x18,0x18,0x18,0x18,0x18,0x18};
 uint8_t bar3[8] = {0x1C,0x1C,0x1C,0x1C,0x1C,0x1C,0x1C,0x1C};
 uint8_t bar4[8] = {0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E};
 uint8_t bar5[8] = {0x1F,0x1F,0x1F,0x1F,0x1F,0x1F,0x1F,0x1F};
-#define lcdBacklight 13 // display backlight pin
+#define lcdBacklight 17 // display backlight pin
 Neotimer lcdDelayTimer = Neotimer();
 Neotimer lcdDimmer = Neotimer(80000); // ms before dimming display backlight
 const uint8_t lcdClearCharSpeed = 50; // ms delay between drawing each character (clearing display)
-const uint32_t lcdDefaultDelay = 250; // ms delay used when none is specified
+const uint32_t lcdDefaultDelay = 325; // ms delay used when none is specified
 uint8_t charBuffer0[20]; // trailing character buffer (row 0)
 uint8_t charBuffer1[20]; // trailing character buffer (row 1)
 uint8_t chrarSize = 0; // character array size
