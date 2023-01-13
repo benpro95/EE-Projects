@@ -15,4 +15,4 @@
 *.raw
 *.RAW
 Libraries
-Thumbs.db
+*Thumbs.db
