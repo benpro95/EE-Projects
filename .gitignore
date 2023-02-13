@@ -14,5 +14,8 @@
 *.MOV
 *.raw
 *.RAW
+libraries
 Libraries
 *Thumbs.db
+Processing\libraries
+Processing\Libraries
