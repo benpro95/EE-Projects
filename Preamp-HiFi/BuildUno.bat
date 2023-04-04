@@ -2,7 +2,7 @@ SET ARDUINO_CLI=C:\Program Files\Arduino\arduino-cli.exe
 SET ARDUINO_LIB=Z:\Projects\Libraries
 
 SET SKETCH_PATH=.
-SET SKETCH_NAME=Preamp-v5.ino
+SET SKETCH_NAME=Preamp-HiFi.ino
 
 rmdir /s /q "%LocalAppData%\Arduino15\build"
 mkdir "%LocalAppData%\Arduino15\build"
