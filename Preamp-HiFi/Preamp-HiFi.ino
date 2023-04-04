@@ -1,7 +1,7 @@
 ///////////////////////////////////////////////////////////////////////////////
-// Preamp Controller v1.0 
+// Preamp Controller v2.0 
 // by Ben Provenzano III
-// 09/28/2022
+// 04/03/2023
 ///////////////////////////////////////////////////////////////////////////////
 
 
@@ -89,8 +89,13 @@ int potValueLast; // range from 0-1023
 uint8_t volPotLast;
 uint8_t potState;
 
+// Toggle Switch
+#define toggleSwitchPin 12 // pin 
+uint32_t toggleSwitchMillis;
+uint8_t lastToggleSwitch = 0;
+uint8_t toggleSwitch = 0;
+
 // Power
-#define toggleSwitchPin 12 // switch pin 
 #define powerRelayPin 7
 #define powerButtonPin 5
 uint8_t lastPowerButton = 0;
@@ -934,6 +939,33 @@ void setPowerState() {
   }  
 }
 
+
+// power toggle switch
+void readToggleSwitch() {
+  // read pin state from switch
+  int reading = digitalRead(toggleSwitchPin);
+  // if switch changed
+  if (reading != lastToggleSwitch) {
+    // reset the debouncing timer
+    toggleSwitchMillis = millis();
+  }
+  if ((millis() - toggleSwitchMillis) > debounceDelay) {
+    // if the button state has changed:
+    if (reading != toggleSwitch) {
+      toggleSwitch = reading;
+      // power state has changed!
+      lcd.setCursor(0,0);
+      if (toggleSwitch == 1) { 
+        lcd.print("Toggle on...");  
+      }
+      if (toggleSwitch == 0) { 
+        lcd.print("Toggle off...");  
+      }
+    }
+  }
+  lastToggleSwitch = reading; 
+}
+
 // shutdown routines
 void shutdown() {  	
   // mute
@@ -1024,5 +1056,6 @@ void loop()
     motorPot();
   }
   // power management
-  setPowerState();	  
+  setPowerState(); 
+  readToggleSwitch();
 }
