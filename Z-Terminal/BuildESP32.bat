@@ -1,5 +1,5 @@
 SET ARDUINO_CLI=C:\Program Files\Arduino\arduino-cli.exe
-SET ARDUINO_LIB=Z:\Projects\Libraries\Arduino
+SET ARDUINO_LIB=Z:\Projects\Libraries
 
 SET SKETCH_PATH=.
 SET SKETCH_NAME=Z-Terminal.ino

@@ -1,8 +1,8 @@
 SET ARDUINO_CLI=C:\Program Files\Arduino\arduino-cli.exe
-SET ARDUINO_LIB=Z:\Projects\Arduino\libraries
+SET ARDUINO_LIB=Z:\Projects\libraries
 
 SET SKETCH_PATH=.
-SET SKETCH_NAME=SpeakerController-v1.ino
+SET SKETCH_NAME=SpeakerController.ino
 
 rmdir /s /q "%LocalAppData%\Arduino15\build"
 mkdir "%LocalAppData%\Arduino15\build"

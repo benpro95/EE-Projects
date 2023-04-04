@@ -37,9 +37,9 @@ uint8_t debounceIR = 100; // IR receive max rate (ms)
 uint32_t irRecv;
 
 // Front Panel Control
-#define selectPin 34 // A1 analog input
-#define functionPin 33 // A2 analog input
-#define subPin 32 // A3 analog input
+#define selectPin 1 // A1 analog input
+#define functionPin 2 // A2 analog input
+#define subPin 0 // A3 analog input
 uint8_t selectButton = 0;
 uint8_t lastSelectButton = 0;
 uint32_t selectButtonMillis;
@@ -75,14 +75,14 @@ bool writeRelays = 0;
 int selectedMode = 0;
 
 // Amplifier control
-#define outRelaysPin 12 // speakers //CHANGED//
-#define inRelaysPin 26 //CHANGED//
+#define outRelaysPin 3 // speakers
+#define inRelaysPin 4
 
 // Power Control
-#define subRelayPin 25 //CHANGED//
-#define ampSelectRelayPin 35 // amps & a/b pwr //CHANGED//
-#define powerRelayPin 32 //CHANGED//
-#define powerTriggerPin 31 // A0 analog input //CHANGED//
+#define subRelayPin 6
+#define ampSelectRelayPin 5 // amps & a/b pwr
+#define powerRelayPin 7
+#define powerTriggerPin 3 // A0 analog input
 #define powerButtonPin 5 // on MCP chip
 uint8_t powerButton = 0;
 uint8_t lastPowerButton = 0;
@@ -168,7 +168,7 @@ void lcdTimedBar(uint8_t _sec, bool _doublebar)
 // display in standby mode
 void lcdStandby()
 { 
-  //analogWrite(lcdBacklightPin, lcdOffBrightness);	 //CHANGED//
+  analogWrite(lcdBacklightPin, lcdOffBrightness);	
   lcd.clear();
   lcd.setCursor(0,0);
   lcd.print("Speaker");
@@ -226,7 +226,7 @@ void irReceive()
         }     
         if (IrReceiver.decodedIRData.command == 0x5F) { // play/pause button 
           writeRelays = 1;    		
-    	    selectedMode = 3;
+    	  selectedMode = 3;
   	      functionSelect(99);          
         }                                
       }   
@@ -412,7 +412,8 @@ void readFrontPanel() {
         if (functionButton == 1) {
           // function 1 button pressed
         	writeRelays = 1;
-          functionSelect(99);
+          functionSelect(99);  
+ 
         }  
         ////////////////////////////
       }
@@ -582,7 +583,7 @@ void shutdown() {
 // startup routines
 void startup() 
 { 
-  //analogWrite(lcdBacklightPin, lcdOnBrightness);  //CHANGED//
+  analogWrite(lcdBacklightPin, lcdOnBrightness);
   lcd.setCursor(0,0);
   lcd.print("Starting Up...");
   // turn on preamp power here
@@ -615,7 +616,7 @@ void setup()
   digitalWrite(LED_BUILTIN, HIGH);    
   // display backlight
   pinMode(lcdBacklightPin, OUTPUT);  
-  //analogWrite(lcdBacklightPin, lcdOffBrightness); //CHANGED//
+  analogWrite(lcdBacklightPin, lcdOffBrightness);
   // outputs
   pinMode(powerRelayPin, OUTPUT);  
   digitalWrite(powerRelayPin, LOW);
@@ -650,19 +651,10 @@ void loop()
   readFrontPanel();
   // change relay states
   if (writeRelays == 1) { 
-	  digitalWrite(ampSelectRelayPin, ampMode); 
-    delay(50);
-	  digitalWrite(outRelaysPin, spkMode);
-    delay(50);
-	  digitalWrite(inRelaysPin, inMode);
-    delay(50);
-	  digitalWrite(subRelayPin, subMode);
-    delay(150);
+	digitalWrite(ampSelectRelayPin, ampMode); 
+	digitalWrite(outRelaysPin, spkMode);
+	digitalWrite(inRelaysPin, inMode);
+	digitalWrite(subRelayPin, subMode);
     writeRelays = 0;
-    // redraw LCD
-    lcd.clear();
-    lcd.setCursor(15,1);
-    lcd.print(char(0));
-    functionSelect(99);
   }
 }

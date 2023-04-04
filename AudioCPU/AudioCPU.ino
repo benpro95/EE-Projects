@@ -23,8 +23,8 @@ LiquidCrystal_I2C lcd(lcdAddr);
 uint8_t lcdCols = 16; // number of columns in the LCD
 uint8_t lcdRows = 2;  // number of rows in the LCD
 #define lcdBacklightPin 9 // display backlight pin
-uint8_t lcdOffBrightness = 175; // standby-off LCD brightness level ***
-uint8_t lcdOnBrightness = 245; // online LCD brightness level ***
+uint8_t lcdOffBrightness = 255; // standby-off LCD brightness level ***
+uint8_t lcdOnBrightness = 255; // online LCD brightness level ***
 // custom characters
 uint8_t bar1[8] = {0x10,0x10,0x10,0x10,0x10,0x10,0x10,0x10};
 uint8_t bar2[8] = {0x18,0x18,0x18,0x18,0x18,0x18,0x18,0x18};
@@ -41,27 +41,25 @@ uint8_t debounceIR = 75; // IR receive max rate (ms)
 uint32_t irRecv;
 
 // Input selector
-static const char *inputNames[] =
-{
-  ("DIGITAL   "),
-  ("AUX       "),
-  ("PHONO     "),
-  ("AIRPLAY   "),
-  ("PC        ")
-};
-char* inputSelected = "          ";
+String inputSelected;
+String inputName1 = "AIRPLAY   "; //***
+String inputName2 = "OPTICAL   "; //***
+String inputName3 = "AUX       "; //***
+String inputName4 = "          "; //***
+String inputName5 = "          "; //*** 
 uint8_t inputRelayCount = 3; 
 
 // Volume control
-uint8_t volCoarseSteps = 6; // volume steps to skip for coarse adjust ***
+uint8_t volCoarseSteps = 4; // volume steps to skip for coarse adjust ***
 uint8_t volRelayCount = 8; // number of relays on volume attenuator board ***
-uint8_t volMaxLimit = 90; // max percentage of volume range (100%) when in limit mode ***
-uint8_t volMinLimit = 45; // min percentage of volume range (0%)
+uint8_t volMaxLimit = 85; // max percentage of volume range (100%) when in limit mode ***
+uint8_t volMinLimit = 30; // min percentage of volume range (0%)
 #define volControlDown 1
 #define volControlUp 2
 #define volControlSlow 1 
 #define volControlFast 2 
-bool volLimitFlag = 1; // limit on by default
+#define volLimitPin 12 // volume limit switch
+bool volLimitFlag = 0;
 uint8_t volLastLevel = 0;
 uint8_t volLevel = 0;
 uint8_t volSpan;
@@ -71,7 +69,7 @@ bool volMute;
 
 // 50Hz high-pass filter 
 #define hpfRelayPin 10 // HPF relay pin
-bool hpfState = 0;
+bool hpfState = 1; // HPF default startup state 0=on, 1=off ***
 
 // Motor Pot
 #define motorInit 1 // motor initialization
@@ -90,18 +88,18 @@ uint8_t volPotLast;
 uint8_t potState;
 
 // Power
-#define toggleSwitchPin 12 // switch pin 
 #define powerRelayPin 7
 #define powerButtonPin 5
 uint8_t lastPowerButton = 0;
 uint8_t powerButton = 0;
 bool powerCycle = 0;
 bool powerState = 0;
-int startDelay = 10; // startup delay in seconds, unmutes after ***
+int startDelay = 5; // startup delay in seconds, unmutes after ***
 int shutdownTime = 5; // shutdown delay before turning off aux power ***
 int initStartDelay = 3; // delay on initial cold start
 uint8_t debounceDelay = 50; // button debounce delay in ms
 uint32_t powerButtonMillis;
+bool powerReboot = 0; 
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -155,6 +153,7 @@ int readPotWithClipping(int sensed_pot_value)
       volMin, volMax);
   return temp_volume;
 }
+
 
 // runs when pot state changes
 void potValueChanges(void)
@@ -323,46 +322,17 @@ void motorPot(void)
 
 
 // setup volume range
-void volRange(bool _boot)
-{ // mute
-  muteSystem(0);  
-  // toggle volume limit (only after boot)
-  if (_boot == 0) { 
-     volLimitFlag = !volLimitFlag;
-  } // calculate volume min/max
+void volRange()
+{ // read volume limit switch 
+  // for 7 relays, this would be 128-1 = 127
   uint8_t max_byte_size = (1 << volRelayCount) - 1;
   volMin = (max_byte_size * volMinLimit) / 100;
-  // volume limiter
-  if (volLimitFlag == 0) { 
-    volMax = max_byte_size; 
+  if (volLimitFlag == 0) {
+    volMax = (max_byte_size * volMaxLimit) / 100;
   } else {
-  	volMax = (max_byte_size * volMaxLimit) / 100;
+  	volMax = max_byte_size;
   }
-  // calculate volume span
   volSpan = abs(volMax - volMin);
-  // loading bar 
-  lcd.clear();
-  lcd.setCursor(0,0);
-  if (volLimitFlag == 1){
-    lcd.print("Volume Limit On");
-    lcdTimedBar(startDelay,1);
-  } else {
-    if (_boot == 0) { 
-      lcd.print("Volume Limit Off");
-      lcdTimedBar(startDelay,1);
-    } else {  
-      lcdTimedBar(startDelay/2,2);
-    }
-  }
-  lcd.clear();
-  // reset volume system
-  volMute = 0;
-  volLastLevel = 0;
-  // set volume from pot
-  potState = motorInit;
-  muteSystem(1);
-  // redraw input label
-  inputUpdate(0);
 }
 
 
@@ -499,40 +469,41 @@ void inputUpdate (uint8_t _input)
  if (volMute == 0) {
 	bool _lcdonly = 0;	
 	uint8_t _state; 
-	char* _name = "          ";
+	String _name; 
 	// select input
 	if (_input == 0) {  // just update display
 	   _lcdonly = 1;
 	}  
 	if (_input == 1) {  // input #1 
 	  _state = B00000001;
-	  _name = inputNames[0];
+	  _name = inputName1;
 	}    
 	if (_input == 2) {  // input #2
 	  _state = B00000010;
-	  _name = inputNames[1];
+	  _name = inputName2;
 	}  
 	if (_input == 3) {  // input #3
 	  _state = B00000100;
-	  _name = inputNames[2];
+	  _name = inputName3;
 	}
-  if (_input == 4) {  // input #4 (display only)
+  if (_input == 4) {  // initial input select
     _lcdonly = 1;
-    inputSelected = inputNames[3];
+    inputSelected = inputName1;
   }  
   if (_input == 5) {  // input #5 (display only)
     _lcdonly = 1;
-    inputSelected = inputNames[4];
+    inputSelected = inputName5;
   }    
 	if (_input >= 6) {  // invalid setting
 	  return;
 	}
 	if (_lcdonly == 0) {
-	  // set input relays
-	  setRelays(inputSetAddr, inputResetAddr, _state, inputRelayCount, 1);  
-	  inputSelected = _name;	  
+	    // set input relays
+	    // DISABLED INPUT BOARD SELECT
+	    //setRelays(inputSetAddr, inputResetAddr, _state, inputRelayCount, 1);  
+	    inputSelected = _name;	  
 	} else {
-	   _name = inputSelected;
+	    _name = inputSelected;
 	}
 	// update display
 	lcd.setCursor(2,1);
@@ -545,26 +516,26 @@ void inputUpdate (uint8_t _input)
 void hpfControl (uint8_t _state) 
 {
   if (volMute == 0) {
-  	if (_state == 0) {  // HPF on
-  	  hpfState = 0;
-  	}  
-  	if (_state == 1) {  // HPF off
-  	  hpfState = 1;
-  	}    
-  	if (_state == 2) {  // toggle state
+	if (_state == 0) {  // HPF on
+	  hpfState = 0;
+	}  
+	if (_state == 1) {  // HPF off
+	  hpfState = 1;
+	}    
+	if (_state == 2) {  // toggle state
       hpfState =! hpfState;
-  	}  
-  	if (_state >= 3) {  // invalid 
-  	  return;
-  	}
+	}  
+	if (_state >= 3) {  // invalid 
+	  return;
+	}
     if (hpfState == 0) {
-	    lcd.setCursor(2,1);
-	    lcd.print("HPF Off   ");     
-	    digitalWrite(hpfRelayPin, HIGH);	
+	  lcd.setCursor(2,1);
+	  lcd.print("HPF Off    ");     
+	  digitalWrite(hpfRelayPin, HIGH);	
     } else {
       lcd.setCursor(2,1);
-	    lcd.print("HPF On    ");   
-	    digitalWrite(hpfRelayPin, LOW);	 
+	  lcd.print("HPF On   ");   
+	  digitalWrite(hpfRelayPin, LOW);	 
     }	
     delay(2000);
     inputUpdate(0); // only update display
@@ -661,7 +632,6 @@ void PCFexpanderWrite(uint8_t address, uint8_t _data )
  Wire.endTransmission(); 
 }
 
-
 // volume status on display
 void lcdVolume(int _level) {
 // update percentage  
@@ -678,9 +648,7 @@ void lcdVolume(int _level) {
       lcd.setCursor(12,1);
       lcd.print("    "); 
       lcd.setCursor(13,1);
-      lcd.print(_lcdlevel);
-      lcd.setCursor(15,1);
-      lcd.print("%");
+      lcd.print(String(_lcdlevel) + String("%"));
     }
   // draw volume progress bar if unmuted
   _lcdlevel = map(_level, volMin, volMax, 0, 1024);
@@ -713,34 +681,22 @@ void lcdBar (int row, int var, int minVal, int maxVal)
   }
 }
 
+
 // display progress bar for # of seconds 
-void lcdTimedBar(int _sec, uint8_t _single) { 
-  uint32_t _ms = _sec * 6; 
-  uint32_t _colcount;
-  uint32_t _segcount;
-  uint8_t _rowcount;
-  uint8_t _line = 1;
-  if (_single == 0) {
-    return;
-  }
-  // draw bar on each row
-  for(_rowcount = 0; _rowcount < _single; _rowcount++) {
-    // draw bar on each collumn
-    for(_colcount = 0; _colcount < lcdCols; _colcount++) {
-      // draw bar segments  
-      for(_segcount = 0; _segcount < 5; _segcount++) {  
-        lcd.setCursor(_colcount,_line);
-        // draw custom segment 
-        lcd.write(_segcount + 1);
-        // also reset PCF expanders
-        resetPCF(volSetAddr,volResetAddr);
-        resetPCF(inputSetAddr,inputResetAddr);     
-        // pause  
-        delay(_ms);
-      }    
-    } // decrement to next row
-    _line--;
-  }
+void lcdTimedBar(uint8_t _sec, bool _doublebar)
+{ // seconds to loops
+  int _loops = _sec * 32;
+  for ( int _incr = 0; _incr < _loops; _incr++ ) {
+  	if (_doublebar == 1) {
+      lcdBar(0,_incr,0,_loops);
+    }
+    lcdBar(1,_incr,0,_loops);
+    // also reset PCF expanders
+    resetPCF(volSetAddr,volResetAddr);
+    resetPCF(inputSetAddr,inputResetAddr);
+    _incr = _incr + 4;
+    delay(40);
+  }    
 }  
 
 
@@ -750,9 +706,9 @@ void lcdStandby()
   analogWrite(lcdBacklightPin, lcdOffBrightness);	
   lcd.clear();
   lcd.setCursor(0,0);
-  lcd.print("Preamp v6");
+  lcd.print("HiFi");
   lcd.setCursor(0,1);
-  lcd.print("ProDesigns");
+  lcd.print("Preamp v5.0");
   lcd.setCursor(10,0);  
   lcd.createChar(0, speaker);
   lcd.setCursor(15,1);
@@ -763,81 +719,56 @@ void lcdStandby()
 
 
 // receive IR remote commands 
-// Philips SRP9232D/27 Universal Remote
-// programmed with code '1376' (Onkyo Audio)
+// FireTV Remote
 // commented codes are for Xmit
 void irReceive() 
 {
   if (IrReceiver.decode()) {
   digitalWrite(LED_BUILTIN, HIGH); 
   // code detected
-  if (powerState == 1) {
-    if (IrReceiver.decodedIRData.address == 0x6DD2) { // address      
-  	  if (IrReceiver.decodedIRData.command == 0x3) { // volume down fast (VOL-) 1270267967
-  	    volIncrement(1,2);       	
-  	  }      
-  	  if (IrReceiver.decodedIRData.command == 0x2) { // volume up fast (VOL+) 1270235327
-  	    volIncrement(2,2);
-  	  }	  
-  	  if (IrReceiver.decodedIRData.command == 0x5) { // mute toggle (MUTE) 1270259807
-  	    muteSystem(2);
-  	  }   
-	  }	      
-    if (IrReceiver.decodedIRData.address == 0xACD2) { // address      
-  	  if (IrReceiver.decodedIRData.command == 0xE) { // input (1) 1261793423
-  	    inputUpdate(1); 
-  	  }      
-  	  if (IrReceiver.decodedIRData.command == 0xF) { // input (2) 1261826063
-  	    inputUpdate(2); 
-  	  }    
-  	  if (IrReceiver.decodedIRData.command == 0x10) { // input (3) 1261766903
-       	inputUpdate(3); 
-  	  } 
-      if (IrReceiver.decodedIRData.command == 0x11) { // input (4) just displays AIRPLAY
-        inputUpdate(4); 
-      }  
-      if (IrReceiver.decodedIRData.command == 0x12) { // toggle volume limiter
-        volRange(0);
-      }            
-  	  if (IrReceiver.decodedIRData.command == 0x17) { // force mute (0) 1261824023
-        muteSystem(0); 
-  	  } 	         	  	    
-	  }	                                    
-    if (IrReceiver.decodedIRData.address == 0x6CD2) { // address      
-  	  if (IrReceiver.decodedIRData.command == 0x9B) { // volume down slow (DOWN) 1261885734
-  	    volIncrement(1,1);
-  	  }      
-  	  if (IrReceiver.decodedIRData.command == 0x9A) { // volume up slow (UP) 1261853094
-  	    volIncrement(2,1);
-  	  }    
-  	  if (IrReceiver.decodedIRData.command == 0x8D) { // HPF control (PLAY) 1261875534
-  	 	  hpfControl(2);
-  	  }         	  	    
-	  }	           
+  if (powerState == 1) {      
+    if (IrReceiver.decodedIRData.address == 0x7D02) { // address 
+	  if (IrReceiver.decodedIRData.command == 0x4D) { // volume down fast (VOL-) 
+	    volIncrement(1,2);       	
+	  }      
+	  if (IrReceiver.decodedIRData.command == 0x48) { // volume up fast (VOL+) 
+	    volIncrement(2,2);
+	  }	  
+	  if (IrReceiver.decodedIRData.command == 0x4C) { // mute toggle (MUTE) 
+	    muteSystem(2);
+	  }  
+	  if (IrReceiver.decodedIRData.command == 0x16) { // input (1) 
+	    inputUpdate(1); 
+	  }      
+	  if (IrReceiver.decodedIRData.command == 0x5B) { // input (2) 
+	    inputUpdate(2); 
+	  }    
+	  if (IrReceiver.decodedIRData.command == 0x17) { // input (3) 
+     	inputUpdate(3); 
+	  }                   	  	                                        
+	  if (IrReceiver.decodedIRData.command == 0x19) { // volume down slow (DOWN) 
+	    volIncrement(1,1);
+	  }      
+	  if (IrReceiver.decodedIRData.command == 0xC) { // volume up slow (UP) 
+	    volIncrement(2,1);
+	  }    
+	  if (IrReceiver.decodedIRData.command == 0x4A) { // toggle volume limit
+        volLimitFlag = !volLimitFlag;
+        powerReboot = 1;
+        powerState = 0;  
+        powerCycle = 1;
+	  }         	  	    
+	}          
   }    
-  if (IrReceiver.decodedIRData.address == 0x6DD2) { // address
-    if (IrReceiver.decodedIRData.command == 0x4) { // power toggle (POWER) 1270227167
+  if (IrReceiver.decodedIRData.address == 0x7D02) { // address
+    if (IrReceiver.decodedIRData.command == 0x46) { // power toggle (POWER)
       powerState = !powerState;  
       powerCycle = 1;
       delay(100);
-    }  
-  }    
-  if (IrReceiver.decodedIRData.address == 0x6CD2) { // address    
-    if (IrReceiver.decodedIRData.command == 0x99) { // power on (HOME) 1261869414
-      if (powerState == 0) {
-        powerState = 1;  
-        powerCycle = 1;
-      }  
-    }  
-    if (IrReceiver.decodedIRData.command == 0x8E) { // power off (STOP) 1261859214
-      if (powerState == 1) {
-        powerState = 0; 
-        powerCycle = 1;
-      }  
-    }  
+    }      
   }       
   // display IR codes on terminal
-  if (irCodeScan == 1) {   
+    if (irCodeScan == 1) {   
 	  // display IR codes on terminal   
 	  Serial.println("--------------");   
 	  if (IrReceiver.decodedIRData.protocol == UNKNOWN) {
@@ -918,11 +849,14 @@ void setPowerState() {
     }
   }
   lastPowerButton = reading; 
+
   // power state actions  
-  if (powerCycle == 1){  	  
-	  // reset display
-	  lcd.clear(); 
-	  // one-shot triggers
+  if (powerCycle == 1){  
+	// calculate volume limits
+	volRange();   	  
+	// reset display
+	lcd.clear();
+	// one-shot triggers
     if (powerState == 1){
       /// runs once on boot ///
       startup();
@@ -934,18 +868,24 @@ void setPowerState() {
   }  
 }
 
-// shutdown routines
-void shutdown() {  	
-  // mute
-  muteSystem(0);    
+void shutdown() {
+  // shutdown routines
+  muteSystem(0); // mute    	
   // shutdown animation
   lcd.clear();
   lcd.setCursor(0,0);
   lcd.print("Shutting Down..."); 	
-  lcdTimedBar(shutdownTime,1);	
+  lcdTimedBar(shutdownTime,0);	
   lcdStandby();
-  // turn off preamp power here
-  digitalWrite(powerRelayPin, LOW);  	
+  // restart mode
+  if (powerReboot == 1){  
+  	startup();
+  	powerState = 1;
+	powerReboot = 0;
+  } else { 	
+  	// turn off preamp power here
+  	digitalWrite(powerRelayPin, LOW);  	
+  } 
 }
 
 // startup routines
@@ -957,17 +897,30 @@ void startup()
   // turn on preamp power here
   digitalWrite(powerRelayPin, HIGH);  
   delay(650);
+  // loading bar 
   lcd.clear();
-  // initialize volume system
-  volRange(1);     
-  // set audio input
-  inputUpdate(1);
+  if (volLimitFlag == 0){
+    lcd.setCursor(0,0);
+    lcd.print("Volume Limit On");
+    lcdTimedBar(startDelay,0);
+  } else {
+    lcdTimedBar(startDelay,1);
+  }
+  lcd.clear();
+  // music icon
+  lcd.createChar(0, sound);
+  lcd.setCursor(0,1);
+  lcd.print(char(0));
+  // set volume from pot
+  volMute = 0;
+  potState = motorInit;
+  volUpdate(volLevel, 1);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 // initialization 
 void setup() 
-{ 	
+{
   // 16x2 display (calls Wire.begin)
   lcd.begin(lcdCols,lcdRows); 	
   // reset expanders
@@ -990,9 +943,12 @@ void setup()
   digitalWrite(powerRelayPin, LOW);  
   // HPF control
   pinMode(hpfRelayPin, OUTPUT);  
-  digitalWrite(hpfRelayPin, HIGH);
-  // HPF switch 
-  pinMode(toggleSwitchPin, INPUT_PULLUP);
+  digitalWrite(hpfRelayPin, hpfState);
+  hpfState =! hpfState;
+  // volume limit switch 
+  pinMode(volLimitPin, INPUT_PULLUP);    
+  // calculate volume limits
+  volRange();  
   // IR remote
   IrReceiver.begin(IRpin);  
   // initial boot display
@@ -1001,7 +957,9 @@ void setup()
   lcd.createChar(3, bar3);
   lcd.createChar(4, bar4);
   lcd.createChar(5, bar5);
-  lcdTimedBar(initStartDelay,2);
+  lcdTimedBar(initStartDelay,1);
+  // initial input
+  inputUpdate(4);
   // serial support
   if (irCodeScan == 1){  
     Serial.begin(9600);
@@ -1022,7 +980,6 @@ void loop()
       potValueChanges();
     }
     motorPot();
-  }
-  // power management
+  } // power management
   setPowerState();	  
 }

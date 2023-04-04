@@ -1,0 +1,186 @@
+POWER
+P=7 A=0x7D02 C=0x46 Raw=0xB9467D02--------------
+IR protocol: 7
+IR v3 decimal: 3108404482
+IR v3 (2's-compliment) decimal: -1186562814
+IR v3 hex: B9467D02
+IR v3 address: B9
+IR v3 command: 46
+--------------
+IR v2 decimal: 1086218909
+IR v2 (2's-compliment) decimal: 1086218909
+IR v2 hex: 40BE629D
+
+VOL UP C
+P=7 A=0x7D02 C=0x48 Raw=0xB7487D02--------------
+IR protocol: 7
+IR v3 decimal: 3074981122
+IR v3 (2's-compliment) decimal: -1219986174
+IR v3 hex: B7487D02
+IR v3 address: B7
+IR v3 command: 48
+--------------
+IR v2 decimal: 1086198509
+IR v2 (2's-compliment) decimal: 1086198509
+IR v2 hex: 40BE12ED
+
+VOL DOWN C
+P=7 A=0x7D02 C=0x4D Raw=0xB24D7D02--------------
+IR protocol: 7
+IR v3 decimal: 2991422722
+IR v3 (2's-compliment) decimal: -1303544574
+IR v3 hex: B24D7D02
+IR v3 address: B2
+IR v3 command: 4D
+--------------
+IR v2 decimal: 1086239309
+IR v2 (2's-compliment) decimal: 1086239309
+IR v2 hex: 40BEB24D
+
+VOL LIMIT
+P=7 A=0x7D02 C=0x4A Raw=0xB54A7D02--------------
+IR protocol: 7
+IR v3 decimal: 3041557762
+IR v3 (2's-compliment) decimal: -1253409534
+IR v3 hex: B54A7D02
+IR v3 address: B5
+IR v3 command: 4A
+--------------
+IR v2 decimal: 1086214829
+IR v2 (2's-compliment) decimal: 1086214829
+IR v2 hex: 40BE52AD
+
+RW IN 1
+--------------
+P=7 A=0x7D02 C=0x16 Raw=0xE9167D02--------------
+IR protocol: 7
+IR v3 decimal: 3910565122
+IR v3 (2's-compliment) decimal: -384402174
+IR v3 hex: E9167D02
+IR v3 address: E9
+IR v3 command: 16
+--------------
+IR v2 decimal: 1086220439
+IR v2 (2's-compliment) decimal: 1086220439
+IR v2 hex: 40BE6897
+
+
+PLAY IN 2
+P=7 A=0x7D02 C=0x5B Raw=0xA45B7D02--------------
+IR protocol: 7
+IR v3 decimal: 2757459202
+IR v3 (2's-compliment) decimal: -1537508094
+IR v3 hex: A45B7D02
+IR v3 address: A4
+IR v3 command: 5B
+--------------
+IR v2 decimal: 1086249509
+IR v2 (2's-compliment) decimal: 1086249509
+IR v2 hex: 40BEDA25
+
+FF IN 3
+P=7 A=0x7D02 C=0x17 Raw=0xE8177D02--------------
+IR protocol: 7
+IR v3 decimal: 3893853442
+IR v3 (2's-compliment) decimal: -401113854
+IR v3 hex: E8177D02
+IR v3 address: E8
+IR v3 command: 17
+--------------
+IR v2 decimal: 1086253079
+IR v2 (2's-compliment) decimal: 1086253079
+IR v2 hex: 40BEE817
+
+VOL UP F
+P=7 A=0x7D02 C=0xC Raw=0xF30C7D02--------------
+IR protocol: 7
+IR v3 decimal: 4077681922
+IR v3 (2's-compliment) decimal: -217285374
+IR v3 hex: F30C7D02
+IR v3 address: F3
+IR v3 command: C
+--------------
+IR v2 decimal: 1086206159
+IR v2 (2's-compliment) decimal: 1086206159
+IR v2 hex: 40BE30CF
+
+VOL DOWN FINE
+P=7 A=0x7D02 C=0x19 Raw=0xE6197D02--------------
+IR protocol: 7
+IR v3 decimal: 3860430082
+IR v3 (2's-compliment) decimal: -434537214
+IR v3 hex: E6197D02
+IR v3 address: E6
+IR v3 command: 19
+--------------
+IR v2 decimal: 1086232679
+IR v2 (2's-compliment) decimal: 1086232679
+IR v2 hex: 40BE9867
+
+MUTE
+P=7 A=0x7D02 C=0x4C Raw=0xB34C7D02--------------
+IR protocol: 7
+IR v3 decimal: 3008134402
+IR v3 (2's-compliment) decimal: -1286832894
+IR v3 hex: B34C7D02
+IR v3 address: B3
+IR v3 command: 4C
+--------------
+IR v2 decimal: 1086206669
+IR v2 (2's-compliment) decimal: 1086206669
+IR v2 hex: 40BE32CD
+
+
+NETFLIX
+--------------
+P=7 A=0x7D02 C=0x5F Raw=0xA05F7D02--------------
+IR protocol: 7
+IR v3 decimal: 2690612482
+IR v3 (2's-compliment) decimal: -1604354814
+IR v3 hex: A05F7D02
+IR v3 address: A0
+IR v3 command: 5F
+--------------
+IR v2 decimal: 1086257669
+IR v2 (2's-compliment) decimal: 1086257669
+IR v2 hex: 40BEFA05
+
+
+HULU
+P=7 A=0x7D02 C=0xA3 Raw=0x5CA37D02--------------
+IR protocol: 7
+IR v3 decimal: 1554218242
+IR v3 (2's-compliment) decimal: 1554218242
+IR v3 hex: 5CA37D02
+IR v3 address: 5C
+IR v3 command: A3
+--------------
+IR v2 decimal: 1086244154
+IR v2 (2's-compliment) decimal: 1086244154
+IR v2 hex: 40BEC53A
+
+PRIME
+P=7 A=0x7D02 C=0xA1 Raw=0x5EA17D02--------------
+IR protocol: 7
+IR v3 decimal: 1587641602
+IR v3 (2's-compliment) decimal: 1587641602
+IR v3 hex: 5EA17D02
+IR v3 address: 5E
+IR v3 command: A1
+--------------
+IR v2 decimal: 1086227834
+IR v2 (2's-compliment) decimal: 1086227834
+IR v2 hex: 40BE857A
+
+HBO
+P=7 A=0x7D02 C=0xA2 Raw=0x5DA27D02--------------
+IR protocol: 7
+IR v3 decimal: 1570929922
+IR v3 (2's-compliment) decimal: 1570929922
+IR v3 hex: 5DA27D02
+IR v3 address: 5D
+IR v3 command: A2
+--------------
+IR v2 decimal: 1086211514
+IR v2 (2's-compliment) decimal: 1086211514
+IR v2 hex: 40BE45BA
