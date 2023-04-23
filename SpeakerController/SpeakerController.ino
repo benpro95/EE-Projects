@@ -19,7 +19,7 @@ LiquidCrystal_I2C lcd(lcdAddr);
 uint8_t lcdCols = 16; // number of columns in the LCD
 uint8_t lcdRows = 2;  // number of rows in the LCD
 #define lcdBacklightPin 9 // display backlight pin
-uint8_t lcdOffBrightness = 0; // standby-off LCD brightness level ***
+uint8_t lcdOffBrightness = 255; // standby-off LCD brightness level ***
 uint8_t lcdOnBrightness = 255; // online LCD brightness level ***
 // Custom Characters
 uint8_t bar1[8] = {0x10,0x10,0x10,0x10,0x10,0x10,0x10,0x10};
@@ -37,9 +37,9 @@ uint8_t debounceIR = 100; // IR receive max rate (ms)
 uint32_t irRecv;
 
 // Front Panel Control
-#define selectPin 34 // A1 analog input
-#define functionPin 33 // A2 analog input
-#define subPin 32 // A3 analog input
+#define selectPin 1 // A1 analog input
+#define functionPin 2 // A2 analog input
+#define subPin 0 // A3 analog input
 uint8_t selectButton = 0;
 uint8_t lastSelectButton = 0;
 uint32_t selectButtonMillis;
@@ -75,14 +75,14 @@ bool writeRelays = 0;
 int selectedMode = 0;
 
 // Amplifier control
-#define outRelaysPin 12 // speakers //CHANGED//
-#define inRelaysPin 26 //CHANGED//
+#define outRelaysPin 3 // speakers 
+#define inRelaysPin 4 
 
 // Power Control
-#define subRelayPin 25 //CHANGED//
-#define ampSelectRelayPin 35 // amps & a/b pwr //CHANGED//
-#define powerRelayPin 32 //CHANGED//
-#define powerTriggerPin 31 // A0 analog input //CHANGED//
+#define subRelayPin 6 
+#define ampSelectRelayPin 5 // amps & a/b pwr 
+#define powerRelayPin 7 
+#define powerTriggerPin 3 // A0 analog input 
 #define powerButtonPin 5 // on MCP chip
 uint8_t powerButton = 0;
 uint8_t lastPowerButton = 0;
@@ -151,36 +151,31 @@ void lcdBar (int row, int var, int minVal, int maxVal)
 
 
 // display progress bar for # of seconds 
-void lcdTimedBar(uint8_t _sec, bool _doublebar)
-{ // seconds to loops
-  int _loops = _sec * 32;
-  for ( int _incr = 0; _incr < _loops; _incr++ ) {
-  	if (_doublebar == 1) {
-      lcdBar(0,_incr,0,_loops);
-    }
-    lcdBar(1,_incr,0,_loops);
-    _incr = _incr + 4;
-    delay(40);
-  }    
-}  
-
-
-// display in standby mode
-void lcdStandby()
-{ 
-  //analogWrite(lcdBacklightPin, lcdOffBrightness);	 //CHANGED//
-  lcd.clear();
-  lcd.setCursor(0,0);
-  lcd.print("Speaker");
-  lcd.setCursor(0,1);
-  lcd.print("Controller");
-  lcd.setCursor(10,0);  
-  lcd.createChar(0, speaker);
-  lcd.setCursor(15,1);
-  lcd.print(char(0));
-  delay(500);
-  digitalWrite(LED_BUILTIN, LOW);
-}  
+void lcdTimedBar(int _sec, uint8_t _single) { 
+  uint32_t _ms = _sec * 6; 
+  uint32_t _colcount;
+  uint32_t _segcount;
+  uint8_t _rowcount;
+  uint8_t _line = 1;
+  if (_single == 0) {
+    return;
+  }
+  // draw bar on each row
+  for(_rowcount = 0; _rowcount < _single; _rowcount++) {
+    // draw bar on each collumn
+    for(_colcount = 0; _colcount < lcdCols; _colcount++) {
+      // draw bar segments  
+      for(_segcount = 0; _segcount < 5; _segcount++) {  
+        lcd.setCursor(_colcount,_line);
+        // draw custom segment 
+        lcd.write(_segcount + 1); 
+        // pause  
+        delay(_ms);
+      }    
+    } // decrement to next row
+    _line--;
+  }
+}
 
 
 // receive IR remote commands 
@@ -561,13 +556,33 @@ void updateLCD(uint8_t func, bool mode, bool select)
   }
 }  
 
+// display in standby mode
+void lcdStandby()
+{ 
+  analogWrite(lcdBacklightPin, lcdOffBrightness); 
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print("Speaker");
+  lcd.setCursor(0,1);
+  lcd.print("Controller");
+  lcd.setCursor(10,0);  
+  lcd.createChar(0, speaker);
+  lcd.setCursor(15,1);
+  lcd.print(char(0));
+  delay(500);
+  digitalWrite(LED_BUILTIN, LOW);
+}  
 
 void shutdown() {	
+  // turn off preamp power here
+  digitalWrite(powerRelayPin, LOW);  	
+  delay(500);
   // shutdown animation
+  lcd.begin(lcdCols,lcdRows); 	
   lcd.clear();
   lcd.setCursor(0,0);
   lcd.print("Shutting Down..."); 	
-  lcdTimedBar(shutdownTime,0);	
+  lcdTimedBar(shutdownTime,1);	
   lcdStandby();
   spkMode = 0;
   inMode = 0;
@@ -575,21 +590,23 @@ void shutdown() {
   subMode = 0;
   selectedMode = 0;
   writeRelays = 1;
-  // turn off preamp power here
-  digitalWrite(powerRelayPin, LOW);  	
+
 }
 
 // startup routines
 void startup() 
 { 
-  //analogWrite(lcdBacklightPin, lcdOnBrightness);  //CHANGED//
-  lcd.setCursor(0,0);
-  lcd.print("Starting Up...");
   // turn on preamp power here
   digitalWrite(powerRelayPin, HIGH);  
-  delay(650);
+  delay(500);
+  // clear LCD
+  analogWrite(lcdBacklightPin, lcdOnBrightness); 
+  lcd.begin(lcdCols,lcdRows); 	 
+  lcd.clear();  
+  lcd.setCursor(0,0);
+  lcd.print("Starting Up...");
   // loading bar 
-  lcdTimedBar(startDelay,0);
+  lcdTimedBar(startDelay,1);
   lcd.clear();
   // music icon
   lcd.createChar(0, sound);
@@ -610,12 +627,13 @@ void setup()
   //irCodeScan = 1;
   // 16x2 display (calls Wire.begin)
   lcd.begin(lcdCols,lcdRows); 	
+  lcd.clear();
   // LED status LED
   pinMode(LED_BUILTIN, OUTPUT);  
   digitalWrite(LED_BUILTIN, HIGH);    
   // display backlight
   pinMode(lcdBacklightPin, OUTPUT);  
-  //analogWrite(lcdBacklightPin, lcdOffBrightness); //CHANGED//
+  analogWrite(lcdBacklightPin, lcdOffBrightness);
   // outputs
   pinMode(powerRelayPin, OUTPUT);  
   digitalWrite(powerRelayPin, LOW);
@@ -631,7 +649,7 @@ void setup()
   lcd.createChar(3, bar3);
   lcd.createChar(4, bar4);
   lcd.createChar(5, bar5);
-  lcdTimedBar(initStartDelay,1);
+  lcdTimedBar(initStartDelay,0);
   // serial support
   Serial.begin(9600);
   // draw standby screen
@@ -650,19 +668,22 @@ void loop()
   readFrontPanel();
   // change relay states
   if (writeRelays == 1) { 
-	  digitalWrite(ampSelectRelayPin, ampMode); 
-    delay(50);
-	  digitalWrite(outRelaysPin, spkMode);
-    delay(50);
-	  digitalWrite(inRelaysPin, inMode);
-    delay(50);
-	  digitalWrite(subRelayPin, subMode);
+	digitalWrite(ampSelectRelayPin, ampMode); 
     delay(150);
+	digitalWrite(outRelaysPin, spkMode);
+    delay(150);
+	digitalWrite(inRelaysPin, inMode);
+    delay(150);
+	digitalWrite(subRelayPin, subMode);
+    delay(500);
     writeRelays = 0;
-    // redraw LCD
-    lcd.clear();
-    lcd.setCursor(15,1);
-    lcd.print(char(0));
-    functionSelect(99);
+    if (powerState == 1) { 
+	  // redraw LCD only if power on
+	  lcd.begin(lcdCols,lcdRows); 	 
+	  lcd.clear();
+	  lcd.setCursor(15,1);
+	  lcd.print(char(0));
+	  functionSelect(99);
+	}  
   }
 }
