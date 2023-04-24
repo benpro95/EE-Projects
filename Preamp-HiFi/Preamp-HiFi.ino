@@ -53,7 +53,7 @@ static const char *inputNames0[] =
   ("AUX       "),
   ("PHONO     "),
   ("AIRPLAY   "),
-  ("PC        ")
+  ("OPTICAL   ")
 };
 static const char *inputNames1[] =
 {
@@ -505,7 +505,7 @@ void inputUpdate (uint8_t _input)
       }  
     }
   	// select input relay
-  	if (_input == 1) {  // input #1 
+  	if (_input == 1 || _input > 3) {  // input #1
   	  _state = B00000001;
   	  _set = 1;
   	}    
@@ -767,14 +767,14 @@ void irReceiveA()
     	if (IrReceiver.decodedIRData.command == 0x10) { // input (3) 1261766903
           inputUpdate(3); 
     	} 
-        if (IrReceiver.decodedIRData.command == 0x11) { // input (4) just displays AIRPLAY
+        if (IrReceiver.decodedIRData.command == 0x11) { // airplay, input (1)
           inputUpdate(4); 
         }  
         if (IrReceiver.decodedIRData.command == 0x12) { // toggle volume limiter
           volRange(0);
         }            
-    	if (IrReceiver.decodedIRData.command == 0x17) { // force mute (0) 1261824023
-          muteSystem(0); 
+    	if (IrReceiver.decodedIRData.command == 0x17) { // optical, input (1)
+          inputUpdate(5); 
     	} 	         	  	    
   	  }	                                    
       if (IrReceiver.decodedIRData.address == 0x6CD2) { // address      
