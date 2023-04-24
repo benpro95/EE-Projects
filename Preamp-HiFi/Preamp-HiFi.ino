@@ -18,13 +18,16 @@
 #define volSetAddr 0x3F
 #define lcdAddr 0x27
 
+// Configuration (0=Ben, 1=Seth)
+#define preampType 0
+
 // 16x2 Display
 LiquidCrystal_I2C lcd(lcdAddr);
 uint8_t lcdCols = 16; // number of columns in the LCD
 uint8_t lcdRows = 2;  // number of rows in the LCD
 #define lcdBacklightPin 9 // display backlight pin
-uint8_t lcdOffBrightness = 175; // standby-off LCD brightness level ***
-uint8_t lcdOnBrightness = 245; // online LCD brightness level ***
+uint8_t lcdOffBrightness = 140; // standby-off LCD brightness level ***
+uint8_t lcdOnBrightness = 250; // online LCD brightness level ***
 // custom characters
 uint8_t bar1[8] = {0x10,0x10,0x10,0x10,0x10,0x10,0x10,0x10};
 uint8_t bar2[8] = {0x18,0x18,0x18,0x18,0x18,0x18,0x18,0x18};
@@ -38,36 +41,35 @@ uint8_t sound[8] = {B00001,B00011,B00101,B01001,B01001,B01011,B11011,B11000};
 int IRpin = 8; // receiver in
 bool irCodeScan = 0; // enable IR codes on the terminal (1)
 uint8_t debounceIR = 75; // IR receive max rate (ms)
-uint32_t irRecv;
+uint32_t irRecv = 0;
 
 // Input selector
-static const char *inputNames[] =
-{
-  ("DIGITAL   "),
-  ("AUX       "),
-  ("PHONO     "),
-  ("AIRPLAY   "),
-  ("PC        ")
-};
-char *inputSelected[] = {"          "};
-uint8_t inputRelayCount = 3; 
+char *inputTitle[] = {"          "};
+uint8_t inputRelayCount = 3;
+uint8_t inputSelected = 1;
 
 // Volume control
-uint8_t volCoarseSteps = 6; // volume steps to skip for coarse adjust ***
+#if (preampType == 0)
+  uint8_t volCoarseSteps = 6; // volume steps to skip for coarse adjust ***
+  uint8_t volMaxLimit = 90; // max percentage of volume range (100%) when in limit mode ***
+  uint8_t volMinLimit = 40; // min percentage of volume range (0%)
+#else
+  uint8_t volCoarseSteps = 4;
+  uint8_t volMaxLimit = 85; 
+  uint8_t volMinLimit = 30; 
+#endif
 uint8_t volRelayCount = 8; // number of relays on volume attenuator board ***
-uint8_t volMaxLimit = 90; // max percentage of volume range (100%) when in limit mode ***
-uint8_t volMinLimit = 45; // min percentage of volume range (0%)
-#define volControlDown 1
+bool volLimitFlag = 1; // limit on by default
 #define volControlUp 2
+#define volControlDown 1
 #define volControlSlow 1 
 #define volControlFast 2 
-bool volLimitFlag = 1; // limit on by default
 uint8_t volLastLevel = 0;
 uint8_t volLevel = 0;
-uint8_t volSpan;
-uint8_t volMax;
-uint8_t volMin;
-bool volMute;
+uint8_t volSpan = 0;
+uint8_t volMax = 0;
+uint8_t volMin = 0;
+bool volMute = 0;
 
 // 50Hz high-pass filter 
 #define hpfRelayPin 10 // HPF relay pin
@@ -85,9 +87,9 @@ bool hpfState = 0;
 #define motorPinCCW 17 // motor H-bridge CCW pin
 #define potMinRange 30  // lowest pot reading
 #define potMaxRange 1023 // highest pot reading
-int potValueLast; // range from 0-1023
-uint8_t volPotLast;
-uint8_t potState;
+int potValueLast = 0; // range from 0-1023
+uint8_t volPotLast = 0;
+uint8_t potState = 0;
 
 // Toggle Switch
 #define toggleSwitchPin 12 // pin 
@@ -98,16 +100,19 @@ uint8_t toggleSwitch = 0;
 // Power
 #define powerRelayPin 7
 #define powerButtonPin 5
+#if (preampType == 0)
+  int startDelay = 5; // startup delay in seconds, unmutes after ***
+#else
+  int startDelay = 3;
+#endif
+int shutdownTime = 3; // shutdown delay before turning off aux power ***
+int initStartDelay = 2; // delay on initial cold start ***
 uint8_t lastPowerButton = 0;
 uint8_t powerButton = 0;
 bool powerCycle = 0;
 bool powerState = 0;
-int startDelay = 10; // startup delay in seconds, unmutes after ***
-int shutdownTime = 5; // shutdown delay before turning off aux power ***
-int initStartDelay = 3; // delay on initial cold start
 uint8_t debounceDelay = 50; // button debounce delay in ms
 uint32_t powerButtonMillis;
-
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -160,6 +165,7 @@ int readPotWithClipping(int sensed_pot_value)
       volMin, volMax);
   return temp_volume;
 }
+
 
 // runs when pot state changes
 void potValueChanges(void)
@@ -327,50 +333,6 @@ void motorPot(void)
 }
 
 
-// setup volume range
-void volRange(bool _boot)
-{ // mute
-  muteSystem(0);  
-  // toggle volume limit (only after boot)
-  if (_boot == 0) { 
-     volLimitFlag = !volLimitFlag;
-  } // calculate volume min/max
-  uint8_t max_byte_size = (1 << volRelayCount) - 1;
-  volMin = (max_byte_size * volMinLimit) / 100;
-  // volume limiter
-  if (volLimitFlag == 0) { 
-    volMax = max_byte_size; 
-  } else {
-  	volMax = (max_byte_size * volMaxLimit) / 100;
-  }
-  // calculate volume span
-  volSpan = abs(volMax - volMin);
-  // loading bar 
-  lcd.clear();
-  lcd.setCursor(0,0);
-  if (volLimitFlag == 1){
-    lcd.print("Volume Limit On");
-    lcdTimedBar(startDelay,1);
-  } else {
-    if (_boot == 0) { 
-      lcd.print("Volume Limit Off");
-      lcdTimedBar(startDelay,1);
-    } else {  
-      lcdTimedBar(startDelay/2,2);
-    }
-  }
-  lcd.clear();
-  // reset volume system
-  volMute = 0;
-  volLastLevel = 0;
-  // set volume from pot
-  potState = motorInit;
-  muteSystem(1);
-  // redraw input label
-  inputUpdate(0);
-}
-
-
 // increment volume up/down slow/fast
 void volIncrement (uint8_t dir_flag, uint8_t speed_flag)
 {
@@ -445,6 +407,10 @@ void volUpdate(uint8_t _vol, uint8_t _force)
     volLastLevel = volLevel;
     // update display
     lcdVolume(_vol); // redraw progress bar and percentage
+    lcd.setCursor(0,1); // music icon
+    lcd.print(char(0));
+    lcd.setCursor(1,1);
+    lcd.print(" ");
     inputUpdate(0); // just redraw input 
   }  
 }
@@ -453,7 +419,7 @@ void volUpdate(uint8_t _vol, uint8_t _force)
 // mute system (0=mute 1=unmute 2=toggle)
 void muteSystem(uint8_t _state)
 {	
-  if (_state >= 3) {  // invalid 
+  if (_state > 2) {  // invalid 
     return;
   } 
   if (_state == 2) {  // mute toggle 
@@ -479,76 +445,90 @@ void muteSystem(uint8_t _state)
     lcd.print("----------------"); 
     lcd.setCursor(12,1);
     lcd.print("MUTE"); 
-    lcd.createChar(0, speaker);
     lcd.setCursor(0,1);
-    lcd.print(char(0));
+    lcd.print(char(6));
     // set mute flag
     volMute = 1;	
   }
-  if (_state == 1) {	// unmute
-    volMute = 0;  
-    lcd.setCursor(0,0);
-    lcd.print("                "); 
+  if (_state == 1) {	// unmute, init
+    lcd.setCursor(0,0); // clear top of screen
+    lcd.print("                ");
+    volMute = 0;
     volUpdate(volLevel, 1);
-    // music icon    
-    lcd.createChar(0, sound);
-    lcd.setCursor(0,1);
-    lcd.print(char(0));	
   }
 }
 
 
 // set a specific audio input
+// (0=update display only, 99=last input)
 void inputUpdate (uint8_t _input) 
 {
- if (volMute == 0) {
-	bool _lcdonly = 0;	
-	uint8_t _state; 
-	char *_name[] = {"          "};
-	// select input
-	if (_input == 0) {  // just update display
-	   _lcdonly = 1;
-	}  
-	if (_input == 1) {  // input #1 
-	  _state = B00000001;
-	  _name[0] = inputNames[0];
-	}    
-	if (_input == 2) {  // input #2
-	  _state = B00000010;
-	  _name[0] = inputNames[1];
-	}  
-	if (_input == 3) {  // input #3
-	  _state = B00000100;
-	  _name[0] = inputNames[2];
-	}
-  if (_input == 4) {  // input #4 (display only)
-    _lcdonly = 1;
-    inputSelected[0] = inputNames[3];
-  }  
-  if (_input == 5) {  // input #5 (display only)
-    _lcdonly = 1;
-    inputSelected[0] = inputNames[4];
-  }    
-	if (_input >= 6) {  // invalid setting
-	  return;
-	}
-	if (_lcdonly == 0) {
-	  // set input relays
-	  setRelays(inputSetAddr, inputResetAddr, _state, inputRelayCount, 1);  
-	  inputSelected[0] = _name[0];	  
-	} else {
-	   _name[0] = inputSelected[0];
-	}
-	// update display
-	lcd.setCursor(2,1);
-	lcd.print(_name[0]); 
- }	  
+  if (volMute == 0) {
+    uint8_t _state = 0;
+    // input labels
+	static const char *inputNames0[] =
+	{
+	  ("DIGITAL   "),
+	  ("AUX       "),
+	  ("PHONO     "),
+	  ("AIRPLAY   "),
+	  ("PC        ")
+	};
+	static const char *inputNames1[] =
+	{
+	  ("AIRPLAY   "),
+	  ("OPTICAL   "),
+	  ("AUX       "),
+	  ("N/A       "),
+	  ("N/A       ")
+	};
+    // set last input selected
+    if (_input == 99) { 
+      _input = inputSelected; 
+    } else {
+      // save input state  
+      inputSelected = _input; 
+    } // exit on invalid input
+    if (_input > 5) { 
+      return;
+    }
+    // select input title
+    if (_input > 0) { 
+      if (preampType == 0) {	
+        inputTitle[0] = inputNames0[_input - 1];
+      } else {
+        inputTitle[0] = inputNames1[_input - 1];
+      }  
+    }
+  	// select input relay
+  	if (_input == 1) {  // input #1 
+  	  _state = B00000001;
+  	}    
+  	if (_input == 2) {  // input #2
+  	  _state = B00000010;
+  	}  
+  	if (_input == 3) {  // input #3
+  	  _state = B00000100;
+  	}
+    // set input relays
+  	if (_state != 0 && preampType == 0) {
+      setRelays(inputSetAddr, inputResetAddr, _state, inputRelayCount, 1);   
+  	}
+  	// update display
+  	if (_input != 99) { 
+  	  lcd.setCursor(2,1);
+  	  lcd.print(inputTitle[0]); 
+  	}  
+  }	  
 }
 
 
-// set a specific audio input
+// high-pass filter control
 void hpfControl (uint8_t _state) 
 {
+  if (preampType != 0) {
+  	return;
+  }
   if (volMute == 0) {
   	if (_state == 0) {  // HPF on
   	  hpfState = 0;
@@ -671,15 +651,15 @@ void PCFexpanderWrite(uint8_t address, uint8_t _data )
 void lcdVolume(int _level) {
 // update percentage  
   int _lcdlevel = map(_level, volMin, volMax, 0, 100);
-  if (_lcdlevel == 0) {
+  if (_lcdlevel <= 0) {
     return;
   } else {
-  	if (_lcdlevel == 100) {
+  	if (_lcdlevel >= 100) {
       lcd.setCursor(12,1);
       lcd.print("    "); 
       lcd.setCursor(13,1);
       lcd.print("MAX"); 
-    } else {
+    } else {	
       lcd.setCursor(12,1);
       lcd.print("    "); 
       lcd.setCursor(13,1);
@@ -749,75 +729,57 @@ void lcdTimedBar(int _sec, uint8_t _single) {
 }  
 
 
-// display in standby mode
-void lcdStandby()
-{ 
-  analogWrite(lcdBacklightPin, lcdOffBrightness);	
-  lcd.clear();
-  lcd.setCursor(0,0);
-  lcd.print("Preamp v6");
-  lcd.setCursor(0,1);
-  lcd.print("ProDesigns");
-  lcd.setCursor(10,0);  
-  lcd.createChar(0, speaker);
-  lcd.setCursor(15,1);
-  lcd.print(char(0));
-  delay(500);
-  digitalWrite(LED_BUILTIN, LOW);
-}  
-
-
 // receive IR remote commands 
 // Philips SRP9232D/27 Universal Remote
 // programmed with code '1376' (Onkyo Audio)
 // commented codes are for Xmit
-void irReceive() 
+void irReceiveA() 
 {
   if (IrReceiver.decode()) {
     digitalWrite(LED_BUILTIN, HIGH); 
     // code detected
     if (powerState == 1) {
       if (IrReceiver.decodedIRData.address == 0x6DD2) { // address      
-    	  if (IrReceiver.decodedIRData.command == 0x3) { // volume down fast (VOL-) 1270267967
-    	    volIncrement(1,2);       	
-    	  }      
-    	  if (IrReceiver.decodedIRData.command == 0x2) { // volume up fast (VOL+) 1270235327
-    	    volIncrement(2,2);
-    	  }	  
-    	  if (IrReceiver.decodedIRData.command == 0x5) { // mute toggle (MUTE) 1270259807
-    	    muteSystem(2);
-    	  }   
+    	if (IrReceiver.decodedIRData.command == 0x3) { // volume down fast (VOL-) 1270267967
+    	  volIncrement(1,2);       	
+    	}      
+    	if (IrReceiver.decodedIRData.command == 0x2) { // volume up fast (VOL+) 1270235327
+    	  volIncrement(2,2);
+    	}	  
+    	if (IrReceiver.decodedIRData.command == 0x5) { // mute toggle (MUTE) 1270259807
+    	  muteSystem(2);
+    	}   
   	  }	      
       if (IrReceiver.decodedIRData.address == 0xACD2) { // address      
-    	  if (IrReceiver.decodedIRData.command == 0xE) { // input (1) 1261793423
-    	    inputUpdate(1); 
-    	  }      
-    	  if (IrReceiver.decodedIRData.command == 0xF) { // input (2) 1261826063
-    	    inputUpdate(2); 
-    	  }    
-    	  if (IrReceiver.decodedIRData.command == 0x10) { // input (3) 1261766903
-         	inputUpdate(3); 
-    	  } 
+    	if (IrReceiver.decodedIRData.command == 0xE) { // input (1) 1261793423
+    	  inputUpdate(1); 
+    	}      
+    	if (IrReceiver.decodedIRData.command == 0xF) { // input (2) 1261826063
+    	  inputUpdate(2); 
+    	}    
+    	if (IrReceiver.decodedIRData.command == 0x10) { // input (3) 1261766903
+          inputUpdate(3); 
+    	} 
         if (IrReceiver.decodedIRData.command == 0x11) { // input (4) just displays AIRPLAY
           inputUpdate(4); 
         }  
         if (IrReceiver.decodedIRData.command == 0x12) { // toggle volume limiter
           volRange(0);
         }            
-    	  if (IrReceiver.decodedIRData.command == 0x17) { // force mute (0) 1261824023
+    	if (IrReceiver.decodedIRData.command == 0x17) { // force mute (0) 1261824023
           muteSystem(0); 
-    	  } 	         	  	    
+    	} 	         	  	    
   	  }	                                    
       if (IrReceiver.decodedIRData.address == 0x6CD2) { // address      
-    	  if (IrReceiver.decodedIRData.command == 0x9B) { // volume down slow (DOWN) 1261885734
-    	    volIncrement(1,1);
-    	  }      
-    	  if (IrReceiver.decodedIRData.command == 0x9A) { // volume up slow (UP) 1261853094
-    	    volIncrement(2,1);
-    	  }    
-    	  if (IrReceiver.decodedIRData.command == 0x8D) { // HPF control (PLAY) 1261875534
-    	 	 hpfControl(2);
-    	  }         	  	    
+		if (IrReceiver.decodedIRData.command == 0x9B) { // volume down slow (DOWN) 1261885734
+		  volIncrement(1,1);
+		}      
+		if (IrReceiver.decodedIRData.command == 0x9A) { // volume up slow (UP) 1261853094
+		  volIncrement(2,1);
+		}    
+		if (IrReceiver.decodedIRData.command == 0x8D) { // HPF control (PLAY) 1261875534
+		  hpfControl(2);
+		}         	  	    
   	  }	           
     }    
     if (IrReceiver.decodedIRData.address == 0x6DD2) { // address
@@ -841,64 +803,195 @@ void irReceive()
         }  
       }  
     }       
-    // display IR codes on terminal
-    if (irCodeScan == 1) {   
-  	  // display IR codes on terminal   
-  	  Serial.println("--------------");   
-  	  if (IrReceiver.decodedIRData.protocol == UNKNOWN) {
-  	    IrReceiver.printIRResultRawFormatted(&Serial, true);  
-  	  } else {
-  	    IrReceiver.printIRResultMinimal(&Serial); 
-  	  }  
-  	  Serial.println("--------------"); 
-  	  irRecv = IrReceiver.decodedIRData.decodedRawData;
-  	  uint32_t irtype = IrReceiver.decodedIRData.protocol;
-  	  // display v3 format codes
-  	  Serial.print("IR protocol: "); 
-  	  Serial.println(irtype);       
-  	  int32_t irRecv_2s = -irRecv;
-  	  irRecv_2s = irRecv_2s * -1;
-  	  Serial.print("IR v3 decimal: "); 
-  	  Serial.println(irRecv, DEC); 
-  	  Serial.print("IR v3 (2's-compliment) decimal: "); 
-  	  Serial.println(irRecv_2s, DEC);  
-  	  Serial.print("IR v3 hex: "); 
-  	  Serial.println(irRecv, HEX); 
-  	  // convert 32-bit code into 4 seperate bytes (pointer)
-  	  uint8_t *irbyte = (uint8_t*)&irRecv;
-  	  Serial.print("IR v3 address: "); 
-  	  Serial.println(irbyte[3], HEX); 
-  	  Serial.print("IR v3 command: "); 
-  	  Serial.println(irbyte[2], HEX); 
-  	  Serial.println("--------------"); 
-  	  // reverse each byte (v3 format to v2 format)
-  	  uint8_t irbyte0 = reverseByte(irbyte[0]); 
-  	  uint8_t irbyte1 = reverseByte(irbyte[1]); 
-  	  uint8_t irbyte2 = reverseByte(irbyte[2]); 
-  	  uint8_t irbyte3 = reverseByte(irbyte[3]); 
-  	  // assemble 4 reversed bytes into 32-bit code
-  	  uint32_t irv2 = irbyte0; // shift in the first byte
-  	  irv2 = irv2 * 256 + irbyte1; // shift in the second byte
-  	  irv2 = irv2 * 256 + irbyte2; // shift in the third byte
-  	  irv2 = irv2 * 256 + irbyte3; // shift in the last byte
-  	  // display v2 format codes
-  	  int32_t irv2_2s = -irv2;
-  	  irv2_2s = irv2_2s * -1;
-  	  Serial.print("IR v2 decimal: "); 
-  	  Serial.println(irv2, DEC); 
-  	  Serial.print("IR v2 (2's-compliment) decimal: "); 
-  	  Serial.println(irv2_2s, DEC);  
-  	  Serial.print("IR v2 hex: "); 
-  	  Serial.println(irv2, HEX);
-  	  Serial.println(" "); 
-  	  Serial.println("v2 2's-comp is used by Automate/Xmit");
-  	  Serial.println("ignore decimal values with Sony codes, use hex");
-  	  Serial.println(" ");
-    }
+    irScan(); // scan for IR codes
     delay(debounceIR);
     IrReceiver.resume();      
     digitalWrite(LED_BUILTIN, LOW);   
   }
+}
+
+
+// receive IR remote commands 
+// FireTV Remote (Seth's Preamp)
+void irReceiveB() 
+{
+  if (IrReceiver.decode()) {
+  digitalWrite(LED_BUILTIN, HIGH); 
+  // code detected
+  if (powerState == 1) {      
+    if (IrReceiver.decodedIRData.address == 0x7D02) { // address 
+      if (IrReceiver.decodedIRData.command == 0x4D) { // volume down fast (VOL-) 
+        volIncrement(1,2);        
+      }      
+      if (IrReceiver.decodedIRData.command == 0x48) { // volume up fast (VOL+) 
+        volIncrement(2,2);
+      }   
+      if (IrReceiver.decodedIRData.command == 0x4C) { // mute toggle (MUTE) 
+        muteSystem(2);
+      }  
+      if (IrReceiver.decodedIRData.command == 0x16) { // input (1) 
+        inputUpdate(1); 
+      }      
+      if (IrReceiver.decodedIRData.command == 0x5B) { // input (2) 
+        inputUpdate(2); 
+      }    
+      if (IrReceiver.decodedIRData.command == 0x17) { // input (3) 
+        inputUpdate(3); 
+      }                                                                 
+      if (IrReceiver.decodedIRData.command == 0x19) { // volume down slow (DOWN) 
+        volIncrement(1,1);
+      }      
+      if (IrReceiver.decodedIRData.command == 0xC) { // volume up slow (UP) 
+        volIncrement(2,1);
+      }    
+      if (IrReceiver.decodedIRData.command == 0x4A) { // toggle volume limit
+        volRange(0);
+      }                   
+    }          
+  }    
+  if (IrReceiver.decodedIRData.address == 0x7D02) { // address
+    if (IrReceiver.decodedIRData.command == 0x46) { // power toggle (POWER)
+      powerState = !powerState;  
+      powerCycle = 1;
+      delay(100);
+    }      
+  }         
+  irScan(); // scan for IR codes
+  delay(debounceIR);
+  IrReceiver.resume();      
+  digitalWrite(LED_BUILTIN, LOW);   
+  }
+}
+
+
+// display IR codes on terminal
+void irScan() 
+{    
+  if (irCodeScan == 1) {   
+    // display IR codes on terminal   
+	Serial.println("--------------");   
+	if (IrReceiver.decodedIRData.protocol == UNKNOWN) {
+	IrReceiver.printIRResultRawFormatted(&Serial, true);  
+	} else {
+	IrReceiver.printIRResultMinimal(&Serial); 
+	}  
+	Serial.println("--------------"); 
+	irRecv = IrReceiver.decodedIRData.decodedRawData;
+	uint32_t irtype = IrReceiver.decodedIRData.protocol;
+	// display v3 format codes
+	Serial.print("IR protocol: "); 
+	Serial.println(irtype);       
+	int32_t irRecv_2s = -irRecv;
+	irRecv_2s = irRecv_2s * -1;
+	Serial.print("IR v3 decimal: "); 
+	Serial.println(irRecv, DEC); 
+	Serial.print("IR v3 (2's-compliment) decimal: "); 
+	Serial.println(irRecv_2s, DEC);  
+	Serial.print("IR v3 hex: "); 
+	Serial.println(irRecv, HEX); 
+	// convert 32-bit code into 4 seperate bytes (pointer)
+	uint8_t *irbyte = (uint8_t*)&irRecv;
+	Serial.print("IR v3 address: "); 
+	Serial.println(irbyte[3], HEX); 
+	Serial.print("IR v3 command: "); 
+	Serial.println(irbyte[2], HEX); 
+	Serial.println("--------------"); 
+	// reverse each byte (v3 format to v2 format)
+	uint8_t irbyte0 = reverseByte(irbyte[0]); 
+	uint8_t irbyte1 = reverseByte(irbyte[1]); 
+	uint8_t irbyte2 = reverseByte(irbyte[2]); 
+	uint8_t irbyte3 = reverseByte(irbyte[3]); 
+	// assemble 4 reversed bytes into 32-bit code
+	uint32_t irv2 = irbyte0; // shift in the first byte
+	irv2 = irv2 * 256 + irbyte1; // shift in the second byte
+	irv2 = irv2 * 256 + irbyte2; // shift in the third byte
+	irv2 = irv2 * 256 + irbyte3; // shift in the last byte
+	// display v2 format codes
+	int32_t irv2_2s = -irv2;
+	irv2_2s = irv2_2s * -1;
+	Serial.print("IR v2 decimal: "); 
+	Serial.println(irv2, DEC); 
+	Serial.print("IR v2 (2's-compliment) decimal: "); 
+	Serial.println(irv2_2s, DEC);  
+	Serial.print("IR v2 hex: "); 
+	Serial.println(irv2, HEX);
+	Serial.println(" "); 
+	Serial.println("v2 2's-comp is used by Automate/Xmit");
+	Serial.println("ignore decimal values with Sony codes, use hex");
+	Serial.println(" ");
+  }
+}
+
+
+// setup volume range
+void volRange(bool _boot)
+{ 
+  // mute
+  muteSystem(0); 
+  // toggle volume limit
+  if (_boot == 0) { 
+    volLimitFlag = !volLimitFlag; 
+  } 
+  // loading bar
+  lcd.clear();
+  lcd.setCursor(0,0);
+  if (volLimitFlag == 1){
+    lcd.print("Volume Limit On");
+  } else {
+    lcd.print("Volume Limit Off");
+  }
+  if (_boot == 1) {
+  	delay(500);
+    lcd.clear();
+    lcd.setCursor(0,0); 	
+    lcd.print("Starting Up...");
+  }
+  lcdTimedBar(startDelay,1);
+  lcd.clear();
+  // calculate volume min/max
+  uint8_t max_byte_size = (1 << volRelayCount) - 1;
+  volMin = (max_byte_size * volMinLimit) / 100;
+  // volume limiter
+  if (volLimitFlag == 0) { 
+    volMax = max_byte_size; 
+  } else {
+    volMax = (max_byte_size * volMaxLimit) / 100;
+  }
+  // calculate volume span
+  volSpan = abs(volMax - volMin);
+  // initialize volume system
+  muteSystem(1); // unmute
+  delay(500); // allow relays to settle
+  potState = motorInit; // read from pot
+}
+
+
+// power toggle switch
+void readToggleSwitch() {
+  // read pin state from switch
+  int reading = digitalRead(toggleSwitchPin);
+  // if switch changed
+  if (reading != lastToggleSwitch) {
+    // reset the debouncing timer
+    toggleSwitchMillis = millis();
+  }
+  if ((millis() - toggleSwitchMillis) > debounceDelay) {
+    // if the button state has changed:
+    if (reading != toggleSwitch) {
+      toggleSwitch = reading;
+      // power state has changed!
+      lcd.setCursor(0,0);
+      if (toggleSwitch == 1) {
+        // runs on boot if switch on, and when toggled on
+        hpfControl(0);
+      }
+      if (toggleSwitch == 0) { 
+        // runs when toggled off
+        hpfControl(1);
+      }
+    }
+  }
+  lastToggleSwitch = reading; 
 }
 
 
@@ -940,63 +1033,55 @@ void setPowerState() {
 }
 
 
-// power toggle switch
-void readToggleSwitch() {
-  // read pin state from switch
-  int reading = digitalRead(toggleSwitchPin);
-  // if switch changed
-  if (reading != lastToggleSwitch) {
-    // reset the debouncing timer
-    toggleSwitchMillis = millis();
-  }
-  if ((millis() - toggleSwitchMillis) > debounceDelay) {
-    // if the button state has changed:
-    if (reading != toggleSwitch) {
-      toggleSwitch = reading;
-      // power state has changed!
-      lcd.setCursor(0,0);
-      if (toggleSwitch == 1) {
-      	// runs on boot if switch on, and when toggled on
-        hpfControl(0);
-      }
-      if (toggleSwitch == 0) { 
-      	// runs when toggled off
-        hpfControl(1);
-      }
-    }
-  }
-  lastToggleSwitch = reading; 
-}
-
 // shutdown routines
 void shutdown() {  	
   // mute
-  muteSystem(0);    
+  muteSystem(0);
   // shutdown animation
   lcd.clear();
   lcd.setCursor(0,0);
   lcd.print("Shutting Down..."); 	
   lcdTimedBar(shutdownTime,1);	
   lcdStandby();
-  // turn off preamp power here
-  digitalWrite(powerRelayPin, LOW);  	
+  // turn off analog stages
+  digitalWrite(powerRelayPin, LOW);
+  delay(150);
 }
+
 
 // startup routines
 void startup() 
-{ 
+{ // set display brightness
   analogWrite(lcdBacklightPin, lcdOnBrightness);
-  lcd.setCursor(0,0);
-  lcd.print("Starting Up...");
-  // turn on preamp power here
+  // turn on analog stages
   digitalWrite(powerRelayPin, HIGH);  
-  delay(650);
-  lcd.clear();
-  // initialize volume system
-  volRange(1);     
-  // set audio input
-  inputUpdate(1);
+  delay(150); 
+  // set last selected input (I)
+  inputUpdate(99);   
+  // initialize volume system (II)
+  volRange(1);
 }
+
+
+// display in standby mode
+void lcdStandby()
+{ 
+  analogWrite(lcdBacklightPin, lcdOffBrightness);	
+  lcd.clear();
+  lcd.setCursor(0,0);
+  if (preampType == 0) {
+    lcd.print("ProDesigns");
+  } else {
+    lcd.print("HiFi");
+  }
+  lcd.setCursor(0,1);
+  lcd.print("Preamp v3");
+  lcd.setCursor(15,1);
+  lcd.print(char(6));
+  delay(500);
+  digitalWrite(LED_BUILTIN, LOW);
+} 
+
 
 ///////////////////////////////////////////////////////////////////////////////
 // initialization 
@@ -1021,14 +1106,19 @@ void setup()
   analogWrite(lcdBacklightPin, lcdOffBrightness);
   // preamp power control
   pinMode(powerRelayPin, OUTPUT);  
-  digitalWrite(powerRelayPin, LOW);  
-  // HPF control
-  pinMode(hpfRelayPin, OUTPUT);  
-  digitalWrite(hpfRelayPin, HIGH);
-  // HPF switch 
-  pinMode(toggleSwitchPin, INPUT_PULLUP);
+  digitalWrite(powerRelayPin, LOW);
+  if (preampType == 0) {
+    // HPF control
+    pinMode(hpfRelayPin, OUTPUT);  
+    digitalWrite(hpfRelayPin, HIGH);
+    // HPF switch 
+    pinMode(toggleSwitchPin, INPUT_PULLUP);
+  }  
   // IR remote
-  IrReceiver.begin(IRpin);  
+  IrReceiver.begin(IRpin);
+  // icons
+  lcd.createChar(0, sound);
+  lcd.createChar(6, speaker);
   // initial boot display
   lcd.createChar(1, bar1);
   lcd.createChar(2, bar2);
@@ -1039,25 +1129,34 @@ void setup()
   // serial support
   if (irCodeScan == 1){  
     Serial.begin(9600);
-  } // startup complete
+  }
+  // startup complete
   lcdStandby();
 }
+
 
 ///////////////////////////////////////////////////////////////////////////////
 // superloop
 void loop()
 {
+  // power management
+  setPowerState(); 
   // IR remote
-  irReceive();  
-  // motor potentiometer
+  if (preampType == 0) {
+    irReceiveA();
+  } else {
+    irReceiveB();
+  }  
   if (powerState == 1) {
+  	// motor potentiometer
     if (potState == motorSettled ||
         potState == motorInit) {
       potValueChanges();
     }
     motorPot();
-    readToggleSwitch();
+    // toggle switch
+    if (preampType == 0) {
+      readToggleSwitch();
+    }
   }
-  // power management
-  setPowerState(); 
 }
