@@ -44,9 +44,25 @@ uint8_t debounceIR = 75; // IR receive max rate (ms)
 uint32_t irRecv = 0;
 
 // Input selector
-char *inputTitle[] = {"          "};
-uint8_t inputRelayCount = 3;
 uint8_t inputSelected = 1;
+uint8_t inputRelayCount = 3;
+char *inputTitle[] = {"          "};
+static const char *inputNames0[] =
+{
+  ("DIGITAL   "),
+  ("AUX       "),
+  ("PHONO     "),
+  ("AIRPLAY   "),
+  ("PC        ")
+};
+static const char *inputNames1[] =
+{
+  ("AIRPLAY   "),
+  ("OPTICAL   "),
+  ("AUX       "),
+  ("N/A       "),
+  ("N/A       ")
+};
 
 // Volume control
 #if (preampType == 0)
@@ -465,23 +481,6 @@ void inputUpdate (uint8_t _input)
 {
   if (volMute == 0) {
     uint8_t _state = 0;
-    // input labels
-	static const char *inputNames0[] =
-	{
-	  ("DIGITAL   "),
-	  ("AUX       "),
-	  ("PHONO     "),
-	  ("AIRPLAY   "),
-	  ("PC        ")
-	};
-	static const char *inputNames1[] =
-	{
-	  ("AIRPLAY   "),
-	  ("OPTICAL   "),
-	  ("AUX       "),
-	  ("N/A       "),
-	  ("N/A       ")
-	};
     // set last input selected
     if (_input == 99) { 
       _input = inputSelected; 
