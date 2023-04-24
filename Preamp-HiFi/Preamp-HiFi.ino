@@ -481,12 +481,17 @@ void inputUpdate (uint8_t _input)
 {
   if (volMute == 0) {
     uint8_t _state = 0;
+    bool _draw = 1;
+    bool _set = 0;
     // set last input selected
     if (_input == 99) { 
-      _input = inputSelected; 
+      _input = inputSelected;
+      _draw = 0;
     } else {
-      // save input state  
-      inputSelected = _input; 
+      if (_input != 0) { 	
+        // save input state  
+        inputSelected = _input; 
+      }  
     } // exit on invalid input
     if (_input > 5) { 
       return;
@@ -502,19 +507,22 @@ void inputUpdate (uint8_t _input)
   	// select input relay
   	if (_input == 1) {  // input #1 
   	  _state = B00000001;
+  	  _set = 1;
   	}    
   	if (_input == 2) {  // input #2
   	  _state = B00000010;
+  	  _set = 1;
   	}  
   	if (_input == 3) {  // input #3
   	  _state = B00000100;
+  	  _set = 1;
   	}
     // set input relays
-  	if (_state != 0 && preampType == 0) {
+  	if (_set == 1 && preampType == 0) {
       setRelays(inputSetAddr, inputResetAddr, _state, inputRelayCount, 1);   
   	}
   	// update display
-  	if (_input != 99) { 
+  	if (_draw == 1) { 
   	  lcd.setCursor(2,1);
   	  lcd.print(inputTitle[0]); 
   	}  
@@ -962,6 +970,8 @@ void volRange(bool _boot)
   muteSystem(1); // unmute
   delay(500); // allow relays to settle
   potState = motorInit; // read from pot
+  // set last selected input
+  inputUpdate(99);  
 }
 
 
@@ -1055,10 +1065,8 @@ void startup()
   // turn on analog stages
   digitalWrite(powerRelayPin, HIGH);  
   delay(150); 
-  // set last selected input (I)
-  inputUpdate(99);   
-  // initialize volume system (II)
-  volRange(1);
+  // initialize volume system (I)
+  volRange(1);   
 }
 
 
