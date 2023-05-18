@@ -16,6 +16,6 @@
 *.RAW
 libraries
 Libraries
-*Thumbs.db
+*Thumbs.db*
 Processing\libraries
 Processing\Libraries
