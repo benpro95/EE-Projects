@@ -62,21 +62,25 @@ void loop() {
     padArray(msg,i,chr,1);
     Serial.print(printBuf);
     Serial.println();
+    Serial.println();
     // right pad
-    padArray(msg,i,chr,1);
+    padArray(msg,i,chr,0);
     Serial.print(printBuf);
     Serial.println();
+    delay(20);
   }
   // loop padding length to 0
   for (uint32_t i = count; i > 0 ; i-- ) {
   	// left pad
-    padArray(msg,i,chr,1);
+    padArray(msg,i,chr,0);
     Serial.print(printBuf);
+    Serial.println();
     Serial.println();
     // right pad
     padArray(msg,i,chr,1);
     Serial.print(printBuf);
     Serial.println();
+    delay(20);
   }
 }
 
