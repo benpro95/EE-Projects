@@ -522,21 +522,10 @@ void volUpdate(uint8_t _vol, uint8_t _force)
 }
 
 
-// mute system (0=mute 1=unmute 2=toggle)
-void muteSystem(uint8_t _state)
+// mute system (toggle)
+void muteSystem()
 {	
-  if (_state > 2) {  // invalid 
-    return;
-  } 
-  if (_state == 2) {  // mute toggle 
-    if (volMute == 0) {
-      _state = 0;
-    } 
-    else {
-      _state = 1;
-    }
-  } 
-  if (_state == 0) {  // mute on  
+  if (volMute == 0) {  // mute
     if (volSpan == 0) { // return if min_vol == max_vol
       return;
     } // stop motor turning
@@ -556,7 +545,7 @@ void muteSystem(uint8_t _state)
     // set mute flag
     volMute = 1;	
   }
-  if (_state == 1) {	// unmute, init
+  if (volMute == 1) {	// unmute, init
     lcd.setCursor(0,0); // clear top of screen
     lcd.print("                ");
     volMute = 0;
@@ -754,7 +743,7 @@ void irReceiveA()
     	  volIncrement(2,2);
     	}	  
     	if (IrReceiver.decodedIRData.command == 0x5) { // mute toggle (MUTE) 1270259807
-    	  muteSystem(2);
+    	  muteSystem();
     	}   
   	  }	      
       if (IrReceiver.decodedIRData.address == 0xACD2) { // address      
@@ -834,7 +823,7 @@ void irReceiveB()
         volIncrement(2,2);
       }   
       if (IrReceiver.decodedIRData.command == 0x4C) { // mute toggle (MUTE) 
-        muteSystem(2);
+        muteSystem();
       }  
       if (IrReceiver.decodedIRData.command == 0x16) { // input (1) 
         inputUpdate(1); 
@@ -934,9 +923,9 @@ void irScan()
 void volRange(bool _boot)
 { 
   // mute
-  muteSystem(0); 
+  muteSystem();
   // toggle volume limit
-  if (_boot == 0) { 
+  if (_boot == 0) { // not on boot
     volLimitFlag = !volLimitFlag; 
   } 
   // loading bar
@@ -966,12 +955,14 @@ void volRange(bool _boot)
   }
   // calculate volume span
   volSpan = abs(volMax - volMin);
-  // initialize volume system
-  muteSystem(1); // unmute
-  delay(500); // allow relays to settle
-  potState = motorInit; // read from pot
+  // read volume from pot
+  potState = motorInit; 
   // set last selected input
-  inputUpdate(99);  
+  inputUpdate(99);
+  // initialize volume system
+  muteSystem(); // unmute
+  // allow relays to settle
+  delay(500); 
 }
 
 
@@ -1044,8 +1035,6 @@ void setPowerState() {
 
 // shutdown routines
 void shutdown() {  	
-  // mute
-  muteSystem(0);
   // shutdown animation
   lcd.clear();
   lcd.setCursor(0,0);
@@ -1054,7 +1043,7 @@ void shutdown() {
   lcdStandby();
   // turn off analog stages
   digitalWrite(powerRelayPin, LOW);
-  delay(150);
+  delay(300);
 }
 
 
@@ -1066,7 +1055,7 @@ void startup()
   digitalWrite(powerRelayPin, HIGH);  
   delay(150); 
   // initialize volume system (I)
-  volRange(1);   
+  volRange(1);
 }
 
 
@@ -1082,7 +1071,7 @@ void lcdStandby()
     lcd.print("HiFi");
   }
   lcd.setCursor(0,1);
-  lcd.print("Preamp v3");
+  lcd.print("Preamp");
   lcd.setCursor(15,1);
   lcd.print(char(6));
   delay(500);
