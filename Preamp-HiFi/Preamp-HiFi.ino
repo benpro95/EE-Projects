@@ -1,7 +1,7 @@
 ///////////////////////////////////////////////////////////////////////////////
-// Preamp Controller v2.0 
+// Preamp Controller v3.0 
 // by Ben Provenzano III
-// 04/03/2023
+// 06/11/2023
 ///////////////////////////////////////////////////////////////////////////////
 
 
@@ -153,7 +153,97 @@ long l_map(long x, long in_min, long in_max, long out_min, long out_max)
 {
   return (x - in_min) * (out_max - out_min + 1) /
          (in_max - in_min + 1) + out_min;
-} 
+}
+
+
+// set a relay controller board (volume or inputs)
+void setRelays(uint8_t pcf_a, uint8_t pcf_b,  // first pair of i2c addr's
+      uint8_t vol_byte,                    // the 0..255 value to write
+      uint8_t installed_relay_count,    // how many bits are installed
+      uint8_t forced_update_flag)  // forced or relative mode (1=forced)
+{
+  int bitnum;
+  uint8_t mask_left;
+  uint8_t mask_right;
+  uint8_t just_the_current_bit;
+  uint8_t just_the_previous_bit;
+  uint8_t shifted_one_bit;
+  // this must to be able to underflow to *negative* numbers
+  // walk the bits and just count the bit-changes and save into left and right masks
+  mask_left = mask_right = 0;
+  //
+  // this loop walks ALL bits, even the 'mute bit'
+  for (bitnum = (installed_relay_count-1); bitnum >= 0 ; bitnum--) {
+    //
+    // optimize: calc this ONLY once per loop
+    shifted_one_bit = (1 << bitnum);
+    //
+    // this is the new volume value; and just the bit we are walking
+    just_the_current_bit = (vol_byte & shifted_one_bit);
+    //
+    // logical AND to extra just the bit we are interested in
+    just_the_previous_bit = (volLastLevel & shifted_one_bit);
+    //
+    // examine our current bit and see if it changed from the last run
+    if (just_the_previous_bit != just_the_current_bit ||
+        forced_update_flag == 1) {
+      //  
+      // latch the '1' on the left or right side of the relays
+      if (just_the_current_bit != 0) {
+        // a '1' in this bit pos
+        // (1 << bitnum);
+        mask_left |= ((uint8_t)shifted_one_bit);
+      } 
+      else { // (1 << bitnum);
+        mask_right |= ((uint8_t)shifted_one_bit);
+      }
+    } // the 2 bits were different
+  } // for each of the 8 bits
+// set upper relays
+  PCFexpanderWrite(pcf_b, mask_right);
+  PCFexpanderWrite(pcf_a, 0x00);
+  resetPCF(pcf_a, pcf_b);
+// set lower relays
+  PCFexpanderWrite(pcf_a, mask_left);
+  PCFexpanderWrite(pcf_b, 0x00);
+  resetPCF(pcf_a, pcf_b);
+}
+
+
+// reset all pins PCF8574A I/O expander
+void resetPCF(uint8_t pcf_a, uint8_t pcf_b)
+{
+  // let them settle before we unlatch them
+  delayMicroseconds(3700);
+  // do the unlatch (relax) stuff
+  // left side of relay coil
+  PCFexpanderWrite(pcf_a, B00000000);
+  // right side of relay coil
+  PCFexpanderWrite(pcf_b, B00000000);
+  // let the relay hold for a while
+  delayMicroseconds(3700);
+}
+
+
+// read a byte from PCF8574A I/O expander
+uint8_t PCFexpanderRead(int address) 
+{
+ uint8_t _data;
+ Wire.requestFrom(address, 1);
+ if(Wire.available()) {
+   _data = Wire.read();
+ }
+ return _data;
+}
+
+
+// write a byte to PCF8574A I/O expander
+void PCFexpanderWrite(uint8_t address, uint8_t _data ) 
+{
+ Wire.beginTransmission(address);
+ Wire.write(_data);
+ Wire.endTransmission(); 
+}
 
 
 // read the pot, smooth out the data
@@ -561,96 +651,6 @@ void hpfControl (uint8_t _state)
     delay(2000);
     inputUpdate(0); // only update display
   }	  
-}
-
-
-// set a relay controller board (volume or inputs)
-void setRelays(uint8_t pcf_a, uint8_t pcf_b,  // first pair of i2c addr's
-      uint8_t vol_byte,                    // the 0..255 value to write
-      uint8_t installed_relay_count,    // how many bits are installed
-      uint8_t forced_update_flag)  // forced or relative mode (1=forced)
-{
-  int bitnum;
-  uint8_t mask_left;
-  uint8_t mask_right;
-  uint8_t just_the_current_bit;
-  uint8_t just_the_previous_bit;
-  uint8_t shifted_one_bit;
-  // this must to be able to underflow to *negative* numbers
-  // walk the bits and just count the bit-changes and save into left and right masks
-  mask_left = mask_right = 0;
-  //
-  // this loop walks ALL bits, even the 'mute bit'
-  for (bitnum = (installed_relay_count-1); bitnum >= 0 ; bitnum--) {
-    //
-    // optimize: calc this ONLY once per loop
-    shifted_one_bit = (1 << bitnum);
-    //
-    // this is the new volume value; and just the bit we are walking
-    just_the_current_bit = (vol_byte & shifted_one_bit);
-    //
-    // logical AND to extra just the bit we are interested in
-    just_the_previous_bit = (volLastLevel & shifted_one_bit);
-    //
-    // examine our current bit and see if it changed from the last run
-    if (just_the_previous_bit != just_the_current_bit ||
-        forced_update_flag == 1) {
-      //	
-      // latch the '1' on the left or right side of the relays
-      if (just_the_current_bit != 0) {
-        // a '1' in this bit pos
-        // (1 << bitnum);
-        mask_left |= ((uint8_t)shifted_one_bit);
-      } 
-      else { // (1 << bitnum);
-        mask_right |= ((uint8_t)shifted_one_bit);
-      }
-    } // the 2 bits were different
-  } // for each of the 8 bits
-// set upper relays
-  PCFexpanderWrite(pcf_b, mask_right);
-  PCFexpanderWrite(pcf_a, 0x00);
-  resetPCF(pcf_a, pcf_b);
-// set lower relays
-  PCFexpanderWrite(pcf_a, mask_left);
-  PCFexpanderWrite(pcf_b, 0x00);
-  resetPCF(pcf_a, pcf_b);
-}
-
-
-// reset all pins PCF8574A I/O expander
-void resetPCF(uint8_t pcf_a, uint8_t pcf_b)
-{
-  // let them settle before we unlatch them
-  delayMicroseconds(3700);
-  // do the unlatch (relax) stuff
-  // left side of relay coil
-  PCFexpanderWrite(pcf_a, B00000000);
-  // right side of relay coil
-  PCFexpanderWrite(pcf_b, B00000000);
-  // let the relay hold for a while
-  delayMicroseconds(3700);
-}
-
-
-// read a byte from PCF8574A I/O expander
-uint8_t PCFexpanderRead(int address) 
-{
- uint8_t _data;
- Wire.requestFrom(address, 1);
- if(Wire.available()) {
-   _data = Wire.read();
- }
- return _data;
-}
-
-
-// write a byte to PCF8574A I/O expander
-void PCFexpanderWrite(uint8_t address, uint8_t _data ) 
-{
- Wire.beginTransmission(address);
- Wire.write(_data);
- Wire.endTransmission(); 
 }
 
 
