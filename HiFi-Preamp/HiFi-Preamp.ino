@@ -526,7 +526,8 @@ void volUpdate(uint8_t _vol, uint8_t _force)
 void muteSystem()
 {	
   if (volMute == 0) {  // mute
-    if (volSpan == 0) { // return if min_vol == max_vol
+  	// don not mute (min_vol == max_vol)
+    if (volSpan == 0) { 
       return;
     } // stop motor turning
     digitalWrite(motorPinCW, LOW);   
@@ -543,12 +544,11 @@ void muteSystem()
     lcd.setCursor(0,1);
     lcd.print(char(6));
     // set mute flag
-    volMute = 1;	
-  }
-  if (volMute == 1) {	// unmute, init
+    volMute = 1;
+  } else {
+  	volMute = 0;
     lcd.setCursor(0,0); // clear top of screen
     lcd.print("                ");
-    volMute = 0;
     volUpdate(volLevel, 1);
   }
 }
@@ -922,8 +922,10 @@ void irScan()
 // setup volume range
 void volRange(bool _boot)
 { 
-  // mute
-  muteSystem();
+  // mute when not muted
+  if (volMute == 0){
+  	muteSystem();
+  }
   // toggle volume limit
   if (_boot == 0) { // not on boot
     volLimitFlag = !volLimitFlag; 
@@ -955,12 +957,12 @@ void volRange(bool _boot)
   }
   // calculate volume span
   volSpan = abs(volMax - volMin);
-  // read volume from pot
+  // read volume level from pot
   potState = motorInit; 
   // set last selected input
   inputUpdate(99);
-  // initialize volume system
-  muteSystem(); // unmute
+  // initialize and unmute
+  muteSystem();
   // allow relays to settle
   delay(500); 
 }
@@ -1071,7 +1073,11 @@ void lcdStandby()
     lcd.print("HiFi");
   }
   lcd.setCursor(0,1);
-  lcd.print("Preamp");
+  if (preampType == 0) {
+    lcd.print("HiFi Preamp");
+  } else {
+    lcd.print("Preamp");
+  }
   lcd.setCursor(15,1);
   lcd.print(char(6));
   delay(500);
