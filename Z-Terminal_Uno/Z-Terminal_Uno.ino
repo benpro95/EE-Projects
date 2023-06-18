@@ -13,7 +13,7 @@
 const char lcdChars[]=
 	{" 0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ&:',.*|-+=_#@%[]()<>?{};"};
 
-const int   CONFIG_SERIAL = 9600;
+const int CONFIG_SERIAL = 9600;
 
 // Set Button
 #define setButtonPin 12
@@ -27,7 +27,7 @@ bool clearButton = 0;
 bool lastclearButton = 0;
 unsigned long clearButtonMillis = 0;
 uint8_t debounceDelay = 50; // button debounce delay in ms
-uint8_t startDelay = 4; // delay on initial start in seconds
+uint8_t startDelay = 1; // delay on initial start in seconds
 
 // 16x2 LCD Display
 #define lcdAddr 0x27 // I2C address
@@ -52,7 +52,9 @@ uint8_t rowCount0 = 0; // collumn count (row 0)
 uint8_t rowCount1 = 0; // collumn count (row 1)
 
 // Shared resources
-char lcdMessage[5000] = {'\0'};
+uint8_t maxMessage = 128;
+char lcdMessage[maxMessage];
+uint32_t lcdMessageStart = 0;
 uint32_t lcdMessageEnd = 0;
 bool eventlcdMessage = 0;
 uint32_t lcdDelay = 0;
@@ -60,7 +62,7 @@ uint8_t lcdReset = 0;
 
 //////////////////////////////////////////////////////////////////////////
 // Enable Serial Messages (0 = off) (1 = on)
-#define DEBUG 1
+#define DEBUG 0
 /////////////////
 #if DEBUG == 1
 #define debugstart(x) Serial.begin(x)
@@ -92,7 +94,7 @@ void setup() {
   lcd.print("Z-Terminal");   
   lcd.setCursor(0,1);
   lcd.print("v1.2");
-  delay(1500);
+  delay(500);
   lcd.clear();
   lcd.setCursor(0,0);
   // built-in LED
@@ -104,19 +106,43 @@ void setup() {
   // set button
   pinMode(setButtonPin, INPUT_PULLUP);
   // start serial
-  debugstart(CONFIG_SERIAL);
+  Serial.begin(CONFIG_SERIAL);
 }
 
 // runs in main loop and during character delay
 void mainEvents() {
   // read GPIO button
   readClearButton();
+  // read serial port data
+  readSerial();
   // display dim event
   if(lcdDimmer.done()){
   	debugln("dimming backlight...");
     digitalWrite(lcdBacklight, LOW);
     lcdDimmer.reset();
   }
+}
+
+void readSerial() {
+  // read serial port data
+  if (eventlcdMessage == 0) {  
+	 //Check to see if anything is available in the serial receive buffer
+	 while (Serial.available() > 0)
+	 {
+	   //Read the next available byte in the serial receive buffer
+	   char inByte = Serial.read();
+	   //Message coming in (check not terminating character) and guard for over message size
+	   if (inByte != '\n' && (lcdMessageEnd < maxMessage - 1)){
+	     //Add the incoming byte to our message
+	     lcdMessage[lcdMessageEnd] = inByte;
+	     lcdMessageEnd++;
+	   } else {
+	     //Full message received...
+	     eventlcdMessage = 1;
+	     break;
+	   }
+	 }
+   }
 }
 
 // disable LCD dimming then start dimming timer
@@ -132,6 +158,7 @@ void lcdDim(){
 void lcdMessageEvent() { // (run only from event timer)
   uint32_t _reset = 0;
   uint32_t _end = lcdMessageEnd;
+  uint32_t _start = lcdMessageStart;
   uint32_t _delay = lcdDelay; 
   debug("delay data: ");
   debugln(_delay);    
@@ -140,7 +167,7 @@ void lcdMessageEvent() { // (run only from event timer)
   uint32_t _charidx;
   debugln("character stream: ");
   // loop through each character in the request array (message only)
-  for(uint32_t _idx = 0; _idx < _end; _idx++) { 
+  for(uint32_t _idx = _start; _idx < _end; _idx++) { 
     // convert each character into array index positions
     _charidx = (charLookup(lcdMessage[_idx]));
     // read reset state
@@ -347,7 +374,15 @@ void readClearButton() {
       // button change event
       if (clearButton == 1) { 
         // clear both lines
-        lcdReset = 3; 
+        //lcdReset = 3; 
+        lcdDelay = 200;
+        eventlcdMessage = 1;
+        lcdMessageStart = 1;
+        lcdMessageEnd = 4;
+        lcdMessage[0] = {'|'};
+        lcdMessage[1] = {'B'};
+        lcdMessage[2] = {'e'};
+        lcdMessage[3] = {'n'};
       }
     } 
   }
@@ -368,10 +403,10 @@ void readSetButton() {
     if (reading != setButton) {
       setButton = reading;
       // button change event
-      if (setButton == 1) {
-        // trigger display of weather
-       // weatherTrigger = 1;
-      }
+      //if (setButton == 1) {
+       // trigger message
+    
+      //}
     } 
   }
   setButtonLast = reading; 
@@ -380,12 +415,18 @@ void readSetButton() {
 
 void loop() {
   // read set button
-  readSetButton();
-  if (eventlcdMessage > 0) {  
+  //readSetButton();
+  if (eventlcdMessage == 1) {  
     lcdDim();
     lcdMessageEvent();
-    eventlcdMessage = 0; 
-  } 
+    // reset buffer
+    eventlcdMessage = 0;
+    lcdMessageStart = 0;
+    lcdMessageEnd = 0;
+    lcdDelay = 0;
+    // send ack to computer
+	Serial.println('done');
+  }
   // clear display event (main only!)
   if( lcdReset > 0) {
      drawChar(0,0,lcdReset);
