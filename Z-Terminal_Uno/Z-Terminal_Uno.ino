@@ -11,7 +11,7 @@
 
 // LCD Valid Characters
 const char lcdChars[]=
-	{" 0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ&:',.*|-+=_#@%[]()<>?{};"};
+	{" 0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ&:',.*|-+=_#@%/[]()<>?{};"};
 
 const int CONFIG_SERIAL = 9600;
 
@@ -52,7 +52,7 @@ uint8_t rowCount0 = 0; // collumn count (row 0)
 uint8_t rowCount1 = 0; // collumn count (row 1)
 
 // Shared resources
-uint8_t maxMessage = 128;
+#define maxMessage 128
 char lcdMessage[maxMessage];
 uint32_t lcdMessageStart = 0;
 uint32_t lcdMessageEnd = 0;
@@ -107,51 +107,6 @@ void setup() {
   pinMode(setButtonPin, INPUT_PULLUP);
   // start serial
   Serial.begin(CONFIG_SERIAL);
-}
-
-// runs in main loop and during character delay
-void mainEvents() {
-  // read GPIO button
-  readClearButton();
-  // read serial port data
-  readSerial();
-  // display dim event
-  if(lcdDimmer.done()){
-  	debugln("dimming backlight...");
-    digitalWrite(lcdBacklight, LOW);
-    lcdDimmer.reset();
-  }
-}
-
-void readSerial() {
-  // read serial port data
-  if (eventlcdMessage == 0) {  
-	 //Check to see if anything is available in the serial receive buffer
-	 while (Serial.available() > 0)
-	 {
-	   //Read the next available byte in the serial receive buffer
-	   char inByte = Serial.read();
-	   //Message coming in (check not terminating character) and guard for over message size
-	   if (inByte != '\n' && (lcdMessageEnd < maxMessage - 1)){
-	     //Add the incoming byte to our message
-	     lcdMessage[lcdMessageEnd] = inByte;
-	     lcdMessageEnd++;
-	   } else {
-	     //Full message received...
-	     eventlcdMessage = 1;
-	     break;
-	   }
-	 }
-   }
-}
-
-// disable LCD dimming then start dimming timer
-void lcdDim(){
-  lcdDimmer.reset();
-  // enable full brightness
-  digitalWrite(lcdBacklight, HIGH);
-  // start dimming timer
-  lcdDimmer.start();
 }
 
 // convert message into character stream 
@@ -331,7 +286,7 @@ void charDelay(uint32_t _delay) {
     if(lcdDelayTimer.done()){
       lcdDelayTimer.reset();
       break; // exit loop when timer done
-	  }
+	}
   }    
 }
 
@@ -412,6 +367,47 @@ void readSetButton() {
   setButtonLast = reading; 
 }
 
+// runs in main loop and during character delay
+void mainEvents() {
+  // read GPIO button
+  readClearButton();
+  // read serial port data
+  readSerial();
+  // display dim event
+  if(lcdDimmer.done()){
+  	debugln("dimming backlight...");
+    digitalWrite(lcdBacklight, LOW);
+    lcdDimmer.reset();
+  }
+}
+
+void readSerial() {  
+  // check if anything available on serial bus
+  if (Serial.available() > 0){
+    // read next byte to serial buffer
+    char inByte = Serial.read();
+    if (inByte != '\n' && (lcdMessageEnd < maxMessage - 1)){
+      if (inByte == '~'){
+        lcdReset = 3;
+        return;
+      } else {
+        if (eventlcdMessage == 0){  
+          // add the incoming byte to our message
+	      lcdMessage[lcdMessageEnd] = inByte;
+	      lcdMessageEnd++;
+	      return;
+	    }
+	  }
+	} else {
+	  if (eventlcdMessage == 0){  
+	    // full message received
+	    eventlcdMessage = 1;
+	    lcdDelay = 200;
+	    return;
+	  }  
+	}
+  }
+}
 
 void loop() {
   // read set button
@@ -425,11 +421,17 @@ void loop() {
     lcdMessageEnd = 0;
     lcdDelay = 0;
     // send ack to computer
-	Serial.println('done');
+	Serial.println('*');
   }
   // clear display event (main only!)
   if( lcdReset > 0) {
-     drawChar(0,0,lcdReset);
+    drawChar(0,0,lcdReset);
+    // reset buffer
+    lcdMessageStart = 0;
+    lcdMessageEnd = 0;
+    lcdDelay = 0;
+    // send ack to computer
+    Serial.println('*');
   }
   // ran in main and during delay loop 
   mainEvents();
