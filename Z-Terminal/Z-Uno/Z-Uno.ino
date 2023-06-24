@@ -5,7 +5,7 @@
 // Libraries //
 #include <Wire.h>
 #include <neotimer.h>
-#include "LiquidCrystal_I2C.h" // custom for MCP23008-E/P, power button support
+#include "LiquidCrystal_I2C.h" // custom for MCP23008-E/P, button support
 
 //////////////////////////////////////////////////////////////////////////
 
@@ -13,6 +13,7 @@
 const char lcdChars[]=
 	{" 0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ&:',.*|-+=_#@%/[]()<>?{};"};
 
+// RS-232 Baud Rate
 const int CONFIG_SERIAL = 9600;
 
 // Power Control
@@ -48,10 +49,10 @@ uint8_t rowCount0 = 0; // collumn count (row 0)
 uint8_t rowCount1 = 0; // collumn count (row 1)
 
 // Shared resources
-const uint8_t maxMessage = 128;
 bool eventlcdMessage = 0;
-char lcdMessage[maxMessage];
+const uint8_t maxMessage = 128;
 char serialMessage[maxMessage];
+char lcdMessage[maxMessage];
 uint8_t serialMessageEnd = 0;
 uint8_t lcdMessageEnd = 0;
 uint32_t lcdDelay = 0;
@@ -278,12 +279,13 @@ void charDelay(uint32_t _delay) {
   // restart character delay timer
   lcdDelayTimer.set(_delay);
   lcdDelayTimer.start();
-  for(;;) { // adjustable delay	
-    mainEvents(); // keep checking for events during delay
+  // keep checking for events during delay
+  for(;;) {
+    mainEvents(); 
     if(lcdDelayTimer.done()){
       lcdDelayTimer.reset();
       break; // exit loop when timer done
-	}
+	  }
   }    
 }
 
