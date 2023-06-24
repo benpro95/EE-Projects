@@ -52,8 +52,8 @@ const uint8_t maxMessage = 128;
 bool eventlcdMessage = 0;
 char lcdMessage[maxMessage];
 char serialMessage[maxMessage];
-uint32_t serialMessageEnd = 0;
-uint32_t lcdMessageEnd = 0;
+uint8_t serialMessageEnd = 0;
+uint8_t lcdMessageEnd = 0;
 uint32_t lcdDelay = 0;
 uint8_t lcdReset = 0;  
 bool newData = 0;
@@ -107,8 +107,8 @@ void setup() {
 
 // convert message into character stream 
 void lcdMessageEvent() { // (run only from event timer)
-  uint32_t _reset = 0;
-  uint32_t _end = lcdMessageEnd;
+  uint8_t _reset = 0;
+  uint8_t _end = lcdMessageEnd;
   uint32_t _delay = lcdDelay;
   lcdMessageEnd = 0;
   lcdDelay = 0;
@@ -116,10 +116,10 @@ void lcdMessageEvent() { // (run only from event timer)
   debugln(_delay);    
   debug("end position: ");
   debugln(_end);
-  uint32_t _charidx;
+  uint8_t _charidx;
   debugln("character stream: ");
   // loop through each character in the request array (message only)
-  for(uint32_t _idx = 0; _idx < _end; _idx++) { 
+  for(uint8_t _idx = 0; _idx < _end; _idx++) { 
     // convert each character into array index positions
     _charidx = (charLookup(lcdMessage[_idx]));
     // read reset state
@@ -189,7 +189,7 @@ void drawChar(uint8_t _char, uint8_t _reset) {
     return;  
   }
    ///////////////////////////////////////////////////////////////////// line 0
-  uint32_t _lastidx = 0;
+  uint8_t _lastidx = 0;
   uint8_t _trlcount;
   // count row position   
   rowCount0++; 
