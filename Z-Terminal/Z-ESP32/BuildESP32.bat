@@ -2,7 +2,7 @@ SET ARDUINO_CLI=C:\Program Files\Arduino\arduino-cli.exe
 SET ARDUINO_LIB=Z:\Projects\Libraries
 
 SET SKETCH_PATH=.
-SET SKETCH_NAME=Z-Terminal.ino
+SET SKETCH_NAME=Z-ESP32.ino
 SET BOARD_TYPE=esp32:esp32:lolin32
 SET COM_PORT=COM8
 

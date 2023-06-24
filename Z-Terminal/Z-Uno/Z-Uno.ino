@@ -35,6 +35,8 @@ uint8_t bar3[8] = {0x1C,0x1C,0x1C,0x1C,0x1C,0x1C,0x1C,0x1C};
 uint8_t bar4[8] = {0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E,0x1E};
 uint8_t bar5[8] = {0x1F,0x1F,0x1F,0x1F,0x1F,0x1F,0x1F,0x1F};
 #define lcdBacklight 9 // display backlight pin
+#define brightnessHigh 255 // normal LCD backlight brightness
+#define brightnessLow 128  // dimmed LCD backlight brightness
 Neotimer lcdDelayTimer = Neotimer();
 Neotimer lcdDimmer = Neotimer(80000); // ms before dimming display backlight
 const uint8_t lcdClearCharSpeed = 50; // ms delay between drawing each character (clearing display)
@@ -46,18 +48,19 @@ uint8_t rowCount0 = 0; // collumn count (row 0)
 uint8_t rowCount1 = 0; // collumn count (row 1)
 
 // Shared resources
-#define maxMessage 128
-char lcdMessage[maxMessage];
-uint32_t serialMessageEnd = 0;
-uint32_t lcdMessageStart = 0;
-uint32_t lcdMessageEnd = 0;
+const uint8_t maxMessage = 128;
 bool eventlcdMessage = 0;
+char lcdMessage[maxMessage];
+char serialMessage[maxMessage];
+uint32_t serialMessageEnd = 0;
+uint32_t lcdMessageEnd = 0;
 uint32_t lcdDelay = 0;
 uint8_t lcdReset = 0;  
+bool newData = 0;
 
 //////////////////////////////////////////////////////////////////////////
 // Enable Serial Messages (0 = off) (1 = on)
-#define DEBUG 0
+#define DEBUG 1
 /////////////////
 #if DEBUG == 1
 #define debugstart(x) Serial.begin(x)
@@ -97,7 +100,7 @@ void setup() {
   digitalWrite(LED_BUILTIN, HIGH);    
   // display backlight (low)
   pinMode(lcdBacklight, OUTPUT);  
-  digitalWrite(lcdBacklight, LOW);
+  analogWrite(lcdBacklight, brightnessLow);
   // start serial
   Serial.begin(CONFIG_SERIAL);
 }
@@ -106,9 +109,7 @@ void setup() {
 void lcdMessageEvent() { // (run only from event timer)
   uint32_t _reset = 0;
   uint32_t _end = lcdMessageEnd;
-  uint32_t _start = lcdMessageStart;
-  uint32_t _delay = lcdDelay; 
-  lcdMessageStart = 0;
+  uint32_t _delay = lcdDelay;
   lcdMessageEnd = 0;
   lcdDelay = 0;
   debug("delay data: ");
@@ -118,13 +119,13 @@ void lcdMessageEvent() { // (run only from event timer)
   uint32_t _charidx;
   debugln("character stream: ");
   // loop through each character in the request array (message only)
-  for(uint32_t _idx = _start; _idx < _end; _idx++) { 
+  for(uint32_t _idx = 0; _idx < _end; _idx++) { 
     // convert each character into array index positions
     _charidx = (charLookup(lcdMessage[_idx]));
     // read reset state
     _reset = lcdReset;
     charDelay(_delay); // character delay
-    drawChar(_charidx,_delay,_reset); // draw each character
+    drawChar(_charidx,_reset); // draw each character
     debug(_charidx);
     debug(',');
     // stop drawing if request canceled 
@@ -147,7 +148,7 @@ int charLookup(char _char) {
 }
 
 // scroll text on display
-void drawChar(uint8_t _char, uint32_t _delay, uint8_t _reset) {
+void drawChar(uint8_t _char, uint8_t _reset) {
   bool _line = 1; // 1 = text flows bottom to top, 0 = top to bottom
   // clear LCD routine
   if( _reset > 0){
@@ -272,7 +273,7 @@ void charDelay(uint32_t _delay) {
   lcdDimmer.start(); 
   // set default speed if not in range
   if ((_delay < 5) || (_delay > 4096)) {
-    _delay = 5;
+    _delay = lcdDefaultDelay;
   }  
   // restart character delay timer
   lcdDelayTimer.set(_delay);
@@ -332,86 +333,88 @@ void readClearButton() {
   lastclearButton = reading; 
 }
 
-// runs in main loop and during character delay
-void mainEvents() {
-  // read GPIO button
-  readClearButton();
-  // read serial port data
-  readSerial();
-  // display dim event
-  if(lcdDimmer.done()){
-  	debugln("dimming backlight...");
-    digitalWrite(lcdBacklight, LOW);
-    lcdDimmer.reset();
+void readSerial() {
+  static bool recvInProgress = 0;
+  static uint8_t ndx = 0;
+  char startMarker = '<';
+  char endMarker = '>';
+  char rc;
+  if (Serial.available() > 0 && newData == 0) {
+    rc = Serial.read();
+    if (recvInProgress == 1) {
+      if (rc != endMarker) {
+        serialMessage[ndx] = rc;
+        ndx++;
+        if (ndx >= maxMessage) {
+          ndx = maxMessage - 1;
+        }
+      } else {
+      	// terminate the string
+        serialMessage[ndx] = '\0'; 
+        serialMessageEnd = ndx;
+        recvInProgress = 0;
+        newData = 1;
+        ndx = 0;
+      }
+    }
+    else if (rc == startMarker) {
+      recvInProgress = 1;
+    }
   }
-}
-
-void readSerial() {  
-  // check if anything available on serial bus
-  if (Serial.available() > 0){
-    // read next byte to serial buffer
-    char inByte = Serial.read();
-    if (inByte != '\n' && (serialMessageEnd < maxMessage - 1)){
-      // add the incoming byte to our message
-	    lcdMessage[serialMessageEnd] = inByte;
-	    serialMessageEnd++;
-  	} else {
-	    // full message received
-	    decodeMessage();
-	  }
+  if (newData == 1) {
+    decodeMessage();
+    serialMessageEnd = 0;
+    newData = 0;
   }
 }
 
 // decode LCD message and trigger display event
 void decodeMessage() { 
-  lcdMessageEnd = serialMessageEnd;
-  serialMessageEnd = 0;
+  uint8_t _end = serialMessageEnd;
   // count delimiters
+  char _delimiter = ',';
   uint8_t _delims = 0;
-  char _delimiter = '|';
-  for(uint32_t _idx = 0; _idx < lcdMessageEnd; _idx++) {
-    char _vchr = lcdMessage[_idx];  
+  uint8_t _maxchars = 10;
+  for(uint8_t _idx = 0; _idx < _end; _idx++) {
+    char _vchr = serialMessage[_idx];  
     if (_vchr == _delimiter) {
       _delims++;
     }
   } 
-  // exit if all delimiters not found
-  debugln(" ");
-  if (_delims == 2){ 
-    debugln("processing data...");
-  } else {
+  // exit when delimiters incorrect
+  if (_delims < 2){ 
     debugln("invalid data.");
     return;
-  }  
-  //////////// start and end positions of control characters & message
-  uint8_t _maxchars = 12; // max characters for line & delay commands
-  uint32_t _linepos = 0;
-  // find second delimiter position
-  for(uint32_t _idx = 0; _idx < lcdMessageEnd; _idx++) {  
-    char _vchr = lcdMessage[_idx];  
+  }
+  // find first delimiter position
+  uint8_t _linepos = 0;
+  for(uint8_t _idx = 0; _idx < _end; _idx++) {  
+    char _vchr = serialMessage[_idx];  
     if (_vchr == _delimiter) {
       // store index position
       _linepos = _idx;
       break;
     }
   }
-  char _linebuffer[_maxchars];
-  uint8_t _linecount = 0;  
-  // loop through line characters  
-  for(uint32_t _idx = 0; _idx < _linepos; _idx++) {
-    if (_linecount >= _maxchars) {
+  // loop through line characters 
+  char _linebuffer[_maxchars + 1];
+  uint8_t _linecount = 0;   
+  for(uint8_t _idx = 0; _idx < _linepos; _idx++) {
+  	if (_linecount >= _maxchars) {
       break;
-    } // store in new array
-    _linebuffer[_linecount] = lcdMessage[_idx];
+    } 
+    // store in new array
+    _linebuffer[_linecount] = serialMessage[_idx];
     _linecount++;
-  }
+  } // terminate string
+  _linebuffer[_linecount] = '\0';
   // convert to integer, store line value
-  uint32_t _cmd1 = atoi(_linebuffer); 
-  // find third delimiter position
-  uint32_t _count = 0;
-  uint32_t _cmd2pos = 0; 
-  for(uint32_t _idx = 0; _idx < lcdMessageEnd; _idx++) {
-    char _vchr = lcdMessage[_idx];   
+  uint8_t _cmd1 = atoi(_linebuffer); 
+  // find second delimiter position
+  uint8_t _count = 0;
+  uint8_t _cmd2pos = 0; 
+  for(uint8_t _idx = 0; _idx < _end; _idx++) {
+    char _vchr = serialMessage[_idx];   
     if (_vchr == _delimiter) {
       if (_count == 1) {
         // store index position
@@ -421,16 +424,17 @@ void decodeMessage() {
       _count++;
     }
   } 
-  char _cmd2buffer[_maxchars];
-  uint8_t _cmd2count = 0;
   // loop through second command characters
-  for(uint32_t _idx = _linepos + 1; _idx < _cmd2pos; _idx++) { 
+  char _cmd2buffer[_maxchars + 1];
+  uint8_t _cmd2count = 0;  
+  for(uint8_t _idx = _linepos + 1; _idx < _cmd2pos; _idx++) { 
     if (_cmd2count >= _maxchars) {  
       break;
     } // store in new array 
-    _cmd2buffer[_cmd2count] = lcdMessage[_idx];
+    _cmd2buffer[_cmd2count] = serialMessage[_idx];
     _cmd2count++;
-  }
+  } // add null character to end
+  _cmd2buffer[_cmd2count] = '\0';
   // convert to integer, store second command value
   uint32_t _cmd2 = atoi(_cmd2buffer); 
   // exit when beyond range
@@ -440,26 +444,47 @@ void decodeMessage() {
   // clear display trigger (1-3 range)
   if (_cmd1 > 0) {
     // write clear trigger
-    lcdReset = _cmd1; 
+    lcdReset = _cmd1;
     return;
   }
-  // write message to shared buffer  
-  if ((eventlcdMessage == 0) && (_cmd1 == 0)){ // only if not drawing and line command is 0
-    // store shared message data 
-    lcdMessageStart = _cmd2pos + 1;
-    lcdDelay = _cmd2; // delay between drawing characters in (ms)
+  // write message when event is not running and line command is 0
+  if ((eventlcdMessage == 0) && (_cmd1 == 0)){
+    // position of the end of message
+    lcdMessageEnd = (_end - (_cmd2pos + 1));
+    // delay between drawing characters in (ms)
+    lcdDelay = _cmd2; 
+    // write to characters to message array
+    uint8_t _lcdidx = 0;
+    for(uint8_t _idx = _cmd2pos + 1; _idx < _end; _idx++) { 
+      lcdMessage[_lcdidx] = serialMessage[_idx]; 
+      _lcdidx++; // increment index
+    }
     // trigger event
     eventlcdMessage = 1;
-  } 
+  }
 }
 
 // disable LCD dimming then start dimming timer
 void lcdDim(){
   lcdDimmer.reset();
   // enable full brightness
-  digitalWrite(lcdBacklight, HIGH);
+  analogWrite(lcdBacklight, brightnessHigh);
   // start dimming timer
   lcdDimmer.start();
+}
+
+// runs in main loop and during character delay
+void mainEvents() {
+  // read GPIO button
+  readClearButton();
+  // read serial port data
+  readSerial();
+  // display dim event
+  if(lcdDimmer.done()){
+  	debugln("dimming backlight...");
+    analogWrite(lcdBacklight, brightnessLow);
+    lcdDimmer.reset();
+  }
 }
 
 void loop() {
@@ -469,19 +494,12 @@ void loop() {
     lcdMessageEvent();
     // reset buffers
     eventlcdMessage = 0;
-    lcdMessageStart = 0;
-    lcdMessageEnd = 0;
-    lcdDelay = 0;
     // send ack to computer
-	  Serial.println('*');
+	Serial.println('*');
   }
   // clear display event (main only!)
   if( lcdReset > 0) {
-    drawChar(0,0,lcdReset);
-    lcdReset = 0;
-    lcdMessageStart = 0;
-    lcdMessageEnd = 0;
-    lcdDelay = 0;    
+    drawChar(0,lcdReset);
     // send ack to computer
     Serial.println('*');
   }
