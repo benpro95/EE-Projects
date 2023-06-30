@@ -61,7 +61,8 @@ bool newData = 0;
 
 //////////////////////////////////////////////////////////////////////////
 // Enable Serial Messages (0 = off) (1 = on)
-#define DEBUG 1
+// breaks Pi program communication in debug mode
+#define DEBUG 0
 /////////////////
 #if DEBUG == 1
 #define debugstart(x) Serial.begin(x)
