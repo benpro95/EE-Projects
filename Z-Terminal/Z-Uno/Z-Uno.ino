@@ -105,6 +105,8 @@ void setup() {
   analogWrite(lcdBacklight, brightnessLow);
   // start serial
   Serial.begin(CONFIG_SERIAL);
+  // send ack to computer
+  Serial.println('*');
 }
 
 // convert message into character stream 
