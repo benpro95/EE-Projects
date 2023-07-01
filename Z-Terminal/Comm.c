@@ -232,6 +232,7 @@ int main() {
   }
   // program status 
   int status = 0;
+  printf("Z-Terminal Xmit v1.0\n");
   // wait for boot response
   status = serialRead();
   // main loop
