@@ -1,3 +1,7 @@
+/// Z-Terminal Serial Communication v1.0
+/// for GNU/Linux kernel versions 5.0+  
+/// by Ben Provenzano III - 07/01/2023
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <fcntl.h>
@@ -18,7 +22,7 @@ const char device[] = "/dev/ttyACM0";
 // max serial data chunk bytes
 size_t maxCmdLength = 64;
 // default delay (ms)
-unsigned int delayint = 1000;
+unsigned int delayint = 300;
 // message buffers
 int writeLoops = 0;
 size_t lineSize = 0;
