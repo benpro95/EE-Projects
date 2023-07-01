@@ -9,15 +9,16 @@
 #define ROUND_DIVIDE(numer, denom) (((numer) + (denom) / 2) / (denom))
 
 // Read from and write to the serial port
-char read_buffer[256];
 int serial_port;
 const char device[] = "/dev/ttyACM0";  // Serial Port
 size_t maxCmdLength = 21;
 int writeloops = 0;
 bool enableSend = 0;
-char *line = NULL;
 size_t lineSize = 0;
-
+char *line = NULL;
+char read_buffer[256];
+char rawdata[256];
+char buffer[256];
 
 
 void readIn() {
@@ -55,31 +56,6 @@ void readIn() {
 }
 
 
-int serialWrite() {
-    char linecmd[4] = "0";
-    char delay[4] = "128";
-    char rawdata[128] = "<";
-    // build output string
-    strcat(rawdata, linecmd);  
-    strcat(rawdata, ","); 
-    strcat(rawdata, delay);    
-    strcat(rawdata, ",");   
-    strcat(rawdata, line);  
-    strcat(rawdata, ">");  
-    // display final string
-    printf("Serial Data: %s\n", rawdata);
-    printf("Loops: %u\n", writeloops);
- 
-    // Check if the serial port is available
-    if (access(device, F_OK) != 0) {
-      printf("Serial port not available\n");
-      return 1;
-    }
-
-    // Write to the serial port
-    write(serial_port, rawdata, sizeof(rawdata));  
-}
-
 int serialRead() {
     // Check if the serial port is available
     if (access(device, F_OK) != 0) {
@@ -110,6 +86,56 @@ int serialRead() {
         usleep(50000);  // 50ms delay
      }   
 }
+
+
+
+int serialWrite() {
+
+    char linecmd[4] = "0";
+    char delay[4] = "128";
+
+
+    int status = 0;
+ 
+    // Check if the serial port is available
+    if (access(device, F_OK) != 0) {
+      printf("Serial port not available\n");
+      return 1;
+    }
+
+    int i;
+    size_t startpos = 0;
+    for (i = 1; i <= writeloops; ++i) {
+      // build output string
+      rawdata[0]='<';
+      strcat(rawdata, linecmd);  
+      strcat(rawdata, ","); 
+      strcat(rawdata, delay);    
+      strcat(rawdata, ",");   
+      // write 64 max-char segements
+      if (writeloops > 1) {
+        strncpy(buffer,line+(startpos),maxCmdLength);
+        startpos = startpos + maxCmdLength;
+        strcat(rawdata, buffer); 
+        strcat(rawdata, ">"); 
+      } else {
+        strcat(rawdata, line);  
+        strcat(rawdata, ">"); 
+      }
+      printf("Serial Data: %s\n", rawdata);
+      printf("Loops: %u\n", writeloops);
+      // Write to the serial port
+      write(serial_port, rawdata, sizeof(rawdata)); 
+      // Deallocate
+      memset(rawdata, 0, sizeof(rawdata));
+      memset(buffer, 0, sizeof(buffer));
+      // Wait for response 
+      status = serialRead();
+    }
+    return status;
+}
+
+
 
 
 int main() {
@@ -154,7 +180,6 @@ int main() {
     // transmit to serial
     if (enableSend == 1) {
        status = serialWrite();
-       status = serialRead();
        enableSend = 0;
     }
     if (status == 1) {
