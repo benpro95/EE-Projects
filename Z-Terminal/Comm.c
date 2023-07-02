@@ -22,7 +22,7 @@ const char device[] = "/dev/ttyACM0";
 // max serial data chunk bytes
 size_t maxCmdLength = 64;
 // default delay (ms)
-unsigned int delayint = 300;
+unsigned int delayint = 400;
 // message buffers
 int writeLoops = 0;
 size_t lineSize = 0;
@@ -79,9 +79,9 @@ void readIn(int _block) {
         enableSend = 1; 
       } else {
         // Read character by character
-        //printf("Read: %c\n", input);
         line[lineSize] = input; // write
         lineSize++; // increment index
+        //printf("Read: %c\n", input);
       }
     }
   }
