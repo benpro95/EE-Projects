@@ -20,10 +20,17 @@
 int serial_port;
 const char device[] = "/dev/ttyACM0"; 
 // max serial data chunk bytes
-size_t maxCmdLength = 64;
+const size_t maxCmdLength = 64;
 // default delay (ms)
-unsigned int delayint = 400;
-// message buffers
+const unsigned int delayint = 400;
+// globals
+const char sigChars[] = {"#?|"}; // control mode
+unsigned int sigMatches = 0;
+size_t sigLen = 0;
+char controlDat[] = "0000\0";
+size_t controlLen = 0;
+size_t controlCount = 0;
+bool controlMode = 0;
 int writeLoops = 0;
 size_t lineSize = 0;
 size_t serCharBufSize = buffLen;
@@ -36,6 +43,15 @@ char delaystr[8];
 bool enableSend = 0;
 bool resetLine = 0;
 
+void clearBuffers() {
+  //resetLine = 1;
+  controlDat[0] = '\0';
+  controlCount = 0;
+  writeLoops = 0;
+  lineSize = 0;
+  line = realloc(line,1);
+  line[0] = '\0';
+}
 
 void readIn(int _block) {
   // configure standard in
@@ -55,34 +71,62 @@ void readIn(int _block) {
   // when a character is detected
   ssize_t bytesRead = read(STDIN_FILENO, &input, 1);
   if (bytesRead == 1) {
-    // allocate memory
-    line = realloc(line, (lineSize + 1));
-    if (input == '|') { // Pipe key is received
-      // reset command
-      resetLine = 1;
-      // clear line data
-      writeLoops = 0;
-      lineSize = 0;
-      line = realloc(line,1);
-      line[0] = '\0';
+    if (enableSend == 0) {
+      // allocate memory
+      line = realloc(line, (lineSize + 1));
+    }
+    //// enter key is pressed ////
+    if (input == '\n') { 
+      if (controlMode == 0) {
+        if (enableSend == 0) {
+          // calcuate transmission rounds
+          if (lineSize <= 0) {
+            lineSize = 1;
+          } 
+          writeLoops = (ROUND_DIVIDE(lineSize,maxCmdLength) + 1);
+          // enable transmit
+          enableSend = 1;
+          // terminate line
+          line[lineSize] = '\0';
+        }  
+      } else { // control mode 
+        printf("Control Data: %s\n", controlDat);
+      } 
+      // reset control mode
+      controlMode = 0;
+      controlCount = 0;
+      sigMatches = 0;
+      lineSize = 0;      
     } else {
-      if (input == '\n') { // Enter key is received
-        // terminate array
-        line[lineSize] = '\0';
-        if (lineSize == 0) {
-          lineSize = 1;
-        } // calcuate transmission rounds
-        writeLoops = ROUND_DIVIDE(lineSize,maxCmdLength);
-        writeLoops++;
-        lineSize = 0; // reset index
-        // enable transmit
-        enableSend = 1; 
-      } else {
-        // Read character by character
-        line[lineSize] = input; // write
-        lineSize++; // increment index
-        //printf("Read: %c\n", input);
+    //// any other character is read ////
+      if (enableSend == 0) {
+        // write to line data array
+        line[lineSize] = input; 
       }
+      // detect control mode signature
+      if (lineSize < sigLen) {
+        // count matched characters
+        if (input == sigChars[sigMatches]) {
+          sigMatches = sigMatches + 1; 
+          if (sigMatches >= sigLen){
+            // all characters matched
+            controlMode = 1;
+          } 
+        }  
+      } // store control data after signature
+      if (controlMode == 1) { 
+        if (lineSize >= controlLen - 1) { // skip over last signature char
+          if (lineSize < (sigLen + controlLen)) { // do not allow overflow 
+            // write each character to array
+            controlDat[controlCount] = input;
+            controlDat[controlCount + 1] = '\0';
+          } // increment index
+          controlCount++;
+        }
+      }
+      // increment index
+      lineSize++; 
+      //printf("Read: %c\n", input);
     }
   }
   // reset standard in
@@ -230,6 +274,8 @@ int main() {
     perror("Error applying serial port settings");
     return 1;
   }
+  controlLen = (sizeof(controlDat) - 2);
+  sigLen = (sizeof(sigChars) - 1);
   // program status 
   int status = 0;
   printf("Z-Terminal Xmit v1.0\n");
