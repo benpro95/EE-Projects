@@ -50,7 +50,7 @@ uint8_t rowCount1 = 0; // collumn count (row 1)
 
 // Shared resources
 bool eventlcdMessage = 0;
-const uint8_t maxMessage = 128;
+const uint8_t maxMessage = 48;
 char serialMessage[maxMessage];
 char lcdMessage[maxMessage];
 uint8_t serialMessageEnd = 0;

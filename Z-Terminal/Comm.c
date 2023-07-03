@@ -19,7 +19,7 @@
 
 // serial device
 int serial_port;
-const char device[] = "/dev/ttyACM1"; 
+const char device[] = "/dev/ttyACM0"; 
 // max serial data chunk bytes
 const size_t maxCmdLength = 32;
 // signature matching
@@ -48,6 +48,7 @@ bool enableSend = 0;
 void controlParser() {
   size_t _dataint = 0;
   bool _notdigit = 0; 
+  printf("------\n");
   // check data is numeric
   for (size_t i = 0; i < controlCount; i++) {
     if(!isdigit(controlDat[i])){
@@ -57,10 +58,9 @@ void controlParser() {
   if(_notdigit == 0){
     _dataint = atoi(controlDat);
   }  
-  printf("Control Data: %zu\n", _dataint);
   // commands over 50 are delay settings
   if(_dataint >= 50){
-    printf("Setting Delay\n");
+    printf("Setting delay: %zu\n", _dataint);
     delayTime = _dataint;
   } else {
     // clear entire display
@@ -72,7 +72,7 @@ void controlParser() {
       rawData[0]='<';
       strcat(rawData, _datstr);   
       strcat(rawData, ",0,0>"); 
-      printf("Clear Data: %s\n", rawData);
+      printf("Control data: %s\n", rawData);
       size_t _size = sizeof(rawData);
       write(serial_port, rawData, _size);
       memset(rawData, 0, _size);
@@ -119,7 +119,8 @@ void readIn(int _block) {
           if (lineSize <= 0) {
             lineSize = 1;
           } 
-          writeLoops = (ROUND_DIVIDE(lineSize,maxCmdLength) + 1);
+          writeLoops = 
+            (ROUND_DIVIDE(lineSize,maxCmdLength) + 1);
           // enable transmit
           enableSend = 1;
           // terminate line
