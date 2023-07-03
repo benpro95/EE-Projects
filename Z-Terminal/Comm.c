@@ -18,40 +18,50 @@
 
 // serial device
 int serial_port;
-const char device[] = "/dev/ttyACM0"; 
+const char device[] = "/dev/ttyACM1"; 
 // max serial data chunk bytes
 const size_t maxCmdLength = 64;
-// default delay (ms)
-const unsigned int delayint = 400;
-// globals
-const char sigChars[] = {"#?|"}; // control mode
-unsigned int sigMatches = 0;
+// signature matching
+const char sigChars[] = {"$?-|"}; // control mode
+size_t sigMatches = 0;
 size_t sigLen = 0;
+// control data
 char controlDat[] = "0000\0";
 size_t controlLen = 0;
 size_t controlCount = 0;
 bool controlMode = 0;
+// line output data
+char *line = NULL;
 int writeLoops = 0;
 size_t lineSize = 0;
 size_t serCharBufSize = buffLen;
 char serCharBuf[buffLen];
 char rawData[buffLen];
 char chunkBuf[buffLen];
-char *line = NULL;
+// delay data
+size_t delayint = 400; // default delay (ms)
 char delaystr[8];
 // flags
 bool enableSend = 0;
 bool resetLine = 0;
 
-void clearBuffers() {
-  //resetLine = 1;
-  controlDat[0] = '\0';
-  controlCount = 0;
+
+void resetSerial() {
+  // send clear serial command
+  rawData[0]='\0';
+  strcat(rawData, "<3,0,0>"); 
+  printf("Clear Data: %s\n", rawData);
+  write(serial_port, rawData, sizeof(rawData));
+  memset(rawData, 0, sizeof(rawData));
+  resetLine = 0;
+  // clear line data
+  enableSend = 0;
   writeLoops = 0;
-  lineSize = 0;
   line = realloc(line,1);
   line[0] = '\0';
+  lineSize = 0;
 }
+
 
 void readIn(int _block) {
   // configure standard in
@@ -91,6 +101,7 @@ void readIn(int _block) {
         }  
       } else { // control mode 
         printf("Control Data: %s\n", controlDat);
+        resetSerial();
       } 
       // reset control mode
       controlMode = 0;
@@ -115,7 +126,7 @@ void readIn(int _block) {
         }  
       } // store control data after signature
       if (controlMode == 1) { 
-        if (lineSize >= controlLen - 1) { // skip over last signature char
+        if (lineSize >= sigLen) { // skip over last signature char
           if (lineSize < (sigLen + controlLen)) { // do not allow overflow 
             // write each character to array
             controlDat[controlCount] = input;
@@ -132,17 +143,6 @@ void readIn(int _block) {
   // reset standard in
   term.c_lflag |= ICANON | ECHO;
   tcsetattr(STDIN_FILENO, TCSANOW, &term);
-}
-
-
-void resetSerial() {
-  rawData[0]='\0';
-  strcat(rawData, "<3,0,0>"); 
-  printf("Clear Data: %s\n", rawData);
-  write(serial_port, rawData, sizeof(rawData));
-  memset(rawData, 0, sizeof(rawData));
-  resetLine = 0;
-  enableSend = 0;
 }
 
 
@@ -215,7 +215,7 @@ int serialWrite() {
   // write max-char segments
   for (i = 1; i <= writeLoops; ++i) {
     // read / convert delay data
-    sprintf(delaystr, "%d", delayint);
+    sprintf(delaystr, "%zu", delayint);
     // build output string
     rawData[0]='<';
     strcat(rawData, "0,"); 
