@@ -10,6 +10,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <errno.h>
+#include <ctype.h>
 
 // divide to whole number macro
 #define ROUND_DIVIDE(numer, denom) (((numer) + (denom) / 2) / (denom))
@@ -20,7 +21,7 @@
 int serial_port;
 const char device[] = "/dev/ttyACM1"; 
 // max serial data chunk bytes
-const size_t maxCmdLength = 64;
+const size_t maxCmdLength = 32;
 // signature matching
 const char sigChars[] = {"$?-|"}; // control mode
 size_t sigMatches = 0;
@@ -39,27 +40,51 @@ char serCharBuf[buffLen];
 char rawData[buffLen];
 char chunkBuf[buffLen];
 // delay data
-size_t delayint = 300; // default delay (ms)
-char delaystr[8];
+size_t delayTime = 300; // default delay (ms)
 // flags
 bool enableSend = 0;
-bool resetLine = 0;
 
 
-void resetSerial() {
-  // send clear serial command
-  rawData[0]='\0';
-  strcat(rawData, "<3,0,0>"); 
-  printf("Clear Data: %s\n", rawData);
-  write(serial_port, rawData, sizeof(rawData));
-  memset(rawData, 0, sizeof(rawData));
-  resetLine = 0;
-  // clear line data
-  enableSend = 0;
-  writeLoops = 0;
-  line = realloc(line,1);
-  line[0] = '\0';
-  lineSize = 0;
+void controlParser() {
+  size_t _dataint = 0;
+  bool _notdigit = 0; 
+  // check data is numeric
+  for (size_t i = 0; i < controlCount; i++) {
+    if(!isdigit(controlDat[i])){
+       _notdigit = 1;
+    }
+  } // cast to integer
+  if(_notdigit == 0){
+    _dataint = atoi(controlDat);
+  }  
+  printf("Control Data: %zu\n", _dataint);
+  // commands over 50 are delay settings
+  if(_dataint >= 50){
+    printf("Setting Delay\n");
+    delayTime = _dataint;
+  } else {
+    // clear entire display
+    if(_dataint < 4){
+      char _datstr[3];
+      // convert clear int to char
+      sprintf(_datstr, "%zu", _dataint);
+      // build output string
+      rawData[0]='<';
+      strcat(rawData, _datstr);   
+      strcat(rawData, ",0,0>"); 
+      printf("Clear Data: %s\n", rawData);
+      size_t _size = sizeof(rawData);
+      write(serial_port, rawData, _size);
+      memset(rawData, 0, _size);
+      // clear line data
+      enableSend = 0;
+      writeLoops = 0;
+      line = realloc(line,1);
+      line[0] = '\0';
+      lineSize = 0;
+    }
+  }
+  printf("------\n");
 }
 
 
@@ -101,8 +126,7 @@ void readIn(int _block) {
           line[lineSize] = '\0';
         }  
       } else { // control mode 
-        printf("Control Data: %s\n", controlDat);
-        resetSerial();
+        controlParser();
       } 
       // reset control mode
       controlMode = 0;
@@ -132,8 +156,8 @@ void readIn(int _block) {
             // write each character to array
             controlDat[controlCount] = input;
             controlDat[controlCount + 1] = '\0';
-          } // increment index
-          controlCount++;
+            controlCount++;
+          }
         }
       }
       // increment index
@@ -179,8 +203,8 @@ int serialRead() {
       for (i = 0; i < num_bytes; i++) {
         // check for input
         if (serCharBuf[i] == target_char) {
-            printf("Received acknowledge '%c'\n", target_char);
-            return 0;
+          printf("Received acknowledge '%c'\n", target_char);
+          return 0;
         }
       }
     } else {
@@ -188,10 +212,6 @@ int serialRead() {
       if (errno == EAGAIN || errno == EWOULDBLOCK) {
         // continue to read input (non-blocking)
         readIn(0);
-        if (resetLine == 1) {
-          resetSerial();
-          return 0;
-        } 
       } else {
         // error occurred
         printf("Failed to read serial port\n");
@@ -215,8 +235,9 @@ int serialWrite() {
   size_t startpos = 0;
   // write max-char segments
   for (i = 1; i <= writeLoops; ++i) {
+    char delaystr[8];
     // read / convert delay data
-    sprintf(delaystr, "%zu", delayint);
+    sprintf(delaystr, "%zu", delayTime);
     // build output string
     rawData[0]='<';
     strcat(rawData, "0,"); 
@@ -290,10 +311,6 @@ int main() {
     if (enableSend == 1) {
        status = serialWrite();
        enableSend = 0;
-    }
-    // clear display and reset
-    if (resetLine == 1) {
-      resetSerial();
     }
     // error occured
     if (status == 1) {
