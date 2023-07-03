@@ -26,9 +26,9 @@ const char sigChars[] = {"$?-|"}; // control mode
 size_t sigMatches = 0;
 size_t sigLen = 0;
 // control data
-char controlDat[] = "0000\0";
-size_t controlLen = 0;
+char controlDat[5];
 size_t controlCount = 0;
+size_t controlLen = 0;
 bool controlMode = 0;
 // line output data
 char *line = NULL;
@@ -39,7 +39,7 @@ char serCharBuf[buffLen];
 char rawData[buffLen];
 char chunkBuf[buffLen];
 // delay data
-size_t delayint = 400; // default delay (ms)
+size_t delayint = 300; // default delay (ms)
 char delaystr[8];
 // flags
 bool enableSend = 0;
@@ -71,15 +71,16 @@ void readIn(int _block) {
   tcsetattr(STDIN_FILENO, TCSANOW, &term);
   int flags = fcntl(STDIN_FILENO, F_GETFL, 0);
   if (_block == 0) {
-    // make stdin non-blocking
+    // non-blocking (stdin)
     fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK);
   } else {
-    // make stdin blocking
+    // blocking (stdin)
     fcntl(STDIN_FILENO, F_SETFL, flags & ~O_NONBLOCK);
   }
   char input;
-  // when a character is detected
+  // read command line (stdin)
   ssize_t bytesRead = read(STDIN_FILENO, &input, 1);
+  // when a character is detected
   if (bytesRead == 1) {
     if (enableSend == 0) {
       // allocate memory
@@ -222,7 +223,7 @@ int serialWrite() {
     strcat(rawData, delaystr);    
     strcat(rawData, ",");
     if (writeLoops > 1) {
-      strncpy(chunkBuf,line+(startpos),maxCmdLength);
+      strncpy(chunkBuf, line + (startpos), maxCmdLength);
       startpos = startpos + maxCmdLength;
       strcat(rawData, chunkBuf); 
       strcat(rawData, ">"); 
@@ -274,7 +275,7 @@ int main() {
     perror("Error applying serial port settings");
     return 1;
   }
-  controlLen = (sizeof(controlDat) - 2);
+  controlLen = (sizeof(controlDat) - 1);
   sigLen = (sizeof(sigChars) - 1);
   // program status 
   int status = 0;
