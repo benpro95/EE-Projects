@@ -1,0 +1,122 @@
+Board Name                       FQBN
+AI Thinker ESP32-CAM             esp32:esp32:esp32cam
+ALKS ESP32                       esp32:esp32:alksesp32
+Adafruit Circuit Playground      arduino:avr:circuitplay32u4cat
+Adafruit ESP32 Feather           esp32:esp32:featheresp32
+Arduino BT                       arduino:avr:bt
+Arduino Duemilanove or Diecimila arduino:avr:diecimila
+Arduino Esplora                  arduino:avr:esplora
+Arduino Ethernet                 arduino:avr:ethernet
+Arduino Fio                      arduino:avr:fio
+Arduino Gemma                    arduino:avr:gemma
+Arduino Industrial 101           arduino:avr:chiwawa
+Arduino Leonardo                 arduino:avr:leonardo
+Arduino Leonardo ETH             arduino:avr:leonardoeth
+Arduino Mega ADK                 arduino:avr:megaADK
+Arduino Mega or Mega 2560        arduino:avr:mega
+Arduino Micro                    arduino:avr:micro
+Arduino Mini                     arduino:avr:mini
+Arduino NG or older              arduino:avr:atmegang
+Arduino Nano                     arduino:avr:nano
+Arduino Nano Every               arduino:megaavr:nona4809
+Arduino Pro or Pro Mini          arduino:avr:pro
+Arduino Robot Control            arduino:avr:robotControl
+Arduino Robot Motor              arduino:avr:robotMotor
+Arduino Uno                      arduino:avr:uno
+Arduino Uno Mini                 arduino:avr:unomini
+Arduino Uno WiFi                 arduino:avr:unowifi
+Arduino Uno WiFi Rev2            arduino:megaavr:uno2018
+Arduino Yún                      arduino:avr:yun
+Arduino Yún Mini                 arduino:avr:yunmini
+BPI-BIT                          esp32:esp32:bpi-bit
+D-duino-32                       esp32:esp32:d-duino-32
+DOIT ESP32 DEVKIT V1             esp32:esp32:esp32doit-devkit-v1
+DOIT ESPduino32                  esp32:esp32:esp32doit-espduino
+Dongsen Tech Pocket 32           esp32:esp32:pocket_32
+ESP32 Dev Module                 esp32:esp32:esp32
+ESP32 FM DevKit                  esp32:esp32:fm-devkit
+ESP32 Pico Kit                   esp32:esp32:pico32
+ESP32 Wrover Module              esp32:esp32:esp32wrover
+ESP32vn IoT Uno                  esp32:esp32:esp32vn-iot-uno
+ESPea32                          esp32:esp32:espea32
+ESPectro32                       esp32:esp32:espectro32
+ET-Board                         esp32:esp32:ET-Board
+Electronic SweetPeas - ESP320    esp32:esp32:esp320
+FireBeetle-ESP32                 esp32:esp32:firebeetle32
+Frog Board ESP32                 esp32:esp32:frogboard
+HONEYLemon                       esp32:esp32:honeylemon
+Heltec WiFi Kit 32               esp32:esp32:heltec_wifi_kit_32
+Heltec WiFi LoRa 32              esp32:esp32:heltec_wifi_lora_32
+Heltec WiFi LoRa 32(V2)          esp32:esp32:heltec_wifi_lora_32_V2
+Heltec Wireless Stick            esp32:esp32:heltec_wireless_stick
+Heltec Wireless Stick Lite       esp32:esp32:heltec_wireless_stick_lite
+Hornbill ESP32 Dev               esp32:esp32:hornbill32dev
+Hornbill ESP32 Minima            esp32:esp32:hornbill32minima
+IMBRIOS LOGSENS_V1P1             esp32:esp32:imbrios-logsens-v1p1
+INEX OpenKB                      esp32:esp32:OpenKB
+IntoRobot Fig                    esp32:esp32:intorobot-fig
+KITS ESP32 EDU                   esp32:esp32:kits-edu
+LOLIN D32                        esp32:esp32:d32
+LOLIN D32 PRO                    esp32:esp32:d32_pro
+Labplus mPython                  esp32:esp32:mPython
+LilyPad Arduino                  arduino:avr:lilypad
+LilyPad Arduino USB              arduino:avr:LilyPadUSB
+Linino One                       arduino:avr:one
+LoPy                             esp32:esp32:lopy
+LoPy4                            esp32:esp32:lopy4
+M5Stack-ATOM                     esp32:esp32:m5stack-atom
+M5Stack-Core-ESP32               esp32:esp32:m5stack-core-esp32
+M5Stack-Core2                    esp32:esp32:m5stack-core2
+M5Stack-CoreInk                  esp32:esp32:m5stack-coreink
+M5Stack-FIRE                     esp32:esp32:m5stack-fire
+M5Stack-Timer-CAM                esp32:esp32:m5stack-timer-cam
+M5Stick-C                        esp32:esp32:m5stick-c
+MGBOT IOTIK 32A                  esp32:esp32:mgbot-iotik32a
+MGBOT IOTIK 32B                  esp32:esp32:mgbot-iotik32b
+MH ET LIVE ESP32DevKIT           esp32:esp32:mhetesp32devkit
+MH ET LIVE ESP32MiniKit          esp32:esp32:mhetesp32minikit
+MagicBit                         esp32:esp32:magicbit
+Metro ESP-32                     esp32:esp32:metro_esp-32
+Microduino-CoreESP32             esp32:esp32:CoreESP32
+Nano32                           esp32:esp32:nano32
+Node32s                          esp32:esp32:node32s
+NodeMCU-32S                      esp32:esp32:nodemcu-32s
+Noduino Quantum                  esp32:esp32:quantum
+ODROID ESP32                     esp32:esp32:odroid_esp32
+OLIMEX ESP32-DevKit-LiPo         esp32:esp32:esp32-DevKitLipo
+OLIMEX ESP32-EVB                 esp32:esp32:esp32-evb
+OLIMEX ESP32-GATEWAY             esp32:esp32:esp32-gateway
+OLIMEX ESP32-PoE                 esp32:esp32:esp32-poe
+OLIMEX ESP32-PoE-ISO             esp32:esp32:esp32-poe-iso
+OROCA EduBot                     esp32:esp32:oroca_edubot
+Onehorse ESP32 Dev Module        esp32:esp32:onehorse32dev
+Piranha ESP-32                   esp32:esp32:piranha_esp-32
+ProtoCentral HealthyPi 4         esp32:esp32:healthypi4
+Pycom GPy                        esp32:esp32:gpy
+Raspberry Pi Pico                arduino:mbed_rp2040:pico
+S.ODI Ultra v1                   esp32:esp32:S_ODI_Ultra
+Senses's WEIZEN                  esp32:esp32:sensesiot_weizen
+Silicognition wESP32             esp32:esp32:wesp32
+SparkFun ESP32 Thing             esp32:esp32:esp32thing
+SparkFun ESP32 Thing Plus        esp32:esp32:esp32thing_plus
+SparkFun LoRa Gateway 1-Channel  esp32:esp32:sparkfun_lora_gateway_1-channel
+T-Beam                           esp32:esp32:t-beam
+TTGO LoRa32-OLED V1              esp32:esp32:ttgo-lora32-v1
+TTGO LoRa32-OLED v2.1.6          esp32:esp32:ttgo-lora32-v21new
+TTGO T-Watch                     esp32:esp32:twatch
+TTGO T1                          esp32:esp32:ttgo-t1
+TTGO T7 V1.3 Mini32              esp32:esp32:ttgo-t7-v13-mini32
+TTGO T7 V1.4 Mini32              esp32:esp32:ttgo-t7-v14-mini32
+ThaiEasyElec's ESPino32          esp32:esp32:espino32
+TinyPICO                         esp32:esp32:tinypico
+Turta IoT Node                   esp32:esp32:turta_iot_node
+VintLabs ESP32 Devkit            esp32:esp32:vintlabs-devkit-v1
+WEMOS D1 MINI ESP32              esp32:esp32:d1_mini32
+WEMOS LOLIN32                    esp32:esp32:lolin32
+WEMOS LOLIN32 Lite               esp32:esp32:lolin32-lite
+WeMos WiFi&Bluetooth Battery     esp32:esp32:WeMosBat
+WiFiduino32                      esp32:esp32:wifiduino32
+WiPy 3.0                         esp32:esp32:wipy3
+Widora AIR                       esp32:esp32:widora-air
+XinaBox CW02                     esp32:esp32:cw02
+u-blox NINA-W10 series (ESP32)   esp32:esp32:nina_w10
