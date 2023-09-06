@@ -38,7 +38,7 @@ unsigned long httpReqCount = 0;
 const long timeoutTime = 1500; // HTTP timeout (ms)
 
 // Wi-Fi
-unsigned long WiFiDownInterval = 600000; // WiFi reconnect timeout (10-min)
+unsigned long WiFiDownInterval = 300000; // WiFi reconnect timeout (5-min)
 unsigned long WiFiLastMillis = 0;
 
 // GPIO
@@ -53,7 +53,7 @@ RCSwitch mySwitch = RCSwitch();
 
 //////////////////////////////////////////////////////////////////////////
 // Enable Serial Messages (0 = off) (1 = on)
-#define DEBUG 1
+#define DEBUG 0
 /////////////////
 #if DEBUG == 1
 #define debugstart(x) Serial.begin(x)
@@ -79,9 +79,9 @@ void setup() {
   debugln(xPortGetCoreID());
   // RF transmit output on pin #19
   mySwitch.enableTransmit(19);
-  mySwitch.setPulseLength(183);
   mySwitch.setProtocol(1);
-  //mySwitch.setRepeatTransmit(3);
+  mySwitch.setPulseLength(416);
+  mySwitch.setRepeatTransmit(5);
   digitalWrite(onBoardLED, HIGH);    
   // web server parallel task
   xTaskCreatePinnedToCore(

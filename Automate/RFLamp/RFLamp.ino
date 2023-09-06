@@ -27,9 +27,6 @@ int relaysState0 = LOW;
 int stateChanged = LOW;
 
 void setup() {
-// Reduce Clock Speed 
-  CLKPR = 0x80; // (1000 0000) enable change in clock frequency
-  CLKPR = 0x01; // (0000 0001) use clock division factor 2 to reduce the frequency from 16 MHz to 8 MHz
 // Buttons Setup
   pinMode(button_pin1, INPUT_PULLUP);
   button1.setDebounceTime(50);
@@ -41,8 +38,6 @@ void setup() {
 // RF Receive
   delay(500); 
   mySwitch.enableReceive(0);  // Receiver on interrupt 0 => that is [pin #2 on uno] [pin #3 on micro]
-  mySwitch.setProtocol(1);
-  mySwitch.setPulseLength(183);
   digitalWrite(led, LOW);
 }
 

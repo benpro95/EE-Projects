@@ -55,8 +55,6 @@ void setup() {
 // RF Receive  
   delay(500); 
   mySwitch.enableReceive(0);  // Receiver on interrupt 0 => that is [pin #2]
-  mySwitch.setProtocol(1);
-  mySwitch.setPulseLength(183);
 }
 
 void loop() {

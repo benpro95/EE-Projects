@@ -28,8 +28,6 @@ boolean lastToggleState1;  // hold last state to sense when switch is changed
 void setup() {
   //Serial.begin(1200);
   mySwitch.enableReceive(0);  // Receiver on inerrupt 0 => that is [pin #2]
-  mySwitch.setProtocol(1);
-  mySwitch.setPulseLength(183);
   pinMode(relay1, OUTPUT);    
   pinMode(relay2, OUTPUT);  
   pinMode(relay3, OUTPUT);  

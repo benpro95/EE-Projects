@@ -40,8 +40,6 @@ void setup() {
 // 433MHz RF   
   delay(500); 
   mySwitch.enableReceive(0);  // Receiver on interrupt 0 => that is [pin #2]
-  mySwitch.setProtocol(1);
-  mySwitch.setPulseLength(183);  
 }
 
 // Main
@@ -79,7 +77,7 @@ void readPot() {
     potFinal = 0; 
     // Read analog value from potentiometer
     potVal = analogRead(potPin);          
-    // Map raw values to 2 x 0-63 range 
+    // Map raw values to 2 x 0-63 range ** 127??
     potVal = map(potVal, 0, 502, 127, 0);
     // Return value if pot changes more than threshold 
     if(abs(potVal - lastPotVal) >= potThresh){
