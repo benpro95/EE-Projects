@@ -22,19 +22,18 @@ int potThresh = 20;
 unsigned long rfvalue = 0;
 int _maxByte = 63;
 int theVol = 0; 
-int muteVol = 0; 
 int theLastVol = 0; 
 int maxRange = 512;
 int potVal = 0;  
 int potFinal = 0; 
 int lastPotVal = 0;
-int _potMaxRange = 1000;
-int _potMinRange = -200;
+int potMaxRange = 502;
 bool changeVol = 0;
 bool vMute = 0;
 int volFine = 10;
 int volSemiCourse = 30;
 int volCourse = 50;
+int muteVol = 0;
 
 void setup() {
 // RS232  
@@ -74,9 +73,9 @@ boolean setvolume(int8_t vol) {
   // cant be higher than 63 or lower than 0
   if (vol > _maxByte) vol = _maxByte;
   if (vol < 0) vol = 0;
-  Serial.println("-----------");
   Serial.print("Setting volume to ");
   Serial.println(vol);
+  Serial.println("-----------");
   Wire.beginTransmission(MAX9744_I2CADDR);
   Wire.write(vol);
   if (Wire.endTransmission() == 0) 
@@ -89,18 +88,18 @@ void readPot() {
     potVal = 0;  
     potFinal = 0; 
     // Read analog value from potentiometer
-    potVal = analogRead(potPin);          
+    potVal = analogRead(potPin);             
     // Map raw values to 0-512 range
-    potVal = map(potVal, _potMinRange, _potMaxRange, (maxRange * 2), 0);
+    potVal = map(potVal, 0, potMaxRange, (maxRange * 2), 0);
     // Return value if pot changes more than threshold 
     if(abs(potVal - lastPotVal) >= potThresh){
-      Serial.print("Pot value: ");
-      Serial.println(potVal);
       potFinal = (potVal/2);       
       lastPotVal = potVal; 
       // Change the volume to the pot value
       theVol = potFinal;
-      changeVol = 1;
+      if (vMute == 0) {
+        changeVol = 1;
+      }    
     }
 }
 
@@ -135,7 +134,7 @@ void receiveRF() {
     {
       // Volume Up (Course)
       theVol = theVol + volCourse;
-      changeVol = 1; 
+      changeVol = 1;
     }
     if (rfvalue == 696933) //
     {
@@ -170,36 +169,36 @@ void receiveRF() {
     if (rfvalue == 696940) //
     {
       // Set Level
-      theVol = 375;
+      theVol = 400;
       changeVol = 1;
     }
-    if (rfvalue == 696950) //
-    {
-      // Set Level
-      theVol = 450;
-      changeVol = 1;
-    }
-    if (rfvalue == 696999) //
+    if (rfvalue == 696997) //
     {
       // Set Level (Loudest)
-      theVol = 512;
+      theVol = 500;
       changeVol = 1;
-    }    
+    }
     // Mute
     if (vMute == 1) {
       changeVol = 0;
-    } // must be last
-      if (rfvalue == 696944)
+    }     
+    if (rfvalue == 696999) // unmute
     { 
       if (vMute == 1) {
         theVol = muteVol;
+        theLastVol = -1;
         vMute = 0;
-      } else {
-        muteVol = theVol;
+        changeVol = 1;
+      } 
+    }    
+    if (rfvalue == 696944) // mute
+    { 
+      if (vMute == 0) {
         vMute = 1;
+        muteVol = theVol;
         theVol = 0;
+        changeVol = 1;
       }
-      changeVol = 1;
     }  
     mySwitch.resetAvailable();
   }
