@@ -63,8 +63,16 @@ void writeLED(uint8_t _ledin) {
 
 void effectTrailA() {
   uint8_t _count;
-  if (ledIncrement == 0) {
+  // add/remove values from array
+  if (ledCountState == 1) {
     ledData[ledIncrement] = 0;
+    ledIncrement--;
+  } else {
+    ledIncrement++;
+    ledData[ledIncrement] = 1;
+  }
+  // set counter up/down
+  if (ledIncrement == 0) {
     ledCountState = 0;
   }
   if (ledIncrement >= ledsCount) {
@@ -72,14 +80,7 @@ void effectTrailA() {
     ledCountState = 1;
     ledData[0] = 1;
   } else {
-    ledData[0] = 0; 
-  }
-  if (ledCountState == 1) {
-    ledData[ledIncrement] = 0;
-    ledIncrement--;
-  } else {
-    ledIncrement++;
-    ledData[ledIncrement] = 1;
+    ledData[0] = 0;
   }
 }
 
@@ -107,6 +108,8 @@ void loop() {
   // update LEDs
   if(effectTimer.repeat()){
     effectTrailA();
+    Serial.print(ledIncrement);
+    Serial.print(",");
     for(uint8_t _count = 0; _count <= ledsCount; _count++) {
       Serial.print(ledData[_count]);
       Serial.print(",");
