@@ -1,3 +1,4 @@
+#include <neotimer.h> 
 
 uint8_t outPinLow = 2;
 uint8_t outPinHigh = 12;
@@ -5,9 +6,14 @@ uint8_t outPinHigh = 12;
 uint8_t ledTranslate[ledsCount + 1] = {9,13,3,15,5,8,18,11,1,6,16,14,4,17,7,12,2,0,10,19};
 // LED bank B start position
 uint8_t _upperHalf = (ledsCount / 2) + 1;
+Neotimer ledRefresh = Neotimer(5); // 
+Neotimer effectTimer = Neotimer(300); // 
+bool ledData[ledsCount + 1];
 
+uint8_t dec = 1;
+  
 void setup() {
-  //Serial.begin(115200);
+  Serial.begin(115200);
   uint8_t _count;
   // initialize LED output pins 
   for(_count = outPinLow; _count <= outPinHigh; _count++) {
@@ -47,9 +53,29 @@ void writeLED(uint8_t _ledin) {
   }
 }
 
-void loop() {
-  for(int x = 0; x <= ledsCount; x++) {
-    writeLED(x);
-    delay(150);
+void setLEDs() {
+  if(ledRefresh.repeat()){
+    for(uint8_t led = 0; led <= ledsCount; led++) {
+      if (ledData[led] == 1){
+        writeLED(led);
+      }
+    }
   }
+}
+
+void loop() {
+  uint8_t _count;
+  if(effectTimer.repeat()){ 
+     if (dec >= ledsCount) {
+       dec = 1;
+       for(_count = 0; _count <= ledsCount; _count++) {
+         ledData[_count] = 0; 
+       }
+     } 
+     dec++; 
+     for(_count = 0; _count <= dec; _count++) {
+       ledData[_count] = 1; 
+     }
+  }
+  setLEDs();
 }
