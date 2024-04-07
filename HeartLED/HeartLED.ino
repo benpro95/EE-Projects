@@ -5,8 +5,8 @@
 #define ledsCount 19
 uint8_t ledTranslate[] = {9,13,3,15,5,8,18,11,1,6,16,14,4,17,7,12,2,0,10,19};
 uint8_t _upperHalf = (ledsCount / 2) + 1;
-Neotimer effectTimer = Neotimer(200);
-Neotimer ledRefresh = Neotimer(0.5);
+Neotimer effectTimer = Neotimer(250);
+Neotimer ledRefresh = Neotimer(0.10);
 bool ledData[ledsCount + 1];
 uint8_t ledIncrement = 0;
 bool ledCountState = 0;
@@ -95,12 +95,20 @@ void effectTrailB() {
  }
 }
 
+void showLEDdata() {
+  for(uint8_t _count = 0; _count <= ledsCount; _count++) {
+   Serial.print(ledData[_count]);
+   Serial.print(",");
+  }
+  Serial.print(ledIncrement);
+  Serial.println(" ");
+}
+
 void loop() {
   // re-draw all LEDs
   if(ledRefresh.repeat()){
     for(uint8_t led = 0; led <= ledsCount; led++) {
       if (ledData[led] == 1){
-        delayMicroseconds(30);
         writeLED(led);
       }
     }
@@ -108,12 +116,6 @@ void loop() {
   // update LEDs
   if(effectTimer.repeat()){
     effectTrailA();
-    Serial.print(ledIncrement);
-    Serial.print(",");
-    for(uint8_t _count = 0; _count <= ledsCount; _count++) {
-      Serial.print(ledData[_count]);
-      Serial.print(",");
-    }
-    Serial.println(" ");
+    //showLEDdata();
   }
 }
