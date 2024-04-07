@@ -1,17 +1,23 @@
 #include <neotimer.h> 
 
-uint8_t outPinLow = 2;
-uint8_t outPinHigh = 12;
+#define outPinHigh 12
+#define outPinLow 2
 #define ledsCount 19
-uint8_t ledTranslate[ledsCount + 1] = {9,13,3,15,5,8,18,11,1,6,16,14,4,17,7,12,2,0,10,19};
-// LED bank B start position
+uint8_t ledTranslate[] = {9,13,3,15,5,8,18,11,1,6,16,14,4,17,7,12,2,0,10,19};
 uint8_t _upperHalf = (ledsCount / 2) + 1;
-Neotimer ledRefresh = Neotimer(5); // 
-Neotimer effectTimer = Neotimer(300); // 
+Neotimer effectTimer = Neotimer(200);
+Neotimer ledRefresh = Neotimer(0.5);
 bool ledData[ledsCount + 1];
+uint8_t ledIncrement = 0;
+bool ledCountState = 0;
 
-uint8_t dec = 1;
-  
+void clearLEDdata() {
+  uint8_t _count;
+  for(_count = 0; _count <= ledsCount; _count++) {
+    ledData[_count] = 0; 
+  }
+}
+
 void setup() {
   Serial.begin(115200);
   uint8_t _count;
@@ -20,6 +26,8 @@ void setup() {
     pinMode(_count, OUTPUT);
     digitalWrite(_count, LOW);
   }
+  // initalize LED data array
+  clearLEDdata();
 }
 
 void writeLED(uint8_t _ledin) {
@@ -53,29 +61,56 @@ void writeLED(uint8_t _ledin) {
   }
 }
 
-void setLEDs() {
+void effectTrailA() {
+  uint8_t _count;
+  if (ledIncrement == 0) {
+    ledData[ledIncrement] = 0;
+    ledCountState = 0;
+  }
+  if (ledIncrement >= ledsCount) {
+    ledData[ledIncrement] = 1;
+    ledCountState = 1;
+    ledData[0] = 1;
+  } else {
+    ledData[0] = 0; 
+  }
+  if (ledCountState == 1) {
+    ledData[ledIncrement] = 0;
+    ledIncrement--;
+  } else {
+    ledIncrement++;
+    ledData[ledIncrement] = 1;
+  }
+}
+
+void effectTrailB() {
+ uint8_t _count;
+ if (ledIncrement > ledsCount) {
+   ledIncrement = 0;
+   clearLEDdata();
+ } else{
+   ledData[ledIncrement] = 1; 
+   ledIncrement++;
+ }
+}
+
+void loop() {
+  // re-draw all LEDs
   if(ledRefresh.repeat()){
     for(uint8_t led = 0; led <= ledsCount; led++) {
       if (ledData[led] == 1){
+        delayMicroseconds(30);
         writeLED(led);
       }
     }
   }
-}
-
-void loop() {
-  uint8_t _count;
-  if(effectTimer.repeat()){ 
-     if (dec >= ledsCount) {
-       dec = 1;
-       for(_count = 0; _count <= ledsCount; _count++) {
-         ledData[_count] = 0; 
-       }
-     } 
-     dec++; 
-     for(_count = 0; _count <= dec; _count++) {
-       ledData[_count] = 1; 
-     }
+  // update LEDs
+  if(effectTimer.repeat()){
+    effectTrailA();
+    for(uint8_t _count = 0; _count <= ledsCount; _count++) {
+      Serial.print(ledData[_count]);
+      Serial.print(",");
+    }
+    Serial.println(" ");
   }
-  setLEDs();
 }
