@@ -1,6 +1,8 @@
 #include <BlockNot.h>   
 
 // LED driver globals
+// 2-11 = LED drive pins
+// 12 = LED bit-shift pin
 #define outPinLow 2
 #define outPinHigh 12
 #define ledsCount 19 
@@ -45,40 +47,47 @@ void showLEDdata() {
 }
 
 void writeLEDs() {
-  bool _state = 0;
-  uint8_t _ledOut = 0;  
-  uint8_t _statesIndex = 0;
+  // translated LEDs state data
   bool _ledStates[ledsCount + 1] = {0};
-
+  // re-draw all LEDs
   if (drawTimer.TRIGGERED_ON_DURATION) {
     // draw each LED one-at-a-time
-  	for(uint8_t _count = 0; _count <= ledsCount; _count++) {
+  	for(uint8_t _curLED = 0; _curLED <= ledsCount; _curLED++) {
   	  // translate data to physical LED layout
-  	  uint8_t _led = ledTranslate[_count];
-  	  _ledStates[_led] = ledData[_count];
+  	  uint8_t _led = ledTranslate[_curLED];
+  	  _ledStates[_led] = ledData[_curLED];
   	  // toggle shift register
+      uint8_t _statesIndex = 0;
   	  if (_led >= _upperHalf){
+        // enable LEDs 10-19
   	    digitalWrite(outPinHigh, HIGH);
   	    _statesIndex = _upperHalf;
-        } else {
+      } else {
+        // enable LEDs 0-9
+        digitalWrite(outPinHigh, LOW);
   	    _statesIndex = 0;
-  	    digitalWrite(outPinHigh, LOW);
   	  }
   	  // translate LED layout to actual I/O pin
-  	  for(_ledOut = outPinLow; _ledOut <= outPinHigh - 1; _ledOut++) {
+      bool _state = 0;
+      uint8_t _ledPin;
+  	  for(_ledPin = outPinLow; _ledPin <= (outPinHigh - 1); _ledPin++) {
+        // search array for selected LEDs on/off state
   	    _state = _ledStates[_statesIndex];
   	    if (_led == _statesIndex) {
-         break;
+          break;
         }
   	    _statesIndex++;
   	  }
-  	  digitalWrite(_ledOut, _state);
+      // turn-on LED
+  	  digitalWrite(_ledPin, _state);
       // LED on-interval
       blankingTimer.RESET;  
       for (;;) {
+        // keep reading input data
         readInputs();
         if (blankingTimer.FIRST_TRIGGER) {
-          digitalWrite(_ledOut, 0);
+          // turn-off LED after on-interval
+          digitalWrite(_ledPin, 0);
           break;
         }
       }
@@ -96,7 +105,6 @@ void effectTrailA() {
     ledIncrement++;
     ledData[ledIncrement] = 1;
   }
-  // set counter up/down
   if (ledIncrement == 0) {
     ledCountState = 0;
   }
