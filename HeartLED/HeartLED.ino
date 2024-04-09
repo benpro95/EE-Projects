@@ -2,19 +2,20 @@
 
 // LED driver globals
 // 2-11 = LED drive pins
-// 12 = LED bit-shift pin
+// 12 = LED shift register pin
 #define outPinLow 2
 #define outPinHigh 12
 #define ledsCount 19 
-#define drawRate 75 // ms
-#define refreshRate 50 // us
+#define refreshRate 50 // LED on-time (us)
 uint8_t blankRate = refreshRate / 2;
 BlockNot drawTimer(refreshRate, MICROSECONDS); 
 BlockNot blankingTimer(blankRate, MICROSECONDS); 
 uint8_t _upperHalf = (ledsCount / 2) + 1;
 uint8_t ledTranslate[] = {13,3,15,5,8,18,11,1,6,16,14,4,17,7,12,2,0,10,19,9};
+bool ledStates[ledsCount + 1] = {0};
 bool ledData[ledsCount + 1] = {0};
 // LED effect globals
+#define drawRate 75 // LED update rate (ms) 
 BlockNot effectTimer(drawRate, MILLISECONDS);
 uint8_t ledIncrement = 0;
 bool ledCountState = 0;
@@ -47,15 +48,13 @@ void showLEDdata() {
 }
 
 void writeLEDs() {
-  // translated LEDs state data
-  bool _ledStates[ledsCount + 1] = {0};
   // re-draw all LEDs
   if (drawTimer.TRIGGERED_ON_DURATION) {
     // draw each LED one-at-a-time
   	for(uint8_t _curLED = 0; _curLED <= ledsCount; _curLED++) {
   	  // translate data to physical LED layout
   	  uint8_t _led = ledTranslate[_curLED];
-  	  _ledStates[_led] = ledData[_curLED];
+  	  ledStates[_led] = ledData[_curLED];
   	  // toggle shift register
       uint8_t _statesIndex = 0;
   	  if (_led >= _upperHalf){
@@ -72,7 +71,7 @@ void writeLEDs() {
       uint8_t _ledPin;
   	  for(_ledPin = outPinLow; _ledPin <= (outPinHigh - 1); _ledPin++) {
         // search array for selected LEDs on/off state
-  	    _state = _ledStates[_statesIndex];
+  	    _state = ledStates[_statesIndex];
   	    if (_led == _statesIndex) {
           break;
         }
@@ -87,7 +86,7 @@ void writeLEDs() {
         readInputs();
         if (blankingTimer.FIRST_TRIGGER) {
           // turn-off LED after on-interval
-          digitalWrite(_ledPin, 0);
+          digitalWrite(_ledPin, LOW);
           break;
         }
       }
