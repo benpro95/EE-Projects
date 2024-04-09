@@ -1,4 +1,8 @@
-#include <BlockNot.h>   
+#include <BlockNot.h>
+
+/////////////////// HeartLED ////////////////////
+/// by Ben Provenzano III & Nicolas Rodriguez ///
+/////////////////////////////////////////////////
 
 // LED driver globals
 // 2-11 = LED drive pins
@@ -68,8 +72,8 @@ void writeLEDs() {
   	  }
   	  // translate LED layout to actual I/O pin
       bool _state = 0;
-      uint8_t _ledPin;
-  	  for(_ledPin = outPinLow; _ledPin <= (outPinHigh - 1); _ledPin++) {
+      uint8_t _ledPin = outPinLow;
+  	  for(_ledPin; _ledPin <= (outPinHigh - 1); _ledPin++) {
         // search array for selected LEDs on/off state
   	    _state = ledStates[_statesIndex];
   	    if (_led == _statesIndex) {
@@ -136,3 +140,4 @@ void loop() {
   }
   writeLEDs();
 }
+
