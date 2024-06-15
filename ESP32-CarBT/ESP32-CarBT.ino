@@ -5,9 +5,9 @@ BluetoothA2DPSink a2dp_sink;
 void setup() {
  
     i2s_pin_config_t pin_config = {
-      .bck_io_num = 26,
-      .ws_io_num = 25,
-      .data_out_num = 35,
+      .bck_io_num = 23,
+      .ws_io_num = 26,
+      .data_out_num = 25,
       .data_in_num = I2S_PIN_NO_CHANGE
     };
     a2dp_sink.set_pin_config(pin_config);
