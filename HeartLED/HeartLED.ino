@@ -25,7 +25,7 @@ uint8_t ledIncrement = 0;
 bool ledCountState = 0;
 
 void setup() {
-  //Serial.begin(115200);
+  Serial.begin(9600);
   // initialize LED output pins 
   for(uint8_t _count = outPinLow; _count <= outPinHigh; _count++) {
     pinMode(_count, OUTPUT);
@@ -51,29 +51,35 @@ void showLEDdata() {
  Serial.println(" ");
 }
 
-void writeLEDs() {
+void writeLEDs(bool _translateLEDs) {
   // re-draw all LEDs
   if (drawTimer.TRIGGERED_ON_DURATION) {
     // draw each LED one-at-a-time
   	for(uint8_t _curLED = 0; _curLED <= ledsCount; _curLED++) {
-  	  // translate data to physical LED layout
-  	  uint8_t _led = ledTranslate[_curLED];
+      uint8_t _led;
+      if (_translateLEDs == 1) {
+        // translate data to physical LED layout
+        _led = ledTranslate[_curLED];
+      } else {
+        // configure layout mode
+        _led = _curLED;
+      }
   	  ledStates[_led] = ledData[_curLED];
   	  // toggle shift register
       uint8_t _statesIndex = 0;
   	  if (_led >= _upperHalf){
         // enable LEDs 10-19
-  	    digitalWrite(outPinHigh, HIGH);
+  	    digitalWrite(outPinLow, HIGH);
   	    _statesIndex = _upperHalf;
       } else {
         // enable LEDs 0-9
-        digitalWrite(outPinHigh, LOW);
+        digitalWrite(outPinLow, LOW);
   	    _statesIndex = 0;
   	  }
   	  // translate LED layout to actual I/O pin
       bool _state = 0;
-      uint8_t _ledPin = outPinLow;
-  	  for(_ledPin; _ledPin <= (outPinHigh - 1); _ledPin++) {
+      uint8_t _ledPin = outPinLow + 1;
+  	  for(_ledPin; _ledPin <= (outPinHigh); _ledPin++) {
         // search array for selected LEDs on/off state
   	    _state = ledStates[_statesIndex];
   	    if (_led == _statesIndex) {
@@ -138,6 +144,6 @@ void loop() {
     effectTrailA();
     //showLEDdata();
   }
-  writeLEDs();
+  writeLEDs(false); // (false) to enable layout calibration
 }
 
