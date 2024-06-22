@@ -20,13 +20,12 @@ bool ledStates[ledsCount + 1] = {0};
 bool ledData[ledsCount + 1] = {0};
 // LED effect globals
 BlockNot effectDrawRateTimer(75, MILLISECONDS);  // LED effect update rate
-BlockNot effectChangeTimer(5, SECONDS);  // rate to cycle to next effect
+BlockNot effectChangeTimer(10, SECONDS);  // rate to cycle to next effect
 BlockNot calibrateTimer(4, SECONDS); // rate to cycle thru LEDs in calibrate mode
 uint8_t selectedEffect = 0;
 uint8_t ledIncrement = 0;
 bool ledCountState = 0;
 bool calibrateLEDs = 0; // calibrate layout mode
-bool clearLEDs = 0;
 
 void setup() {
   Serial.begin(9600);
@@ -173,31 +172,28 @@ void readInputs() {
 void loop() {
   readInputs();
   if (calibrateLEDs == 0) {
-    if (effectDrawRateTimer.TRIGGERED_ON_DURATION) {
-      // update LEDs
-      if (clearLEDs == 0) {
-        if (selectedEffect == 0 ) {
-          effectTrailB();
-        }
-        if (selectedEffect == 1) {
-          effectTrailA();
-        }
-        if (selectedEffect == 2) {
-          effectTrailC();
-        }
-      } else {
-        clearLEDdata();
-        clearLEDs = 0;
-      }  
-      //showLEDdata();
-    }
     if (effectChangeTimer.TRIGGERED_ON_DURATION) {
-      if (selectedEffect >= 2) {
+      if (selectedEffect >= 3) {
         selectedEffect = -1;
       }
       selectedEffect++;
-      clearLEDs = 1;
-    }    
+    }  
+    if (effectDrawRateTimer.TRIGGERED_ON_DURATION) {
+      // update LEDs
+      if (selectedEffect == 0 ) {
+        effectTrailC();
+      }
+      if (selectedEffect == 1) {
+        effectTrailA();
+      }
+      if (selectedEffect == 2) {
+        effectTrailC();
+      }
+      if (selectedEffect == 3) {
+        effectTrailB();
+      }
+      //showLEDdata();
+    }  
     writeLEDs(false);
   } else {
     // calibrate mode
