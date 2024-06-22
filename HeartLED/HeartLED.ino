@@ -19,12 +19,13 @@ uint8_t ledTranslate[] = {16,6,15,5,1,11,18,8,2,12,14,4,13,3,17,7,9,19,10,0};
 bool ledStates[ledsCount + 1] = {0};
 bool ledData[ledsCount + 1] = {0};
 // LED effect globals
-#define drawRate 75 // LED update rate (ms) 
-BlockNot effectTimer(drawRate, MILLISECONDS);
-bool calibrateLEDs = 0; // calibrate layout mode
-uint32_t calibrateSpeed = 3500; // ms
+BlockNot effectDrawRateTimer(75, MILLISECONDS);  // LED effect update rate
+BlockNot effectChangeTimer(15, SECONDS);  // rate to cycle to next effect
+BlockNot calibrateTimer(4, SECONDS); // rate to cycle thru LEDs in calibrate mode
+uint8_t selectedEffect = 0;
 uint8_t ledIncrement = 0;
 bool ledCountState = 0;
+bool calibrateLEDs = 0; // calibrate layout mode
 
 void setup() {
   Serial.begin(9600);
@@ -109,8 +110,17 @@ void writeLEDs(bool _calMode) {
         Serial.print(_led);
         // flash LED in calibrate mode 
   	    digitalWrite(_ledPin, 1);
-        delay(calibrateSpeed);
-        digitalWrite(_ledPin, 0);
+        // keep LED on for duration
+        calibrateTimer.RESET;
+        for (;;) {
+          // keep reading input data
+          readInputs();
+          if (calibrateTimer.FIRST_TRIGGER) {
+            // turn-off LED
+            digitalWrite(_ledPin, LOW);
+            break;
+          }
+        }
       }  
   	}
   }
@@ -136,13 +146,13 @@ void effectTrailA() {
 }
 
 void effectTrailB() {
- if (ledIncrement > ledsCount) {
-   ledIncrement = 0;
-   clearLEDdata();
- } else{
-   ledData[ledIncrement] = 1; 
-   ledIncrement++;
- }
+  if (ledIncrement > ledsCount) {
+    ledIncrement = 0;
+    clearLEDdata();
+  } else{
+    ledData[ledIncrement] = 1; 
+    ledIncrement++;
+  }
 }
 
 void effectTrailC() {
@@ -162,9 +172,24 @@ void readInputs() {
 void loop() {
   readInputs();
   if (calibrateLEDs == 0) {
-    if (effectTimer.TRIGGERED_ON_DURATION) {
+    if (effectChangeTimer.TRIGGERED_ON_DURATION) {
+      if (selectedEffect >= 2) {
+        selectedEffect = -1;
+      }
+      selectedEffect++;
+      clearLEDdata();
+    }
+    if (effectDrawRateTimer.TRIGGERED_ON_DURATION) {
       // update LEDs
-      effectTrailC();
+      if (selectedEffect == 0) {
+        effectTrailA();
+      }
+      if (selectedEffect == 1) {
+        effectTrailB();
+      }
+      if (selectedEffect == 2) {
+        effectTrailC();
+      }
       //showLEDdata();
     }
     writeLEDs(false);
