@@ -15,12 +15,14 @@ uint8_t blankRate = refreshRate / 2;
 BlockNot drawTimer(refreshRate, MICROSECONDS); 
 BlockNot blankingTimer(blankRate, MICROSECONDS); 
 uint8_t _upperHalf = (ledsCount / 2) + 1;
-uint8_t ledTranslate[] = {13,3,15,5,8,18,11,1,6,16,14,4,17,7,12,2,0,10,19,9};
+uint8_t ledTranslate[] = {16,6,15,5,1,11,18,8,2,12,14,4,13,3,17,7,9,19,10,0};
 bool ledStates[ledsCount + 1] = {0};
 bool ledData[ledsCount + 1] = {0};
 // LED effect globals
 #define drawRate 75 // LED update rate (ms) 
 BlockNot effectTimer(drawRate, MILLISECONDS);
+bool calibrateLEDs = 0; // calibrate layout mode
+uint32_t calibrateSpeed = 3500; // ms
 uint8_t ledIncrement = 0;
 bool ledCountState = 0;
 
@@ -51,13 +53,13 @@ void showLEDdata() {
  Serial.println(" ");
 }
 
-void writeLEDs(bool _translateLEDs) {
+void writeLEDs(bool _calMode) {
   // re-draw all LEDs
   if (drawTimer.TRIGGERED_ON_DURATION) {
     // draw each LED one-at-a-time
   	for(uint8_t _curLED = 0; _curLED <= ledsCount; _curLED++) {
       uint8_t _led;
-      if (_translateLEDs == 1) {
+      if (_calMode == 0) {
         // translate data to physical LED layout
         _led = ledTranslate[_curLED];
       } else {
@@ -87,19 +89,29 @@ void writeLEDs(bool _translateLEDs) {
         }
   	    _statesIndex++;
   	  }
-      // turn-on LED
-  	  digitalWrite(_ledPin, _state);
-      // LED on-interval
-      blankingTimer.RESET;  
-      for (;;) {
-        // keep reading input data
-        readInputs();
-        if (blankingTimer.FIRST_TRIGGER) {
-          // turn-off LED after on-interval
-          digitalWrite(_ledPin, LOW);
-          break;
+      if (_calMode == 0) {
+        // turn-on LED
+  	    digitalWrite(_ledPin, _state);
+        // LED on-interval
+        blankingTimer.RESET;
+        for (;;) {
+          // keep reading input data
+          readInputs();
+          if (blankingTimer.FIRST_TRIGGER) {
+            // turn-off LED after on-interval
+            digitalWrite(_ledPin, LOW);
+            break;
+          }
         }
-      }
+      } else {
+        // print current LED
+        Serial.print(",");
+        Serial.print(_led);
+        // flash LED in calibrate mode 
+  	    digitalWrite(_ledPin, 1);
+        delay(calibrateSpeed);
+        digitalWrite(_ledPin, 0);
+      }  
   	}
   }
 }
@@ -133,17 +145,32 @@ void effectTrailB() {
  }
 }
 
+void effectTrailC() {
+  clearLEDdata();
+  ledData[ledIncrement] = 1;
+  if (ledIncrement >= ledsCount) {
+    ledIncrement = 0;
+  } else{
+    ledIncrement++;
+  }
+}
+
 void readInputs() {
   
 }
 
 void loop() {
   readInputs();
-  if (effectTimer.TRIGGERED_ON_DURATION) {
-    // update LEDs
-    effectTrailA();
-    //showLEDdata();
+  if (calibrateLEDs == 0) {
+    if (effectTimer.TRIGGERED_ON_DURATION) {
+      // update LEDs
+      effectTrailC();
+      //showLEDdata();
+    }
+    writeLEDs(false);
+  } else {
+    // calibrate mode
+    writeLEDs(true);
   }
-  writeLEDs(false); // (false) to enable layout calibration
 }
 
