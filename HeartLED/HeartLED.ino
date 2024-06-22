@@ -10,22 +10,21 @@
 #define outPinLow 2
 #define outPinHigh 12
 #define ledsCount 19 
-#define refreshRate 50 // LED on-time (us)
-uint8_t blankRate = refreshRate / 2;
+#define refreshRate 50 // LED refresh rate (us)
+uint8_t blankRate = refreshRate / 3;
 BlockNot drawTimer(refreshRate, MICROSECONDS); 
 BlockNot blankingTimer(blankRate, MICROSECONDS); 
 uint8_t _upperHalf = (ledsCount / 2) + 1;
 uint8_t ledTranslate[] = {16,6,15,5,1,11,18,8,2,12,14,4,13,3,17,7,9,19,10,0};
 bool ledStates[ledsCount + 1] = {0};
 bool ledData[ledsCount + 1] = {0};
-// LED effect globals
 BlockNot effectDrawRateTimer(75, MILLISECONDS);  // LED effect update rate
-BlockNot effectChangeTimer(10, SECONDS);  // rate to cycle to next effect
+BlockNot effectChangeTimer(15, SECONDS);  // rate to cycle to next effect
 BlockNot calibrateTimer(4, SECONDS); // rate to cycle thru LEDs in calibrate mode
+bool calibrateLEDs = 0; // calibrate layout mode
 uint8_t selectedEffect = 0;
 uint8_t ledIncrement = 0;
 bool ledCountState = 0;
-bool calibrateLEDs = 0; // calibrate layout mode
 
 void setup() {
   Serial.begin(9600);
@@ -36,22 +35,6 @@ void setup() {
   }
   // initalize LED data array
   clearLEDdata();
-}
-
-void clearLEDdata() {
-  uint8_t _count;
-  for(_count = 0; _count <= ledsCount; _count++) {
-    ledData[_count] = 0; 
-  }
-}
-
-void showLEDdata() {
- for(uint8_t _count = 0; _count <= ledsCount; _count++) {
-   Serial.print(ledData[_count]);
-   Serial.print(",");
- }
- Serial.print(ledIncrement);
- Serial.println(" ");
 }
 
 void writeLEDs(bool _calMode) {
@@ -126,8 +109,32 @@ void writeLEDs(bool _calMode) {
   }
 }
 
+// reset LEDs state
+void resetLEDs() {
+  clearLEDdata();
+  ledIncrement = 0;
+  ledCountState = 0;
+}
+
+// clear the LED data array
+void clearLEDdata() {
+  uint8_t _count;
+  for(_count = 0; _count <= ledsCount; _count++) {
+    ledData[_count] = 0; 
+  }
+}
+
+// print LED data on serial port
+void showLEDdata() {
+ for(uint8_t _count = 0; _count <= ledsCount; _count++) {
+   Serial.print(ledData[_count]);
+   Serial.print(",");
+ }
+ Serial.print(ledIncrement);
+ Serial.println(" ");
+}
+
 void effectTrailA() {
-  // add/remove values from array
   ledData[0] = 1;
   if (ledCountState == 1) {
     ledData[ledIncrement] = 0;
@@ -170,33 +177,32 @@ void readInputs() {
 }
 
 void loop() {
+  // read input data
   readInputs();
+  // draw LED effects
   if (calibrateLEDs == 0) {
-    if (effectChangeTimer.TRIGGERED_ON_DURATION) {
-      if (selectedEffect >= 3) {
-        selectedEffect = -1;
-      }
-      selectedEffect++;
-    }  
     if (effectDrawRateTimer.TRIGGERED_ON_DURATION) {
-      // update LEDs
       if (selectedEffect == 0 ) {
-        effectTrailC();
+        effectTrailA();
       }
       if (selectedEffect == 1) {
-        effectTrailA();
+        effectTrailB();
       }
       if (selectedEffect == 2) {
         effectTrailC();
       }
-      if (selectedEffect == 3) {
-        effectTrailB();
-      }
       //showLEDdata();
+      if (effectChangeTimer.TRIGGERED_ON_DURATION) {
+        if (selectedEffect >= 2) {
+          selectedEffect = -1;
+        }
+        selectedEffect++;
+        resetLEDs();
+      }  
     }  
     writeLEDs(false);
   } else {
-    // calibrate mode
+    // calibrate layout mode
     writeLEDs(true);
   }
 }
