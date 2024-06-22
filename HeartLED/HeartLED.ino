@@ -5,26 +5,25 @@
 /////////////////////////////////////////////////
 
 // LED driver globals
-// 2-11 = LED drive pins
-// 12 = LED shift register pin
+// 2 = LED shift register pin
+// 3-12 = LED drive pins
 #define outPinLow 2
 #define outPinHigh 12
-#define ledsCount 19 
-#define refreshRate 50 // LED refresh rate (us)
-uint8_t blankRate = refreshRate / 3;
-BlockNot drawTimer(refreshRate, MICROSECONDS); 
-BlockNot blankingTimer(blankRate, MICROSECONDS); 
-uint8_t _upperHalf = (ledsCount / 2) + 1;
+#define ledsCount 19
+bool ledCountState;
+uint8_t ledIncrement;
+int selectedEffect = 0;
 uint8_t ledTranslate[] = {16,6,15,5,1,11,18,8,2,12,14,4,13,3,17,7,9,19,10,0};
-bool ledStates[ledsCount + 1] = {0};
 bool ledData[ledsCount + 1] = {0};
+bool ledStates[ledsCount + 1] = {0};
+uint8_t _upperHalf = (ledsCount / 2) + 1;
+BlockNot ledRefreshTimer(50, MICROSECONDS); // LED refresh interval (us)
+BlockNot ledOnIntervalTimer(30, MICROSECONDS); // LED on-time interval (us)
 BlockNot effectDrawRateTimer(75, MILLISECONDS);  // LED effect update rate
 BlockNot effectChangeTimer(15, SECONDS);  // rate to cycle to next effect
-BlockNot calibrateTimer(4, SECONDS); // rate to cycle thru LEDs in calibrate mode
-bool calibrateLEDs = 0; // calibrate layout mode
-uint8_t selectedEffect = 0;
-uint8_t ledIncrement;
-bool ledCountState;
+BlockNot calibrateTimer(3, SECONDS); // rate to cycle thru LEDs in calibrate mode
+bool calibrateLEDs = 0; // 1 = enable layout calibration mode
+bool showLEDdata = 0; // 1 = print LED data to serial port
 
 void setup() {
   Serial.begin(9600);
@@ -39,7 +38,7 @@ void setup() {
 
 void writeLEDs(bool _calMode) {
   // re-draw all LEDs
-  if (drawTimer.TRIGGERED_ON_DURATION) {
+  if (ledRefreshTimer.TRIGGERED_ON_DURATION) {
     // draw each LED one-at-a-time
   	for(uint8_t _curLED = 0; _curLED <= ledsCount; _curLED++) {
       uint8_t _led;
@@ -77,11 +76,11 @@ void writeLEDs(bool _calMode) {
         // turn-on LED
   	    digitalWrite(_ledPin, _state);
         // LED on-interval
-        blankingTimer.RESET;
+        ledOnIntervalTimer.RESET;
         for (;;) {
           // keep reading input data
           readInputs();
-          if (blankingTimer.FIRST_TRIGGER) {
+          if (ledOnIntervalTimer.FIRST_TRIGGER) {
             // turn-off LED after on-interval
             digitalWrite(_ledPin, LOW);
             break;
@@ -125,17 +124,19 @@ void clearLEDdata() {
 }
 
 // print LED data on serial port
-void showLEDdata() {
- for(uint8_t _count = 0; _count <= ledsCount; _count++) {
-  if (ledData[_count] == 1) {
-    Serial.print("#");
-  } else {
-    Serial.print(" ");
+void LEDdata() {
+  if (showLEDdata == 1) {
+    for(uint8_t _count = 0; _count <= ledsCount; _count++) {
+      if (ledData[_count] == 1) {
+        Serial.print("#");
+      } else {
+        Serial.print(" ");
+      }
+      Serial.print(",");
+    }
+    Serial.print(ledIncrement);
+    Serial.println(" ");
   }
-  Serial.print(",");
- }
- Serial.print(ledIncrement);
- Serial.println(" ");
 }
 
 void effectTrailA() {
@@ -186,7 +187,7 @@ void loop() {
   // draw LED effects
   if (calibrateLEDs == 0) {
     if (effectDrawRateTimer.TRIGGERED_ON_DURATION) {
-      if (selectedEffect == 0 ) {
+      if (selectedEffect == 0) {
         effectTrailA();
       }
       if (selectedEffect == 1) {
@@ -202,7 +203,7 @@ void loop() {
         selectedEffect++;
         resetLEDs();
       }
-      showLEDdata();
+      LEDdata();
     }
     writeLEDs(false);
   } else {
