@@ -24,6 +24,8 @@ BlockNot effectChangeTimer(15, SECONDS);  // rate to cycle to next effect
 BlockNot calibrateTimer(3, SECONDS); // rate to cycle thru LEDs in calibrate mode
 bool calibrateLEDs = 0; // 1 = enable layout calibration mode
 bool showLEDdata = 0; // 1 = print LED data to serial port
+int heartin = 0;
+BlockNot readpulsetimer(15, MILLISECONDS);
 
 void setup() {
   Serial.begin(9600);
@@ -178,7 +180,12 @@ void effectTrailC() {
 }
 
 void readInputs() {
-  
+  if (readpulsetimer.TRIGGERED_ON_DURATION) {
+    heartin = analogRead(A0);
+    if (heartin > 200 || heartin < 650) {
+      Serial.println(heartin);
+    }
+  }
 }
 
 void loop() {
