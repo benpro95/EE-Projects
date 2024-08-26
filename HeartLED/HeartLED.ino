@@ -163,7 +163,7 @@ void effectTrailB() {
   if (ledIncrement >= ledsCount) {
     ledIncrement = 0;
     clearLEDdata();
-  } else{
+  } else {
     ledIncrement++;
   }
   ledData[ledIncrement] = 1;
@@ -174,7 +174,7 @@ void effectTrailC() {
   ledData[ledIncrement] = 1;
   if (ledIncrement >= ledsCount) {
     ledIncrement = 0;
-  } else{
+  } else {
     ledIncrement++;
   }
 }
