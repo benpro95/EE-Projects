@@ -1,0 +1,5 @@
+Coil Setup 08/29/24
+FRS = 482KHz
+MAX = 19.13k
+MIN = 26.93k
+VCO = 4.61k / 10.3v
