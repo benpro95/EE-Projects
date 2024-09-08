@@ -25,12 +25,48 @@ void setup()
 {
   Serial.begin(9600);
   irrecv.enableIRIn();  // Start the receiver
+  initInputs();
+  usbMode(); // usb mode
+}
+
+void initInputs() {
   pinMode(fet1, OUTPUT);
   digitalWrite(fet1, LOW);
   pinMode(fet2, OUTPUT);
   digitalWrite(fet2, LOW);
   pinMode(fet9, OUTPUT);
   digitalWrite(fet9, LOW);
+}
+
+void usbMode() {
+  digitalWrite(fet1, HIGH);
+  digitalWrite(fet2, HIGH);
+  blinkLED();
+}
+
+void optMode() {
+  digitalWrite(fet1, LOW);
+  digitalWrite(fet2, HIGH);
+  blinkLED();
+}
+
+void coaxMode() {
+  digitalWrite(fet1, HIGH);
+  digitalWrite(fet2, LOW);
+  blinkLED();
+}
+
+void autoMode() {
+  digitalWrite(fet1, LOW);
+  digitalWrite(fet2, LOW);
+  blinkLED();
+}
+
+void blinkLED() {
+  digitalWrite(fet9, HIGH);
+  delay(75);
+  digitalWrite(fet9, LOW);
+  delay(50);
 }
  
 void loop() {
@@ -44,42 +80,22 @@ void loop() {
     switch(value) {
        case code1:
          {
-            digitalWrite(fet1, HIGH);
-            digitalWrite(fet2, HIGH);
-            digitalWrite(fet9, HIGH);
-            delay(75);
-            digitalWrite(fet9, LOW);
-            delay(50);
+           usbMode();
          }
           break; 
        case code2:
          {
-             digitalWrite(fet1, HIGH);
-             digitalWrite(fet2, LOW);
-             digitalWrite(fet9, HIGH);
-             delay(75);
-             digitalWrite(fet9, LOW);
-             delay(50);
+           coaxMode();
          }
           break;
        case code3:
          {
-             digitalWrite(fet1, LOW);
-             digitalWrite(fet2, HIGH);
-             digitalWrite(fet9, HIGH);
-             delay(75);
-             digitalWrite(fet9, LOW);
-             delay(50);
+           optMode();
          }
           break;
        case code4:
          {
-            digitalWrite(fet1, LOW);
-            digitalWrite(fet2, LOW);
-            digitalWrite(fet9, HIGH);
-            delay(75);
-            digitalWrite(fet9, LOW);
-            delay(50);
+           autoMode();
          }
           break;                 
     }
