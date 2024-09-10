@@ -18,14 +18,14 @@ bool ledData[ledsCount + 1] = {0};
 bool ledStates[ledsCount + 1] = {0};
 uint8_t _upperHalf = (ledsCount / 2) + 1;
 BlockNot ledRefreshTimer(50, MICROSECONDS); // LED refresh interval (us)
-BlockNot ledOnIntervalTimer(30, MICROSECONDS); // LED on-time interval (us)
+BlockNot ledOnIntervalTimer(50, MICROSECONDS); // LED on-time interval (us)
 BlockNot effectDrawRateTimer(75, MILLISECONDS);  // LED effect update rate
 BlockNot effectChangeTimer(15, SECONDS);  // rate to cycle to next effect
 BlockNot calibrateTimer(3, SECONDS); // rate to cycle thru LEDs in calibrate mode
 bool calibrateLEDs = 0; // 1 = enable layout calibration mode
 bool showLEDdata = 0; // 1 = print LED data to serial port
-int heartin = 0;
-BlockNot readpulsetimer(15, MILLISECONDS);
+int heartDataIn = 0;
+BlockNot readPulseTimer(15, MILLISECONDS);
 
 void setup() {
   Serial.begin(9600);
@@ -180,17 +180,14 @@ void effectTrailC() {
 }
 
 void readInputs() {
-  if (readpulsetimer.TRIGGERED_ON_DURATION) {
-    heartin = analogRead(A0);
-    if (heartin > 200 || heartin < 650) {
-      Serial.println(heartin);
-    }
+  if (readPulseTimer.TRIGGERED_ON_DURATION) {
+    heartDataIn = analogRead(A0);
   }
 }
 
 void loop() {
   // read input data
-  readInputs();
+  //readInputs();
   // draw LED effects
   if (calibrateLEDs == 0) {
     if (effectDrawRateTimer.TRIGGERED_ON_DURATION) {
