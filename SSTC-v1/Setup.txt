@@ -1,6 +1,0 @@
-Coil Configuration
-
-FRS = 419Khz
-MAX = 23.66k
-MIN = 24.88k
-VCO = 6.1v
