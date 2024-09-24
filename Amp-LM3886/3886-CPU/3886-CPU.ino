@@ -5,7 +5,7 @@ by Ben Provenzano III
  
 #include <IRremote.h>
  
-int RECV_PIN = 2; // output pin of TSOP4838
+int RECV_PIN = 2; 
 
 #define fet1 5 // N/A
 #define fet2 13 // N/A

@@ -1,4 +1,5 @@
 #include <BlockNot.h>
+#include <RCSwitch.h>
 
 /////////////////// HeartLED ////////////////////
 /// by Ben Provenzano III & Nicolas Rodriguez ///
@@ -7,9 +8,13 @@
 // LED driver globals
 // 2 = LED shift register pin
 // 3-12 = LED drive pins
-#define outPinLow 2
+RCSwitch mySwitch = RCSwitch();
+#define shiftPin 13
+#define outPinLow 3
 #define outPinHigh 12
 #define ledsCount 19
+bool cycleEffects = true;
+bool disableLEDs = false;
 bool ledCountState;
 uint8_t ledIncrement;
 int selectedEffect = 0;
@@ -25,15 +30,17 @@ BlockNot calibrateTimer(3, SECONDS); // rate to cycle thru LEDs in calibrate mod
 bool calibrateLEDs = 0; // 1 = enable layout calibration mode
 bool showLEDdata = 0; // 1 = print LED data to serial port
 int heartDataIn = 0;
-BlockNot readPulseTimer(15, MILLISECONDS);
 
 void setup() {
   Serial.begin(9600);
-  // initialize LED output pins 
+  // initialize input/output pins
+  mySwitch.enableReceive(0);  // Receiver on int 0 => that is [pin #2]
   for(uint8_t _count = outPinLow; _count <= outPinHigh; _count++) {
     pinMode(_count, OUTPUT);
     digitalWrite(_count, LOW);
   }
+  pinMode(shiftPin, OUTPUT);
+  digitalWrite(shiftPin, LOW);
   // initalize LEDs
   resetLEDs();
 }
@@ -56,16 +63,16 @@ void writeLEDs(bool _calMode) {
       uint8_t _statesIndex = 0;
   	  if (_led >= _upperHalf){
         // enable LEDs 10-19
-  	    digitalWrite(outPinLow, HIGH);
+  	    digitalWrite(shiftPin, HIGH);
   	    _statesIndex = _upperHalf;
       } else {
         // enable LEDs 0-9
-        digitalWrite(outPinLow, LOW);
+        digitalWrite(shiftPin, LOW);
   	    _statesIndex = 0;
   	  }
   	  // translate LED layout to actual I/O pin
       bool _state = 0;
-      uint8_t _ledPin = outPinLow + 1;
+      uint8_t _ledPin = outPinLow;
   	  for(_ledPin; _ledPin <= (outPinHigh); _ledPin++) {
         // search array for selected LEDs on/off state
   	    _state = ledStates[_statesIndex];
@@ -125,6 +132,14 @@ void clearLEDdata() {
   }
 }
 
+// turn all LEDs on
+void allLEDsOn() {
+  uint8_t _count;
+  for(_count = 0; _count <= ledsCount; _count++) {
+    ledData[_count] = 1; 
+  }
+}
+
 // print LED data on serial port
 void LEDdata() {
   if (showLEDdata == 1) {
@@ -180,26 +195,80 @@ void effectTrailC() {
 }
 
 void readInputs() {
-  if (readPulseTimer.TRIGGERED_ON_DURATION) {
-    heartDataIn = analogRead(A0);
+  if (mySwitch.available()) {
+    unsigned long value = mySwitch.getReceivedValue();
+    if (value == 732101)
+    {
+      selectedEffect = 0;
+      cycleEffects = false;
+      disableLEDs = true;
+      resetLEDs();
+      Serial.println("LEDs off");
+    }
+    if (value == 732102) 
+    {
+      selectedEffect = 0;
+      cycleEffects = true;
+      disableLEDs = false;
+      Serial.println("LEDs cycle");
+      resetLEDs();
+    } 
+    if (value == 732103) 
+    {
+      selectedEffect = 0;
+      cycleEffects = false;
+      disableLEDs = false;
+      Serial.println("LEDs A");
+      resetLEDs();
+    } 
+    if (value == 732104) 
+    {
+      selectedEffect = 1;
+      cycleEffects = false;
+      disableLEDs = false;
+      resetLEDs();
+      Serial.println("LEDs B");
+    }
+    if (value == 732105) 
+    {
+      selectedEffect = 2;
+      cycleEffects = false;
+      disableLEDs = false;
+      resetLEDs();
+      Serial.println("LEDs C");
+    }
+    if (value == 732106) 
+    {
+      selectedEffect = -1;
+      cycleEffects = false;
+      disableLEDs = false;
+      resetLEDs();
+      allLEDsOn();
+      Serial.println("LEDs on");
+    }
+    mySwitch.resetAvailable();
   }
 }
 
-void loop() {
-  // read input data
-  //readInputs();
-  // draw LED effects
-  if (calibrateLEDs == 0) {
-    if (effectDrawRateTimer.TRIGGERED_ON_DURATION) {
-      if (selectedEffect == 0) {
-        effectTrailA();
-      }
-      if (selectedEffect == 1) {
-        effectTrailB();
-      }
-      if (selectedEffect == 2) {
-        effectTrailC();
-      }
+void runMode() {
+  // print data to serial port
+  LEDdata();
+  // write data to LEDs
+  writeLEDs(false);
+  if (disableLEDs == 1) {
+    return;
+  }
+  if (effectDrawRateTimer.TRIGGERED_ON_DURATION) {
+    if (selectedEffect == 0) {
+      effectTrailA();
+    }
+    if (selectedEffect == 1) {
+      effectTrailB();
+    }
+    if (selectedEffect == 2) {
+      effectTrailC();
+    }
+    if (cycleEffects == true) {
       if (effectChangeTimer.TRIGGERED_ON_DURATION) {
         if (selectedEffect >= 2) {
           selectedEffect = -1;
@@ -207,12 +276,19 @@ void loop() {
         selectedEffect++;
         resetLEDs();
       }
-      LEDdata();
-    }
-    writeLEDs(false);
-  } else {
+    }  
+  }
+}
+
+void loop() {
+  // read input data
+  readInputs();
+  if (calibrateLEDs == 1) {
     // calibrate layout mode
     writeLEDs(true);
+  } else {
+    // draw LED effects
+    runMode();
   }
 }
 
