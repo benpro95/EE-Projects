@@ -1,0 +1,341 @@
+Samsung MH59-02545A Remote
+
+
+POWER
+IR v3 decimal: 3392264773
+IR v3 (2's-compliment) decimal: -902702523
+IR v3 hex: CA31DA45
+IR v3 address: CA
+IR v3 command: 31
+--------------
+IR v2 decimal: 2723908691
+IR v2 (2's-compliment) decimal: -1571058605
+IR v2 hex: A25B8C53
+
+
+TV POWER
+IR v3 decimal: 4244768519
+IR v3 (2's-compliment) decimal: -50198777
+IR v3 hex: FD020707
+IR v3 address: FD
+IR v3 command: 2
+--------------
+IR v2 decimal: 3772793023
+IR v2 (2's-compliment) decimal: -522174273
+IR v2 hex: E0E040BF
+
+
+SOURCE
+IR v3 decimal: 387001607
+IR v3 (2's-compliment) decimal: 387001607
+IR v3 hex: 17112D07
+IR v3 address: 17
+IR v3 command: 11
+--------------
+IR v2 decimal: 3769927912
+IR v2 (2's-compliment) decimal: -525039384
+IR v2 hex: E0B488E8
+
+
+AUTO POWER
+IR v3 decimal: 177240871
+IR v3 (2's-compliment) decimal: 177240871
+IR v3 hex: A907B27
+IR v3 address: A
+IR v3 command: 90
+--------------
+IR v2 decimal: 3839756624
+IR v2 (2's-compliment) decimal: -455210672
+IR v2 hex: E4DE0950
+
+
+SPEAKER
+IR v3 decimal: 1849071174
+IR v3 (2's-compliment) decimal: 1849071174
+IR v3 hex: 6E369646
+IR v3 address: 6E
+IR v3 command: 36
+--------------
+IR v2 decimal: 1651076214
+IR v2 (2's-compliment) decimal: 1651076214
+IR v2 hex: 62696C76
+
+
+TV SOURCE
+IR v3 decimal: 4261480199
+IR v3 (2's-compliment) decimal: -33487097
+IR v3 hex: FE010707
+IR v3 address: FE
+IR v3 command: 1
+--------------
+IR v2 decimal: 3772809343
+IR v2 (2's-compliment) decimal: -522157953
+IR v2 hex: E0E0807F
+
+
+REPEAT
+IR v3 decimal: 1022058306
+IR v3 (2's-compliment) decimal: 1022058306
+IR v3 hex: 3CEB5F42
+IR v3 address: 3C
+IR v3 command: EB
+--------------
+IR v2 decimal: 1123735356
+IR v2 (2's-compliment) decimal: 1123735356
+IR v2 hex: 42FAD73C
+
+
+ANYNET
+IR v3 decimal: 3372197894
+IR v3 (2's-compliment) decimal: -922769402
+IR v3 hex: C8FFA806
+IR v3 address: C8
+IR v3 command: FF
+--------------
+IR v2 decimal: 1612054291
+IR v2 (2's-compliment) decimal: 1612054291
+IR v2 hex: 6015FF13
+
+
+SOUNDSHARE
+IR v3 decimal: 169714410
+IR v3 (2's-compliment) decimal: 169714410
+IR v3 hex: A1DA2EA
+IR v3 address: A
+IR v3 command: 1D
+--------------
+IR v2 decimal: 1464186960
+IR v2 (2's-compliment) decimal: 1464186960
+IR v2 hex: 5745B850
+
+
+TV VOL +
+IR v3 decimal: 4161210119
+IR v3 (2's-compliment) decimal: -133757177
+IR v3 hex: F8070707
+IR v3 address: F8
+IR v3 command: 7
+--------------
+IR v2 decimal: 3772833823
+IR v2 (2's-compliment) decimal: -522133473
+IR v2 hex: E0E0E01F
+
+
+TV VOL-
+IR v3 decimal: 4094363399
+IR v3 (2's-compliment) decimal: -200603897
+IR v3 hex: F40B0707
+IR v3 address: F4
+IR v3 command: B
+--------------
+IR v2 decimal: 3772829743
+IR v2 (2's-compliment) decimal: -522137553
+IR v2 hex: E0E0D02F
+
+
+TV CH+
+IR v3 decimal: 3977381639
+IR v3 (2's-compliment) decimal: -317585657
+IR v3 hex: ED120707
+IR v3 address: ED
+IR v3 command: 12
+--------------
+IR v2 decimal: 3772795063
+IR v2 (2's-compliment) decimal: -522172233
+IR v2 hex: E0E048B7
+
+
+TV CH-
+IR v3 decimal: 4010804999
+IR v3 (2's-compliment) decimal: -284162297
+IR v3 hex: EF100707
+IR v3 address: EF
+IR v3 command: 10
+--------------
+IR v2 decimal: 3772778743
+IR v2 (2's-compliment) decimal: -522188553
+IR v2 hex: E0E008F7
+
+
+AUDIO SYNC +
+IR v3 decimal: 2190626470
+IR v3 (2's-compliment) decimal: -2104340826
+IR v3 hex: 82924EA6
+IR v3 address: 82
+IR v3 command: 92
+--------------
+IR v2 decimal: 1701988673
+IR v2 (2's-compliment) decimal: 1701988673
+IR v2 hex: 65724941
+
+
+AUDIO SYNC -
+IR v3 decimal: 2889137962
+IR v3 (2's-compliment) decimal: -1405829334
+IR v3 hex: AC34BF2A
+IR v3 address: AC
+IR v3 command: 34
+--------------
+IR v2 decimal: 1425878069
+IR v2 (2's-compliment) decimal: 1425878069
+IR v2 hex: 54FD2C35
+
+
+PAD VOL +
+IR v3 decimal: 3476004267
+IR v3 (2's-compliment) decimal: -818963029
+IR v3 hex: CF2F9DAB
+IR v3 address: CF
+IR v3 command: 2F
+--------------
+IR v2 decimal: 3585733875
+IR v2 (2's-compliment) decimal: -709233421
+IR v2 hex: D5B9F4F3
+
+
+PAD VOL -
+IR v3 decimal: 2998643817
+IR v3 (2's-compliment) decimal: -1296323479
+IR v3 hex: B2BBAC69
+IR v3 address: B2
+IR v3 command: BB
+--------------
+IR v2 decimal: 2520112461
+IR v2 (2's-compliment) decimal: -1774854835
+IR v2 hex: 9635DD4D
+
+
+PAD LEFT
+IR v3 decimal: 4218783810
+IR v3 (2's-compliment) decimal: -76183486
+IR v3 hex: FB758842
+IR v3 address: FB
+IR v3 command: 75
+--------------
+IR v2 decimal: 1108455135
+IR v2 (2's-compliment) decimal: 1108455135
+IR v2 hex: 4211AEDF
+
+
+PAD RIGHT
+IR v3 decimal: 1863712582
+IR v3 (2's-compliment) decimal: 1863712582
+IR v3 hex: 6F15FF46
+IR v3 address: 6F
+IR v3 command: 15
+--------------
+IR v2 decimal: 1660922102
+IR v2 (2's-compliment) decimal: 1660922102
+IR v2 hex: 62FFA8F6
+
+
+PAD MUTE
+IR v3 decimal: 305976139
+IR v3 (2's-compliment) decimal: 305976139
+IR v3 hex: 123CD34B
+IR v3 address: 12
+IR v3 command: 3C
+--------------
+IR v2 decimal: 3536534600
+IR v2 (2's-compliment) decimal: -758432696
+IR v2 hex: D2CB3C48
+
+TV MUTE
+IR v3 decimal: 4027516679
+IR v3 (2's-compliment) decimal: -267450617
+IR v3 hex: F00F0707
+IR v3 address: F0
+IR v3 command: F
+--------------
+IR v2 decimal: 3772837903
+IR v2 (2's-compliment) decimal: -522129393
+IR v2 hex: E0E0F00F
+
+
+TV INFO
+IR v3 decimal: 3760129799
+IR v3 (2's-compliment) decimal: -534837497
+IR v3 hex: E01F0707
+IR v3 address: E0
+IR v3 command: 1F
+--------------
+IR v2 decimal: 3772839943
+IR v2 (2's-compliment) decimal: -522127353
+IR v2 hex: E0E0F807
+
+
+TV PRE-CH
+IR v3 decimal: 3960669959
+IR v3 (2's-compliment) decimal: -334297337
+IR v3 hex: EC130707
+IR v3 address: EC
+IR v3 command: 13
+--------------
+IR v2 decimal: 3772827703
+IR v2 (2's-compliment) decimal: -522139593
+IR v2 hex: E0E0C837
+
+
+VT DIMMER
+IR v3 decimal: 1261612966
+IR v3 (2's-compliment) decimal: 1261612966
+IR v3 hex: 4B32AFA6
+IR v3 address: 4B
+IR v3 command: 32
+--------------
+IR v2 decimal: 1710574802
+IR v2 (2's-compliment) decimal: 1710574802
+IR v2 hex: 65F54CD2
+
+
+REWIND
+IR v3 decimal: 3040726694
+IR v3 (2's-compliment) decimal: -1254240602
+IR v3 hex: B53DCEA6
+IR v3 address: B5
+IR v3 command: 3D
+--------------
+IR v2 decimal: 1702083757
+IR v2 (2's-compliment) decimal: 1702083757
+IR v2 hex: 6573BCAD
+
+
+STOP
+IR v3 decimal: 1205843974
+IR v3 (2's-compliment) decimal: 1205843974
+IR v3 hex: 47DFB806
+IR v3 address: 47
+IR v3 command: DF
+--------------
+IR v2 decimal: 1612577762
+IR v2 (2's-compliment) decimal: 1612577762
+IR v2 hex: 601DFBE2
+
+
+PLAY/PAUSE
+IR v3 decimal: 685655466
+IR v3 (2's-compliment) decimal: 685655466
+IR v3 hex: 28DE45AA
+IR v3 address: 28
+IR v3 command: DE
+--------------
+IR v2 decimal: 1436711700
+IR v2 (2's-compliment) decimal: 1436711700
+IR v2 hex: 55A27B14
+
+
+FAST-FORWARD
+IR v3 decimal: 507332482
+IR v3 (2's-compliment) decimal: 507332482
+IR v3 hex: 1E3D4782
+IR v3 address: 1E
+IR v3 command: 3D
+--------------
+IR v2 decimal: 1105378424
+IR v2 (2's-compliment) decimal: 1105378424
+IR v2 hex: 41E2BC78
+
+
+
+
+
