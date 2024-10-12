@@ -36,7 +36,7 @@ bool vMute = 0;
 int volFine = 10;
 int volSemiCourse = 30;
 int volCourse = 50;
-int muteVol = 0;
+int storedVol = 0;
 
 void setup() {
 // RS232  
@@ -209,7 +209,7 @@ void receiveRF() {
       if (rfvalue == 696999) // unmute
       { 
         if (vMute == 1) {
-          theVol = muteVol;
+          theVol = storedVol;
           theLastVol = -1;
           vMute = 0;
           changeVol = 1;
@@ -220,7 +220,7 @@ void receiveRF() {
       { 
         if (vMute == 0) {
           vMute = 1;
-          muteVol = theVol;
+          storedVol = theVol;
           theVol = 0;
           changeVol = 1;
         }
