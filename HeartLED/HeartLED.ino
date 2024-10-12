@@ -27,6 +27,8 @@ BlockNot ledOnIntervalTimer(50, MICROSECONDS); // LED on-time interval (us)
 BlockNot effectDrawRateTimer(75, MILLISECONDS);  // LED effect update rate
 BlockNot effectChangeTimer(15, SECONDS);  // rate to cycle to next effect
 BlockNot calibrateTimer(3, SECONDS); // rate to cycle thru LEDs in calibrate mode
+BlockNot RFLockout(400, MILLISECONDS);  // deadtime between receiving RF commands
+bool RFLock = 0; // RF lock flag
 bool calibrateLEDs = 0; // 1 = enable layout calibration mode
 bool showLEDdata = 0; // 1 = print LED data to serial port
 int heartDataIn = 0;
@@ -194,57 +196,73 @@ void effectTrailC() {
   }
 }
 
+void setRFLock() {
+  RFLockout.RESET; 
+  RFLock = 1;
+}
+
 void readInputs() {
+  if (RFLockout.FIRST_TRIGGER) {
+    RFLock = 0;
+  }
   if (mySwitch.available()) {
     unsigned long value = mySwitch.getReceivedValue();
-    if (value == 732101)
-    {
-      selectedEffect = 0;
-      cycleEffects = false;
-      disableLEDs = true;
-      resetLEDs();
-      Serial.println("LEDs off");
-    }
-    if (value == 732102) 
-    {
-      selectedEffect = 0;
-      cycleEffects = true;
-      disableLEDs = false;
-      Serial.println("LEDs cycle");
-      resetLEDs();
-    } 
-    if (value == 732103) 
-    {
-      selectedEffect = 0;
-      cycleEffects = false;
-      disableLEDs = false;
-      Serial.println("LEDs A");
-      resetLEDs();
-    } 
-    if (value == 732104) 
-    {
-      selectedEffect = 1;
-      cycleEffects = false;
-      disableLEDs = false;
-      resetLEDs();
-      Serial.println("LEDs B");
-    }
-    if (value == 732105) 
-    {
-      selectedEffect = 2;
-      cycleEffects = false;
-      disableLEDs = false;
-      resetLEDs();
-      Serial.println("LEDs C");
-    }
-    if (value == 732106) 
-    {
-      selectedEffect = -1;
-      cycleEffects = false;
-      disableLEDs = false;
-      resetLEDs();
-      allLEDsOn();
-      Serial.println("LEDs on");
+    if (RFLock == 0) {
+      if (value == 732101)
+      {
+        selectedEffect = 0;
+        cycleEffects = false;
+        disableLEDs = true;
+        resetLEDs();
+        Serial.println("LEDs off");
+        setRFLock();
+      }
+      if (value == 732102) 
+      {
+        selectedEffect = 0;
+        cycleEffects = true;
+        disableLEDs = false;
+        Serial.println("LEDs cycle");
+        resetLEDs();
+        setRFLock();
+      } 
+      if (value == 732103) 
+      {
+        selectedEffect = 0;
+        cycleEffects = false;
+        disableLEDs = false;
+        Serial.println("LEDs A");
+        resetLEDs();
+        setRFLock(); 
+      } 
+      if (value == 732104) 
+      {
+        selectedEffect = 1;
+        cycleEffects = false;
+        disableLEDs = false;
+        resetLEDs();
+        Serial.println("LEDs B");
+        setRFLock(); 
+      }
+      if (value == 732105) 
+      {
+        selectedEffect = 2;
+        cycleEffects = false;
+        disableLEDs = false;
+        resetLEDs();
+        Serial.println("LEDs C");
+        setRFLock();
+      }
+      if (value == 732106) 
+      {
+        selectedEffect = -1;
+        cycleEffects = false;
+        disableLEDs = false;
+        resetLEDs();
+        allLEDsOn();
+        Serial.println("LEDs on");
+        setRFLock();
+      }
     }
     mySwitch.resetAvailable();
   }

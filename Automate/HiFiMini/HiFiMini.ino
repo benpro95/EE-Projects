@@ -9,10 +9,13 @@
 // Libraries
 #include <Wire.h>
 #include <RCSwitch.h>
+#include <BlockNot.h>
 
 // Definitions
 #define MAX9744_I2CADDR 0x4B    // 0x4B is the default i2c address
 RCSwitch mySwitch = RCSwitch(); // 433Mhz receiver
+BlockNot RFLockout(400, MILLISECONDS);  // deadtime between receiving RF commands
+bool RFLock = 0; // RF lock flag
 
 // Constants
 const int potPin = A0;          // pin A0 to read analog input
@@ -103,103 +106,127 @@ void readPot() {
     }
 }
 
+void setRFLock() {
+  RFLockout.RESET; 
+  RFLock = 1;
+}
+
 void receiveRF() {
+  if (RFLockout.FIRST_TRIGGER) {
+    RFLock = 0;
+  }
   if (mySwitch.available()) {
     rfvalue = mySwitch.getReceivedValue();
-    if (rfvalue == 696912) //
-    {
-      // Volume Up (Fine)
-      theVol = theVol + volFine;
-      changeVol = 1;
-    }  
-    if (rfvalue == 696913) //
-    {
-      // Volume Down (Fine)
-      theVol = theVol - volFine;
-      changeVol = 1;
-    } 
-    if (rfvalue == 696922) //
-    {
-      // Volume Up (Semi-Course)
-      theVol = theVol + volSemiCourse;
-      changeVol = 1;  
-    }
-    if (rfvalue == 696923) //
-    {
-      // Volume Down (Semi-Course)
-      theVol = theVol - volSemiCourse;
-      changeVol = 1;
-    } 
-    if (rfvalue == 696932) //
-    {
-      // Volume Up (Course)
-      theVol = theVol + volCourse;
-      changeVol = 1;
-    }
-    if (rfvalue == 696933) //
-    {
-      // Volume Down (Course)
-      theVol = theVol - volCourse;
-      changeVol = 1;
-    } 
-    if (rfvalue == 696905) //
-    {
-      // Set Level (Quietest)
-      theVol = 50;
-      changeVol = 1;
-    }    
-    if (rfvalue == 696910) //
-    {
-      // Set Level
-      theVol = 100;
-      changeVol = 1;
-    }
-    if (rfvalue == 696920) //
-    {
-      // Set Level
-      theVol = 200;
-      changeVol = 1;
-    }
-    if (rfvalue == 696930) //
-    {
-      // Set Level
-      theVol = 300;
-      changeVol = 1;
-    }
-    if (rfvalue == 696940) //
-    {
-      // Set Level
-      theVol = 400;
-      changeVol = 1;
-    }
-    if (rfvalue == 696997) //
-    {
-      // Set Level (Loudest)
-      theVol = 500;
-      changeVol = 1;
-    }
-    // Mute
-    if (vMute == 1) {
-      changeVol = 0;
-    }     
-    if (rfvalue == 696999) // unmute
-    { 
-      if (vMute == 1) {
-        theVol = muteVol;
-        theLastVol = -1;
-        vMute = 0;
+    if (RFLock == 0) {
+      if (rfvalue == 696912) //
+      {
+        // Volume Up (Fine)
+        theVol = theVol + volFine;
         changeVol = 1;
+        setRFLock();
+      }  
+      if (rfvalue == 696913) //
+      {
+        // Volume Down (Fine)
+        theVol = theVol - volFine;
+        changeVol = 1;
+        setRFLock();
       } 
-    }    
-    if (rfvalue == 696944) // mute
-    { 
-      if (vMute == 0) {
-        vMute = 1;
-        muteVol = theVol;
-        theVol = 0;
-        changeVol = 1;
+      if (rfvalue == 696922) //
+      {
+        // Volume Up (Semi-Course)
+        theVol = theVol + volSemiCourse;
+        changeVol = 1;  
+        setRFLock();
       }
-    }  
+      if (rfvalue == 696923) //
+      {
+        // Volume Down (Semi-Course)
+        theVol = theVol - volSemiCourse;
+        changeVol = 1;
+        setRFLock();
+      } 
+      if (rfvalue == 696932) //
+      {
+        // Volume Up (Course)
+        theVol = theVol + volCourse;
+        changeVol = 1;
+        setRFLock();
+      }
+      if (rfvalue == 696933) //
+      {
+        // Volume Down (Course)
+        theVol = theVol - volCourse;
+        changeVol = 1;
+        setRFLock();
+      } 
+      if (rfvalue == 696905) //
+      {
+        // Set Level (Quietest)
+        theVol = 50;
+        changeVol = 1;
+        setRFLock();
+      }    
+      if (rfvalue == 696910) //
+      {
+        // Set Level
+        theVol = 100;
+        changeVol = 1;
+        setRFLock();
+      }
+      if (rfvalue == 696920) //
+      {
+        // Set Level
+        theVol = 200;
+        changeVol = 1;
+        setRFLock();
+      }
+      if (rfvalue == 696930) //
+      {
+        // Set Level
+        theVol = 300;
+        changeVol = 1;
+        setRFLock();
+      }
+      if (rfvalue == 696940) //
+      {
+        // Set Level
+        theVol = 400;
+        changeVol = 1;
+        setRFLock();
+      }
+      if (rfvalue == 696997) //
+      {
+        // Set Level (Loudest)
+        theVol = 500;
+        changeVol = 1;
+        setRFLock();
+      }
+      // Mute
+      if (vMute == 1) {
+        changeVol = 0;
+      }     
+      if (rfvalue == 696999) // unmute
+      { 
+        if (vMute == 1) {
+          theVol = muteVol;
+          theLastVol = -1;
+          vMute = 0;
+          changeVol = 1;
+        }
+        setRFLock();
+      }    
+      if (rfvalue == 696944) // mute
+      { 
+        if (vMute == 0) {
+          vMute = 1;
+          muteVol = theVol;
+          theVol = 0;
+          changeVol = 1;
+        }
+        setRFLock();
+      }
+    } 
     mySwitch.resetAvailable();
   }
 }
