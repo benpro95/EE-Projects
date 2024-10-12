@@ -74,7 +74,7 @@ static void startTimer() {
     while (TC->STATUS.bit.SYNCBUSY == 1); // wait for sync
     // Reset TCx
     TC->CTRLA.reg = TC_CTRLA_SWRST;
-    // When writing a ‘1’ to the CTRLA.SWRST bit it will immediately read as ‘1’.
+    // When writing a ï¿½1ï¿½ to the CTRLA.SWRST bit it will immediately read as ï¿½1ï¿½.
     // CTRL.SWRST will be cleared by hardware when the peripheral has been reset.
     while (TC->CTRLA.bit.SWRST)
         ;

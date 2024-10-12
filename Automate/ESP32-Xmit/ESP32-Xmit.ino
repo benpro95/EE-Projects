@@ -1,4 +1,4 @@
- //////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////
 // by Ben Provenzano III
 //////////////////////////////////////////////////////////////////////////
 
@@ -80,8 +80,8 @@ void setup() {
   // RF transmit output on pin #19
   mySwitch.enableTransmit(19);
   mySwitch.setProtocol(1);
-  mySwitch.setPulseLength(416);
-  mySwitch.setRepeatTransmit(5);
+  mySwitch.setPulseLength(315);
+  mySwitch.setRepeatTransmit(12);
   digitalWrite(onBoardLED, HIGH);    
   // web server parallel task
   xTaskCreatePinnedToCore(
