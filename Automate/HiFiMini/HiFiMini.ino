@@ -2,41 +2,36 @@
  * Ben Provenzano III
  * -----------------
  * v1 09/03/2022
+ * v2 10/12/2024
  433MHz Wireless Amplifier Controller
  *
  */
- 
-// Libraries
+
 #include <Wire.h>
 #include <RCSwitch.h>
 #include <BlockNot.h>
 
-// Definitions
-#define MAX9744_I2CADDR 0x4B    // 0x4B is the default i2c address
-RCSwitch mySwitch = RCSwitch(); // 433Mhz receiver
+#define MAX9744_I2CADDR 0x4B    // 0x4B is the default I2C address
+RCSwitch mySwitch = RCSwitch(); // 433MHz receiver
 BlockNot RFLockout(400, MILLISECONDS);  // deadtime between receiving RF commands
 bool RFLock = 0; // RF lock flag
-
-// Constants
-const int potPin = A0;          // pin A0 to read analog input
-int potThresh = 20;
-
-// Variables
-unsigned long rfvalue = 0;
-int _maxByte = 63;
-int theVol = 0; 
-int theLastVol = 0; 
-int maxRange = 512;
-int potVal = 0;  
-int potFinal = 0; 
-int lastPotVal = 0;
-int potMaxRange = 502;
-bool changeVol = 0;
-bool vMute = 0;
-int volFine = 10;
-int volSemiCourse = 30;
-int volCourse = 50;
-int storedVol = 0;
+const int potPin = A0; // pin A0 to read analog input
+unsigned long rfvalue = 0; // direct RF sensor reading
+int maxByte = 63; // maximum volume to I2C 
+int maxRange = 512; // maximum volume value
+int theVol = 0; // current volume value
+int theLastVol = 0; // last saved volume value
+int potThresh = 20; // potentiometer update threshhold
+int potMaxRange = 502; // maximum potentiometer value
+int potVal = 0; // direct potentiometer value
+int potFinal = 0; // potentiometer value after settling
+int lastPotVal = 0; // last saved potentiometer value
+bool changeVol = 0; // trigger volume update
+bool vMute = 0; // mute enable/disable flag
+int volFine = 10; // RF control fine volume increment
+int volSemiCourse = 30; // RF control semi-course volume increment
+int volCourse = 50; // RF control course volume increment
+int storedVol = 0; // volume before muting enabled
 
 void setup() {
 // RS232  
@@ -50,7 +45,7 @@ void setup() {
   }
 // 433MHz RF   
   delay(500); 
-  mySwitch.enableReceive(0);  // Receiver on interrupt 0 => that is [pin #2]
+  mySwitch.enableReceive(0);  // Receiver on interrupt 0 => [pin #2]
 }
 
 // Main
@@ -63,7 +58,7 @@ void loop() {
     if (theVol != theLastVol) {
       Serial.print("Volume range: ");
       Serial.println(theVol);
-      unsigned long _vol = map(theVol, maxRange, 0, _maxByte, 0);
+      unsigned long _vol = map(theVol, maxRange, 0, maxByte, 0);
       setvolume(_vol);   
       changeVol = 0;
       theLastVol = theVol;
@@ -74,7 +69,7 @@ void loop() {
 // write the 6-bit volume to the I2C bus
 boolean setvolume(int8_t vol) {
   // cant be higher than 63 or lower than 0
-  if (vol > _maxByte) vol = _maxByte;
+  if (vol > maxByte) vol = maxByte;
   if (vol < 0) vol = 0;
   Serial.print("Setting volume to ");
   Serial.println(vol);
