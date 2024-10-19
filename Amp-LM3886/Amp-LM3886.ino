@@ -215,7 +215,7 @@ void loop() {
          } else {
             digitalWrite(fet9, HIGH);
             digitalWrite(LED_BUILTIN, HIGH);
-            delay(10000 );  // CCW Motor Rotation Time
+            delay(10000);  // CCW Motor Rotation Time
             digitalWrite(LED_BUILTIN, LOW);
             digitalWrite(fet9, LOW);
             itsONfet[10] = 1;
