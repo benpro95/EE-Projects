@@ -14,13 +14,13 @@ RCSwitch mySwitch = RCSwitch();
 #define outPinHigh 12
 #define ledsCount 19
 bool cycleEffects = true;
-bool disableLEDs = false;
+uint8_t disableLEDs = 0;
 bool ledCountState;
 uint8_t ledIncrement;
 int selectedEffect = 0;
 uint8_t ledTranslate[] = {16,6,15,5,1,11,18,8,2,12,14,4,13,3,17,7,9,19,10,0};
-bool ledData[ledsCount + 1] = {0};
-bool ledStates[ledsCount + 1] = {0};
+bool ledData[64] = {0};
+bool ledStates[64] = {0};
 uint8_t _upperHalf = (ledsCount / 2) + 1;
 BlockNot ledRefreshTimer(50, MICROSECONDS); // LED refresh interval (us)
 BlockNot ledOnIntervalTimer(50, MICROSECONDS); // LED on-time interval (us)
@@ -29,7 +29,7 @@ BlockNot effectChangeTimer(15, SECONDS);  // rate to cycle to next effect
 BlockNot calibrateTimer(3, SECONDS); // rate to cycle thru LEDs in calibrate mode
 BlockNot RFLockout(400, MILLISECONDS);  // deadtime between receiving RF commands
 bool RFLock = 0; // RF lock flag
-bool calibrateLEDs = 0; // 1 = enable layout calibration mode
+bool calibrateLEDs = 1; // 1 = enable layout calibration mode
 bool showLEDdata = 0; // 1 = print LED data to serial port
 int heartDataIn = 0;
 
@@ -48,8 +48,6 @@ void setup() {
 }
 
 void writeLEDs(bool _calMode) {
-  // re-draw all LEDs
-  if (ledRefreshTimer.TRIGGERED_ON_DURATION) {
     // draw each LED one-at-a-time
   	for(uint8_t _curLED = 0; _curLED <= ledsCount; _curLED++) {
       uint8_t _led;
@@ -114,9 +112,9 @@ void writeLEDs(bool _calMode) {
             break;
           }
         }
-      }  
+      }
+      ////
   	}
-  }
 }
 
 // reset LEDs state
@@ -135,7 +133,7 @@ void clearLEDdata() {
 }
 
 // turn all LEDs on
-void allLEDsOn() {
+void writeLEDsHigh() {
   uint8_t _count;
   for(_count = 0; _count <= ledsCount; _count++) {
     ledData[_count] = 1; 
@@ -143,8 +141,7 @@ void allLEDsOn() {
 }
 
 // print LED data on serial port
-void LEDdata() {
-  if (showLEDdata == 1) {
+void printLEDdata() {
     for(uint8_t _count = 0; _count <= ledsCount; _count++) {
       if (ledData[_count] == 1) {
         Serial.print("#");
@@ -155,7 +152,6 @@ void LEDdata() {
     }
     Serial.print(ledIncrement);
     Serial.println(" ");
-  }
 }
 
 void effectTrailA() {
@@ -209,58 +205,53 @@ void readInputs() {
     unsigned long value = mySwitch.getReceivedValue();
     if (RFLock == 0) {
       if (value == 732101)
-      {
-        selectedEffect = 0;
-        cycleEffects = false;
-        disableLEDs = true;
-        resetLEDs();
-        Serial.println("LEDs off");
+      { // turn off LEDs
+        disableLEDs = 1;
         setRFLock();
       }
       if (value == 732102) 
       {
+        resetLEDs();
         selectedEffect = 0;
         cycleEffects = true;
-        disableLEDs = false;
+        disableLEDs = 0;
         Serial.println("LEDs cycle");
-        resetLEDs();
         setRFLock();
       } 
       if (value == 732103) 
       {
+        resetLEDs();
         selectedEffect = 0;
         cycleEffects = false;
-        disableLEDs = false;
+        disableLEDs = 0;
         Serial.println("LEDs A");
-        resetLEDs();
         setRFLock(); 
       } 
       if (value == 732104) 
       {
+        resetLEDs();
         selectedEffect = 1;
         cycleEffects = false;
-        disableLEDs = false;
-        resetLEDs();
+        disableLEDs = 0;
         Serial.println("LEDs B");
         setRFLock(); 
       }
       if (value == 732105) 
       {
         selectedEffect = 2;
-        cycleEffects = false;
-        disableLEDs = false;
-        resetLEDs();
+        cycleEffects = false;      
+        disableLEDs = 0;
         Serial.println("LEDs C");
         setRFLock();
       }
       if (value == 732106) 
       {
+        resetLEDs();
         selectedEffect = -1;
         cycleEffects = false;
-        disableLEDs = false;
-        resetLEDs();
-        allLEDsOn();
-        Serial.println("LEDs on");
+        disableLEDs = 0;
+        writeLEDsHigh();
+        Serial.println("all LEDs on");
         setRFLock();
       }
     }
@@ -268,45 +259,52 @@ void readInputs() {
   }
 }
 
-void runMode() {
-  // print data to serial port
-  LEDdata();
-  // write data to LEDs
-  writeLEDs(false);
-  if (disableLEDs == 1) {
-    return;
-  }
-  if (effectDrawRateTimer.TRIGGERED_ON_DURATION) {
-    if (selectedEffect == 0) {
-      effectTrailA();
-    }
-    if (selectedEffect == 1) {
-      effectTrailB();
-    }
-    if (selectedEffect == 2) {
-      effectTrailC();
-    }
-    if (cycleEffects == true) {
-      if (effectChangeTimer.TRIGGERED_ON_DURATION) {
-        if (selectedEffect >= 2) {
-          selectedEffect = -1;
-        }
-        selectedEffect++;
-        resetLEDs();
-      }
-    }  
-  }
-}
-
 void loop() {
   // read input data
   readInputs();
-  if (calibrateLEDs == 1) {
-    // calibrate layout mode
-    writeLEDs(true);
+  if (disableLEDs == 0) {
+    // print data to serial port
+    if (showLEDdata == 1) {
+      printLEDdata();
+    }
+    // re-draw all LEDs
+    if (ledRefreshTimer.TRIGGERED_ON_DURATION) {
+      if (calibrateLEDs == 1) {
+        // calibrate layout mode
+        writeLEDs(true);      
+      } else {
+        writeLEDs(false);
+      }  
+    }
+    // draw LED effect
+    if (effectDrawRateTimer.TRIGGERED_ON_DURATION) {
+      if (selectedEffect == 0) {
+        effectTrailA();
+      }
+      if (selectedEffect == 1) {
+        effectTrailB();
+      }
+      if (selectedEffect == 2) {
+        effectTrailC();
+      }
+      if (cycleEffects == true) {
+        if (effectChangeTimer.TRIGGERED_ON_DURATION) {
+          if (selectedEffect >= 2) {
+            selectedEffect = -1;
+          }
+          selectedEffect++;
+          resetLEDs();
+        }
+      }  
+    }
   } else {
-    // draw LED effects
-    runMode();
+    // turn off LEDs
+    if (disableLEDs == 1) {
+      resetLEDs();
+      writeLEDs(false);
+      Serial.println("LEDs off");
+      disableLEDs = 2;
+    }
   }
 }
 
