@@ -5,19 +5,18 @@ Soldering Tips for PACE ST-30 and TD-100 Handpiece:
 1124-0033-P1 Solder Tip [Angled Mini-Wave, .12" (3.05mm) Dia]
 1124-0034-P1 Solder Tip [Chisel, .12" (3.05mm) W]
 
-Polypropylene Film Capacitors:
-Vishay MKP18 (5mm lead spacing)
-for active filters / crossovers
-.10uF 100volt 1% MKP1837410011
-47nF 160volt 1% MKP1837347161G
+Resistors:
+Vishay SFR25 1% Series
+
+Audio Signal Film Capacitors:
+100nF 100volt 1% MKP1837410011 (5mm LS) 
+47nF 160volt 1% MKP1837347161G (5mm LS)
+100nF 63volt 2% BFC241641004 (5mm LS)
 
 Ceramic Capacitors:
-KEMET GoldMax 300 (2.54mm lead spacing)
-for digital circuits
-0.1uF 50VDC X7R 10% C320C104K5R5TA
+0.1uF 50VDC X7R 10% C320C104K5R5TA (2.54mm LS)
 
 Aluminum Oxide Ceramic Insulator:
-AAVID THERMALLOY 
 4171G for TO-220
 4180G for TO-247
 
@@ -25,32 +24,12 @@ TO-220 Insulating Washer:
 MNI-HT-4-220
 RPC1554-ND
 
-Molex Mini KK Connectors:
-.100 Inch Spacing 5A Max Current
 
-Crimper = IWISS SN-01BM
-
-22-30AWG Crimp Pin = 08-50-0114 / WM1114-ND
-
-2-pin PCB header = WM4200-ND
-2-pin housing = WM2000-ND
-
-3-pin PCB header = WM4201-ND
-3-pin housing = WM2001-ND
-
-4-pin PCB header = 0022232041 / WM4202-ND
-4-pin housing = 0022013047 / WM2002-ND
-
-5-pin PCB header = WM4203-ND
-5-pin housing = WM2003-ND
-
-6-pin PCB header = WM4204-ND
-6-pin housing = WM2004-ND
-
-7-pin PCB header = WM4205-ND
-7-pin housing = WM2005-ND
-
-8-pin PCB header = WM4206-ND
-8-pin housing = WM2006-ND
-
-
+KK Crimper IWISS SN-01BM
+22-30AWG Crimp Pin 08-50-0114
+Molex KK 254 2-pin PCB header 22-23-2021 / 22-23-2027
+Molex KK 254 2-pin housing 22-01-3027
+Molex KK 254 3-pin PCB header 22-23-2031 / 22-23-2037
+Molex KK 254 3-pin housing 22-01-3037
+Molex KK 254 6-pin PCB header 22-23-2061 / 22-23-2067
+Molex KK 254 6-pin housing 22-01-3067
