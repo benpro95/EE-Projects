@@ -14416,7 +14416,7 @@ grid 5.08 mm</description>
 <part name="GND25" library="supply1" deviceset="GND" device=""/>
 <part name="R6" library="resistor" deviceset="R-US_" device="0309/12" value="10k"/>
 <part name="GND26" library="supply1" deviceset="GND" device=""/>
-<part name="R22" library="resistor" deviceset="R-US_" device="0309/10" value="10k"/>
+<part name="R22" library="resistor" deviceset="R-US_" device="0309/10" value="4k7"/>
 <part name="R23" library="resistor" deviceset="R-US_" device="R1210" value="10k"/>
 <part name="GND27" library="supply1" deviceset="GND" device=""/>
 <part name="X3" library="con-molex" deviceset="22-23-2051" device="" value="VOL"/>
@@ -14483,7 +14483,7 @@ grid 5.08 mm</description>
 <part name="D16" library="diode" deviceset="1N4004" device="" value="4148"/>
 <part name="D17" library="diode" deviceset="1N4004" device="" value="27v"/>
 <part name="AGND6" library="supply1" deviceset="AGND" device=""/>
-<part name="R49" library="resistor" deviceset="R-US_" device="0411/15" value="100k"/>
+<part name="R49" library="resistor" deviceset="R-US_" device="0411/15" value="47k"/>
 <part name="Q20" library="transistor-pnp" deviceset="BC560*" device="" value="MPSA92"/>
 <part name="R50" library="resistor" deviceset="R-US_" device="0309/10" value="100k"/>
 <part name="R51" library="resistor" deviceset="R-US_" device="0309/10" value="25k"/>
