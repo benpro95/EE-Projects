@@ -73,9 +73,9 @@
 <board>
 <plain>
 <wire x1="39.624" y1="33.274" x2="131.806" y2="33.274" width="0" layer="20"/>
-<wire x1="131.806" y1="33.274" x2="131.806" y2="102.54" width="0" layer="20"/>
-<wire x1="131.806" y1="102.54" x2="39.624" y2="102.54" width="0" layer="20"/>
-<wire x1="39.624" y1="102.54" x2="39.624" y2="33.274" width="0" layer="20"/>
+<wire x1="131.806" y1="33.274" x2="131.806" y2="101.778" width="0" layer="20"/>
+<wire x1="131.806" y1="101.778" x2="39.624" y2="101.778" width="0" layer="20"/>
+<wire x1="39.624" y1="101.778" x2="39.624" y2="33.274" width="0" layer="20"/>
 <rectangle x1="65.024" y1="99.06" x2="66.548" y2="100.33" layer="16"/>
 <rectangle x1="64.77" y1="98.806" x2="65.278" y2="100.33" layer="16"/>
 <rectangle x1="83.82" y1="90.424" x2="86.36" y2="92.456" layer="16"/>
@@ -132,7 +132,7 @@
 <rectangle x1="93.726" y1="56.642" x2="96.266" y2="57.404" layer="16"/>
 <rectangle x1="94.996" y1="56.642" x2="96.52" y2="58.42" layer="16"/>
 <rectangle x1="76.708" y1="71.882" x2="82.296" y2="73.152" layer="16"/>
-<rectangle x1="75.946" y1="71.882" x2="77.47" y2="73.406" layer="16"/>
+<rectangle x1="76.2" y1="71.882" x2="77.724" y2="73.406" layer="16"/>
 <rectangle x1="76.708" y1="72.39" x2="82.296" y2="73.152" layer="16"/>
 <rectangle x1="84.328" y1="84.328" x2="86.868" y2="87.122" layer="16"/>
 <rectangle x1="84.582" y1="88.138" x2="86.106" y2="88.9" layer="16"/>
@@ -239,8 +239,8 @@
 <rectangle x1="110.236" y1="77.216" x2="112.522" y2="78.74" layer="16"/>
 <rectangle x1="113.284" y1="71.882" x2="113.792" y2="73.914" layer="16"/>
 <rectangle x1="113.538" y1="71.882" x2="120.142" y2="73.66" layer="16"/>
-<rectangle x1="109.728" y1="95.758" x2="115.824" y2="96.52" layer="16"/>
-<rectangle x1="106.934" y1="98.552" x2="110.236" y2="100.584" layer="16"/>
+<rectangle x1="109.474" y1="95.758" x2="115.57" y2="96.52" layer="16"/>
+<rectangle x1="106.934" y1="98.044" x2="110.236" y2="100.076" layer="16"/>
 <rectangle x1="124.714" y1="87.376" x2="128.016" y2="90.932" layer="16"/>
 <rectangle x1="123.698" y1="87.376" x2="126.238" y2="87.63" layer="16"/>
 <rectangle x1="79.248" y1="95.25" x2="80.264" y2="97.536" layer="16"/>
@@ -355,6 +355,10 @@
 <rectangle x1="119.888" y1="70.866" x2="120.396" y2="73.66" layer="16"/>
 <rectangle x1="120.142" y1="70.358" x2="120.396" y2="71.12" layer="16"/>
 <rectangle x1="122.682" y1="67.31" x2="123.19" y2="73.66" layer="16"/>
+<rectangle x1="80.518" y1="72.136" x2="80.772" y2="72.39" layer="16"/>
+<rectangle x1="80.264" y1="72.136" x2="81.026" y2="72.644" layer="16"/>
+<rectangle x1="80.772" y1="72.644" x2="83.312" y2="73.406" layer="16"/>
+<rectangle x1="80.772" y1="71.882" x2="83.312" y2="72.898" layer="16"/>
 </plain>
 <libraries>
 <library name="st-microelectronics">
@@ -2375,7 +2379,7 @@ design rules under a new name.</description>
 <element name="R29" library="resistor" package="0207/10" value="10M" x="114.554" y="99.314" rot="R359.1"/>
 <element name="D1" library="diode" package="DO35-7" value="4148" x="109.728" y="94.996" rot="R299.9"/>
 <element name="C20" library="resistor" package="E2,5-6" value="1uF" x="106.934" y="61.976" rot="R180"/>
-<element name="R30" library="resistor" package="0207/10" value="820R" x="100.838" y="82.55"/>
+<element name="R30" library="resistor" package="0207/10" value="820R 1/2w" x="100.838" y="82.55"/>
 <element name="D2" library="diode" package="DO35-10" value="5v1" x="126.238" y="85.09" rot="R269.9"/>
 <element name="C21" library="resistor" package="E2,5-7" value="47uF" x="121.412" y="88.9" rot="R90"/>
 <element name="R31" library="resistor" package="0309/10" value="2k2" x="111.252" y="88.9" rot="R180"/>

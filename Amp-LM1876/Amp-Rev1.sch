@@ -12244,7 +12244,7 @@ TR5, Wickmann</description>
 <part name="GND13" library="supply1" deviceset="GND" device=""/>
 <part name="D1" library="diode" deviceset="1N4148" device="DO35-7" value="4148"/>
 <part name="C20" library="resistor" deviceset="CPOL-EU" device="E2.5-6" value="1uF"/>
-<part name="R30" library="resistor" deviceset="R-US_" device="0207/10" value="820R"/>
+<part name="R30" library="resistor" deviceset="R-US_" device="0207/10" value="820R 1/2w"/>
 <part name="D2" library="diode" deviceset="1N4148" device="DO35-10" value="5v1"/>
 <part name="GND14" library="supply1" deviceset="GND" device=""/>
 <part name="C21" library="resistor" deviceset="CPOL-EU" device="E2.5-7" value="47uF"/>

@@ -12121,8 +12121,8 @@ TR5 Fuse Holder Wickmann</description>
 <circle x="2.54" y="0" radius="0.254" width="0.254" layer="51"/>
 <circle x="-2.54" y="0" radius="0.254" width="0.254" layer="51"/>
 <circle x="-2.54" y="0" radius="0.762" width="0.1524" layer="51"/>
-<pad name="1" x="-2.54" y="0" drill="0.8128" diameter="1.778" shape="long" rot="R90"/>
-<pad name="2" x="2.54" y="0" drill="0.8128" diameter="1.778" shape="long" rot="R90"/>
+<pad name="1" x="-2.54" y="0" drill="0.7" diameter="1.6764" shape="long" rot="R90"/>
+<pad name="2" x="2.54" y="0" drill="0.7" diameter="1.6764" shape="long" rot="R90"/>
 <text x="-2.54" y="5.08" size="1.27" layer="25" ratio="10">&gt;NAME</text>
 <text x="-3.048" y="-2.54" size="1.27" layer="27" ratio="10">&gt;VALUE</text>
 </package>
@@ -12263,6 +12263,7 @@ TR5, Wickmann</description>
 <part name="F1" library="fuse" deviceset="19560" device=""/>
 <part name="X4" library="con-molex" deviceset="5566-4" device="" value="AC"/>
 <part name="F2" library="fuse" deviceset="19560" device=""/>
+<part name="GND18" library="supply1" deviceset="GND" device=""/>
 </parts>
 <sheets>
 <sheet>
@@ -12360,11 +12361,12 @@ TR5, Wickmann</description>
 <instance part="C25" gate="G$1" x="106.68" y="116.84"/>
 <instance part="B1" gate="1" x="53.34" y="119.38"/>
 <instance part="F1" gate="F" x="71.12" y="127"/>
-<instance part="X4" gate="-1" x="33.02" y="119.38"/>
-<instance part="X4" gate="-2" x="33.02" y="116.84"/>
-<instance part="X4" gate="-3" x="33.02" y="114.3"/>
-<instance part="X4" gate="-4" x="33.02" y="111.76"/>
+<instance part="X4" gate="-1" x="30.48" y="124.46" rot="R180"/>
+<instance part="X4" gate="-2" x="30.48" y="121.92" rot="R180"/>
+<instance part="X4" gate="-3" x="30.48" y="119.38" rot="R180"/>
+<instance part="X4" gate="-4" x="30.48" y="116.84" rot="R180"/>
 <instance part="F2" gate="F" x="60.96" y="111.76"/>
+<instance part="GND18" gate="1" x="35.56" y="106.68"/>
 </instances>
 <busses>
 </busses>
@@ -12699,8 +12701,17 @@ TR5, Wickmann</description>
 <wire x1="81.28" y1="119.38" x2="93.98" y2="119.38" width="0.1524" layer="91"/>
 <wire x1="93.98" y1="119.38" x2="93.98" y2="106.68" width="0.1524" layer="91"/>
 <junction x="81.28" y="119.38"/>
-<wire x1="81.28" y1="119.38" x2="76.2" y2="119.38" width="0.1524" layer="91"/>
 <pinref part="GND16" gate="1" pin="GND"/>
+</segment>
+<segment>
+<pinref part="X4" gate="-3" pin="S"/>
+<wire x1="33.02" y1="119.38" x2="35.56" y2="119.38" width="0.1524" layer="91"/>
+<pinref part="X4" gate="-1" pin="S"/>
+<wire x1="33.02" y1="124.46" x2="35.56" y2="124.46" width="0.1524" layer="91"/>
+<wire x1="35.56" y1="119.38" x2="35.56" y2="124.46" width="0.1524" layer="91"/>
+<wire x1="35.56" y1="119.38" x2="35.56" y2="109.22" width="0.1524" layer="91"/>
+<pinref part="GND18" gate="1" pin="GND"/>
+<junction x="35.56" y="119.38"/>
 </segment>
 </net>
 <net name="N$3" class="0">
@@ -12981,13 +12992,19 @@ TR5, Wickmann</description>
 <net name="N$49" class="0">
 <segment>
 <pinref part="B1" gate="1" pin="AC2"/>
-<wire x1="53.34" y1="114.3" x2="43.18" y2="114.3" width="0.1524" layer="91"/>
+<wire x1="53.34" y1="114.3" x2="38.1" y2="114.3" width="0.1524" layer="91"/>
+<pinref part="X4" gate="-2" pin="S"/>
+<wire x1="33.02" y1="121.92" x2="38.1" y2="121.92" width="0.1524" layer="91"/>
+<wire x1="38.1" y1="121.92" x2="38.1" y2="114.3" width="0.1524" layer="91"/>
 </segment>
 </net>
-<net name="N$50" class="0">
+<net name="N$51" class="0">
 <segment>
+<pinref part="X4" gate="-4" pin="S"/>
 <pinref part="B1" gate="1" pin="AC1"/>
 <wire x1="53.34" y1="124.46" x2="43.18" y2="124.46" width="0.1524" layer="91"/>
+<wire x1="33.02" y1="116.84" x2="43.18" y2="116.84" width="0.1524" layer="91"/>
+<wire x1="43.18" y1="116.84" x2="43.18" y2="124.46" width="0.1524" layer="91"/>
 </segment>
 </net>
 </nets>

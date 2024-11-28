@@ -12073,6 +12073,7 @@ Source: &lt;a href="http://www.farnell.com/datasheets/391100.pdf"&gt; Data sheet
 <part name="C24" library="resistor" deviceset="CPOL-EU" device="E7.5-16" value="3900uF"/>
 <part name="GND16" library="supply1" deviceset="GND" device=""/>
 <part name="R17" library="resistor" deviceset="R-US_" device="0207/10" value="J"/>
+<part name="C25" library="resistor" deviceset="C-EU" device="075-032X103" value="0.1"/>
 </parts>
 <sheets>
 <sheet>
@@ -12167,6 +12168,7 @@ Source: &lt;a href="http://www.farnell.com/datasheets/391100.pdf"&gt; Data sheet
 <instance part="C24" gate="G$1" x="81.28" y="124.46"/>
 <instance part="GND16" gate="1" x="93.98" y="104.14"/>
 <instance part="R17" gate="G$1" x="71.12" y="111.76" rot="R180"/>
+<instance part="C25" gate="G$1" x="106.68" y="116.84"/>
 </instances>
 <busses>
 </busses>
@@ -12232,6 +12234,8 @@ Source: &lt;a href="http://www.farnell.com/datasheets/391100.pdf"&gt; Data sheet
 <junction x="81.28" y="111.76"/>
 <wire x1="81.28" y1="111.76" x2="76.2" y2="111.76" width="0.1524" layer="91"/>
 <pinref part="R17" gate="G$1" pin="1"/>
+<pinref part="C25" gate="G$1" pin="2"/>
+<junction x="106.68" y="111.76"/>
 </segment>
 </net>
 <net name="N$7" class="0">
@@ -12271,12 +12275,16 @@ Source: &lt;a href="http://www.farnell.com/datasheets/391100.pdf"&gt; Data sheet
 <pinref part="R16" gate="G$1" pin="2"/>
 <wire x1="134.62" y1="0" x2="139.7" y2="0" width="0.1524" layer="91"/>
 <wire x1="111.76" y1="83.82" x2="111.76" y2="127" width="0.1524" layer="91"/>
-<wire x1="111.76" y1="127" x2="81.28" y2="127" width="0.1524" layer="91"/>
+<wire x1="111.76" y1="127" x2="106.68" y2="127" width="0.1524" layer="91"/>
 <pinref part="R32" gate="G$1" pin="2"/>
 <junction x="139.7" y="0"/>
 <pinref part="C24" gate="G$1" pin="+"/>
 <junction x="81.28" y="127"/>
+<wire x1="106.68" y1="127" x2="81.28" y2="127" width="0.1524" layer="91"/>
 <wire x1="81.28" y1="127" x2="76.2" y2="127" width="0.1524" layer="91"/>
+<pinref part="C25" gate="G$1" pin="1"/>
+<wire x1="106.68" y1="119.38" x2="106.68" y2="127" width="0.1524" layer="91"/>
+<junction x="106.68" y="127"/>
 </segment>
 </net>
 <net name="N$9" class="0">

@@ -12024,7 +12024,7 @@ Source: &lt;a href="http://www.farnell.com/datasheets/391100.pdf"&gt; Data sheet
 <part name="C9" library="resistor" deviceset="CPOL-EU" device="E5-8.5" value="220uF"/>
 <part name="R12" library="resistor" deviceset="R-US_" device="0207/12" value="J"/>
 <part name="R15" library="resistor" deviceset="R-US_" device="0207/12" value="J"/>
-<part name="R16" library="resistor" deviceset="R-US_" device="0207/10" value="J"/>
+<part name="R16" library="resistor" deviceset="R-US_" device="0207/12" value="J"/>
 <part name="C7" library="resistor" deviceset="CPOL-EU" device="E2.5-7" value="10uF"/>
 <part name="R18" library="resistor" deviceset="R-US_" device="0207/12" value="10R+0.7H"/>
 <part name="R19" library="resistor" deviceset="R-US_" device="0207/12" value="10R+0.7H"/>
@@ -12066,11 +12066,13 @@ Source: &lt;a href="http://www.farnell.com/datasheets/391100.pdf"&gt; Data sheet
 <part name="GND15" library="supply1" deviceset="GND" device=""/>
 <part name="R31" library="resistor" deviceset="R-US_" device="0309/10" value="3k9"/>
 <part name="C22" library="resistor" deviceset="C-EU" device="075-032X103" value="0.1"/>
-<part name="X4" library="con-molex" deviceset="22-23-2031" device="" value="PWR"/>
-<part name="GND16" library="supply1" deviceset="GND" device=""/>
 <part name="R32" library="resistor" deviceset="R-US_" device="0207/10" value="3k9"/>
 <part name="LED1" library="led" deviceset="TLLR4400" device="" value="RED"/>
 <part name="GND17" library="supply1" deviceset="GND" device=""/>
+<part name="C23" library="resistor" deviceset="CPOL-EU" device="E7.5-16" value="3900uF"/>
+<part name="C24" library="resistor" deviceset="CPOL-EU" device="E7.5-16" value="3900uF"/>
+<part name="GND16" library="supply1" deviceset="GND" device=""/>
+<part name="R17" library="resistor" deviceset="R-US_" device="0207/10" value="J"/>
 </parts>
 <sheets>
 <sheet>
@@ -12094,7 +12096,7 @@ Source: &lt;a href="http://www.farnell.com/datasheets/391100.pdf"&gt; Data sheet
 <instance part="C3" gate="G$1" x="86.36" y="20.32" rot="R180"/>
 <instance part="C6" gate="G$1" x="96.52" y="45.72" rot="R180"/>
 <instance part="R7" gate="G$1" x="106.68" y="50.8" rot="R180"/>
-<instance part="GND4" gate="1" x="68.58" y="30.48"/>
+<instance part="GND4" gate="1" x="68.58" y="33.02"/>
 <instance part="C8" gate="G$1" x="114.3" y="12.7"/>
 <instance part="GND5" gate="1" x="114.3" y="5.08"/>
 <instance part="C10" gate="G$1" x="101.6" y="101.6" rot="R90"/>
@@ -12158,13 +12160,13 @@ Source: &lt;a href="http://www.farnell.com/datasheets/391100.pdf"&gt; Data sheet
 <instance part="GND15" gate="1" x="20.32" y="-12.7"/>
 <instance part="R31" gate="G$1" x="43.18" y="5.08"/>
 <instance part="C22" gate="G$1" x="81.28" y="-17.78"/>
-<instance part="X4" gate="-1" x="78.74" y="111.76" rot="R180"/>
-<instance part="X4" gate="-2" x="78.74" y="114.3" rot="R180"/>
-<instance part="X4" gate="-3" x="78.74" y="116.84" rot="R180"/>
-<instance part="GND16" gate="1" x="86.36" y="104.14"/>
 <instance part="R32" gate="G$1" x="139.7" y="-5.08" rot="R90"/>
 <instance part="LED1" gate="G$1" x="139.7" y="-12.7"/>
 <instance part="GND17" gate="1" x="139.7" y="-20.32"/>
+<instance part="C23" gate="G$1" x="81.28" y="116.84"/>
+<instance part="C24" gate="G$1" x="81.28" y="124.46"/>
+<instance part="GND16" gate="1" x="93.98" y="104.14"/>
+<instance part="R17" gate="G$1" x="71.12" y="111.76" rot="R180"/>
 </instances>
 <busses>
 </busses>
@@ -12225,8 +12227,11 @@ Source: &lt;a href="http://www.farnell.com/datasheets/391100.pdf"&gt; Data sheet
 <pinref part="C10" gate="G$1" pin="-"/>
 <wire x1="106.68" y1="101.6" x2="106.68" y2="111.76" width="0.1524" layer="91"/>
 <wire x1="106.68" y1="111.76" x2="81.28" y2="111.76" width="0.1524" layer="91"/>
-<pinref part="X4" gate="-1" pin="S"/>
 <junction x="106.68" y="101.6"/>
+<pinref part="C23" gate="G$1" pin="-"/>
+<junction x="81.28" y="111.76"/>
+<wire x1="81.28" y1="111.76" x2="76.2" y2="111.76" width="0.1524" layer="91"/>
+<pinref part="R17" gate="G$1" pin="1"/>
 </segment>
 </net>
 <net name="N$7" class="0">
@@ -12265,11 +12270,13 @@ Source: &lt;a href="http://www.farnell.com/datasheets/391100.pdf"&gt; Data sheet
 <junction x="124.46" y="81.28"/>
 <pinref part="R16" gate="G$1" pin="2"/>
 <wire x1="134.62" y1="0" x2="139.7" y2="0" width="0.1524" layer="91"/>
-<wire x1="111.76" y1="83.82" x2="111.76" y2="116.84" width="0.1524" layer="91"/>
-<wire x1="111.76" y1="116.84" x2="81.28" y2="116.84" width="0.1524" layer="91"/>
-<pinref part="X4" gate="-3" pin="S"/>
+<wire x1="111.76" y1="83.82" x2="111.76" y2="127" width="0.1524" layer="91"/>
+<wire x1="111.76" y1="127" x2="81.28" y2="127" width="0.1524" layer="91"/>
 <pinref part="R32" gate="G$1" pin="2"/>
 <junction x="139.7" y="0"/>
+<pinref part="C24" gate="G$1" pin="+"/>
+<junction x="81.28" y="127"/>
+<wire x1="81.28" y1="127" x2="76.2" y2="127" width="0.1524" layer="91"/>
 </segment>
 </net>
 <net name="N$9" class="0">
@@ -12387,11 +12394,11 @@ Source: &lt;a href="http://www.farnell.com/datasheets/391100.pdf"&gt; Data sheet
 <segment>
 <pinref part="GND4" gate="1" pin="GND"/>
 <pinref part="C12" gate="G$1" pin="-"/>
-<wire x1="60.96" y1="38.1" x2="60.96" y2="33.02" width="0.1524" layer="91"/>
-<wire x1="60.96" y1="33.02" x2="68.58" y2="33.02" width="0.1524" layer="91"/>
+<wire x1="60.96" y1="38.1" x2="60.96" y2="35.56" width="0.1524" layer="91"/>
+<wire x1="60.96" y1="35.56" x2="68.58" y2="35.56" width="0.1524" layer="91"/>
 <pinref part="C11" gate="G$1" pin="-"/>
-<wire x1="68.58" y1="38.1" x2="68.58" y2="33.02" width="0.1524" layer="91"/>
-<junction x="68.58" y="33.02"/>
+<wire x1="68.58" y1="38.1" x2="68.58" y2="35.56" width="0.1524" layer="91"/>
+<junction x="68.58" y="35.56"/>
 </segment>
 <segment>
 <pinref part="C8" gate="G$1" pin="2"/>
@@ -12478,14 +12485,17 @@ Source: &lt;a href="http://www.farnell.com/datasheets/391100.pdf"&gt; Data sheet
 <pinref part="GND15" gate="1" pin="GND"/>
 </segment>
 <segment>
-<pinref part="X4" gate="-2" pin="S"/>
-<wire x1="81.28" y1="114.3" x2="86.36" y2="114.3" width="0.1524" layer="91"/>
-<wire x1="86.36" y1="114.3" x2="86.36" y2="106.68" width="0.1524" layer="91"/>
-<pinref part="GND16" gate="1" pin="GND"/>
-</segment>
-<segment>
 <pinref part="LED1" gate="G$1" pin="C"/>
 <pinref part="GND17" gate="1" pin="GND"/>
+</segment>
+<segment>
+<pinref part="C24" gate="G$1" pin="-"/>
+<pinref part="C23" gate="G$1" pin="+"/>
+<wire x1="81.28" y1="119.38" x2="93.98" y2="119.38" width="0.1524" layer="91"/>
+<wire x1="93.98" y1="119.38" x2="93.98" y2="106.68" width="0.1524" layer="91"/>
+<junction x="81.28" y="119.38"/>
+<wire x1="81.28" y1="119.38" x2="76.2" y2="119.38" width="0.1524" layer="91"/>
+<pinref part="GND16" gate="1" pin="GND"/>
 </segment>
 </net>
 <net name="N$3" class="0">

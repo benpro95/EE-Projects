@@ -26,7 +26,7 @@
 <layer number="16" name="Bottom" color="1" fill="1" visible="yes" active="yes"/>
 <layer number="17" name="Pads" color="2" fill="1" visible="yes" active="yes"/>
 <layer number="18" name="Vias" color="2" fill="1" visible="yes" active="yes"/>
-<layer number="19" name="Unrouted" color="6" fill="1" visible="yes" active="yes"/>
+<layer number="19" name="Unrouted" color="6" fill="1" visible="no" active="yes"/>
 <layer number="20" name="Dimension" color="15" fill="1" visible="no" active="yes"/>
 <layer number="21" name="tPlace" color="7" fill="1" visible="no" active="yes"/>
 <layer number="22" name="bPlace" color="7" fill="1" visible="no" active="yes"/>
@@ -346,6 +346,7 @@
 <rectangle x1="73.66" y1="65.024" x2="75.946" y2="65.786" layer="16"/>
 <rectangle x1="73.66" y1="65.532" x2="75.946" y2="66.04" layer="16"/>
 <rectangle x1="89.154" y1="60.706" x2="89.916" y2="62.738" layer="16"/>
+<rectangle x1="96.266" y1="96.774" x2="96.52" y2="97.028" layer="16"/>
 </plain>
 <libraries>
 <library name="st-microelectronics">
