@@ -393,6 +393,10 @@
 <rectangle x1="66.421" y1="52.324" x2="67.691" y2="52.959" layer="1"/>
 <rectangle x1="55.88" y1="70.358" x2="63.246" y2="72.009" layer="1"/>
 <rectangle x1="89.154" y1="43.307" x2="89.916" y2="44.069" layer="1"/>
+<rectangle x1="32.893" y1="36.068" x2="33.147" y2="37.338" layer="1"/>
+<rectangle x1="32.258" y1="36.449" x2="33.147" y2="37.846" layer="1"/>
+<rectangle x1="33.909" y1="34.798" x2="35.433" y2="35.306" layer="1"/>
+<rectangle x1="34.036" y1="34.671" x2="35.306" y2="34.925" layer="1"/>
 </plain>
 <libraries>
 <library name="cirrus-dar">
@@ -2323,7 +2327,7 @@ design rules under a new name.</description>
 <element name="C20" library="resistor" package="C0805" value=".1" x="70.612" y="31.369" rot="R135"/>
 <element name="C21" library="resistor" package="C0805" value=".1" x="31.242" y="45.72"/>
 <element name="R21" library="resistor" package="R1206" value="FB" x="102.743" y="35.052" rot="R270"/>
-<element name="IC2" library="linear-technology" package="SOT223" value="LT1129-5" x="92.202" y="29.972" rot="R90">
+<element name="IC2" library="linear-technology" package="SOT223" value="MIC5209-5" x="92.202" y="29.972" rot="R90">
 <attribute name="OC_FARNELL" value="1663375" x="92.202" y="29.972" size="1.778" layer="27" rot="R90" display="off"/>
 <attribute name="MPN" value="LT1129CST-5#PBF" x="92.202" y="29.972" size="1.778" layer="27" rot="R90" display="off"/>
 <attribute name="OC_NEWARK" value="57M2069" x="92.202" y="29.972" size="1.778" layer="27" rot="R90" display="off"/>
@@ -2332,7 +2336,7 @@ design rules under a new name.</description>
 <element name="R23" library="resistor" package="R1206" value="FB" x="92.075" y="36.957"/>
 <element name="C23" library="resistor" package="C1210" value=".1" x="100.33" y="29.083" rot="R270"/>
 <element name="R24" library="resistor" package="0204/7" value="0" x="95.123" y="24.384" rot="R224.6"/>
-<element name="IC3" library="linear-technology" package="SOT223" value="LT1129-5" x="61.214" y="26.035" rot="R90">
+<element name="IC3" library="linear-technology" package="SOT223" value="MIC5209-5" x="61.214" y="26.035" rot="R90">
 <attribute name="OC_FARNELL" value="1663375" x="61.214" y="26.035" size="1.778" layer="27" rot="R90" display="off"/>
 <attribute name="MPN" value="LT1129CST-5#PBF" x="61.214" y="26.035" size="1.778" layer="27" rot="R90" display="off"/>
 <attribute name="OC_NEWARK" value="57M2069" x="61.214" y="26.035" size="1.778" layer="27" rot="R90" display="off"/>
@@ -2363,7 +2367,7 @@ design rules under a new name.</description>
 <element name="D3" library="diode" package="DO204-10" value="8V5-TVS" x="44.831" y="16.51" rot="R304.7"/>
 <element name="D4" library="diode" package="DO41-10" value="1N4007" x="50.546" y="16.891" rot="R270"/>
 <element name="C30" library="resistor" package="C1812K" value="100uF" x="97.917" y="35.941" rot="R180"/>
-<element name="C22" library="resistor" package="C1210" value="10u" x="25.4" y="4.191"/>
+<element name="C22" library="resistor" package="C1210" value="10u" x="32.639" y="35.052" rot="R225"/>
 </elements>
 <signals>
 <signal name="GND">
@@ -2457,7 +2461,6 @@ design rules under a new name.</description>
 <contactref element="D4" pad="A"/>
 <contactref element="C30" pad="1"/>
 <contactref element="C22" pad="2"/>
-<wire x1="47.7229375" y1="12.33350625" x2="26.8" y2="4.191" width="0" layer="19" extent="1-1"/>
 </signal>
 <signal name="N$1">
 <contactref element="IC1" pad="1"/>
@@ -2927,7 +2930,8 @@ design rules under a new name.</description>
 <wire x1="39.878" y1="29.718" x2="35.814" y2="29.718" width="0.8128" layer="1"/>
 <wire x1="35.814" y1="29.718" x2="35.306" y2="30.226" width="0.8128" layer="1"/>
 <wire x1="35.306" y1="30.226" x2="35.306" y2="35.179" width="0.8128" layer="1"/>
-<wire x1="35.306" y1="35.179" x2="35.306" y2="37.846" width="0.8128" layer="1"/>
+<wire x1="35.306" y1="35.179" x2="35.306" y2="36.195" width="0.8128" layer="1"/>
+<wire x1="35.306" y1="36.195" x2="35.306" y2="37.846" width="0.8128" layer="1"/>
 <wire x1="30.34733125" y1="48.506990625" x2="29.337" y2="47.496659375" width="0.6096" layer="1"/>
 <wire x1="29.337" y1="47.496659375" x2="29.337" y2="45.593" width="0.6096" layer="1"/>
 <wire x1="29.337" y1="45.593" x2="29.464" y2="45.72" width="0.6096" layer="1"/>
@@ -2975,7 +2979,8 @@ design rules under a new name.</description>
 <wire x1="36.322" y1="38.862" x2="36.957" y2="38.862" width="0.8128" layer="1"/>
 <wire x1="36.957" y1="38.862" x2="36.576" y2="38.481" width="0.8128" layer="1"/>
 <contactref element="C22" pad="1"/>
-<wire x1="24" y1="4.191" x2="35.814" y2="29.718" width="0" layer="19" extent="1-1"/>
+<wire x1="33.628946875" y1="36.041946875" x2="35.306" y2="36.041946875" width="0.4064" layer="1"/>
+<wire x1="35.306" y1="36.041946875" x2="35.306" y2="36.195" width="0.4064" layer="1"/>
 </signal>
 <signal name="N$32">
 <contactref element="IC2" pad="3"/>

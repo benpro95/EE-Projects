@@ -30,8 +30,8 @@
 <layer number="20" name="Dimension" color="15" fill="1" visible="yes" active="yes"/>
 <layer number="21" name="tPlace" color="7" fill="1" visible="yes" active="yes"/>
 <layer number="22" name="bPlace" color="7" fill="1" visible="yes" active="yes"/>
-<layer number="23" name="tOrigins" color="15" fill="1" visible="yes" active="yes"/>
-<layer number="24" name="bOrigins" color="15" fill="1" visible="yes" active="yes"/>
+<layer number="23" name="tOrigins" color="15" fill="1" visible="no" active="yes"/>
+<layer number="24" name="bOrigins" color="15" fill="1" visible="no" active="yes"/>
 <layer number="25" name="tNames" color="7" fill="1" visible="no" active="yes"/>
 <layer number="26" name="bNames" color="7" fill="1" visible="no" active="yes"/>
 <layer number="27" name="tValues" color="7" fill="1" visible="yes" active="yes"/>
@@ -100,7 +100,7 @@
 <rectangle x1="72.644" y1="57.785" x2="73.533" y2="58.039" layer="1"/>
 <rectangle x1="71.247" y1="52.959" x2="71.501" y2="55.245" layer="1"/>
 <rectangle x1="89.535" y1="48.387" x2="91.313" y2="50.673" layer="1" rot="R270"/>
-<rectangle x1="91.44" y1="41.275" x2="92.456" y2="45.847" layer="1" rot="R270"/>
+<rectangle x1="91.186" y1="41.529" x2="92.202" y2="46.101" layer="1" rot="R270"/>
 <rectangle x1="91.059" y1="42.545" x2="91.567" y2="43.815" layer="1" rot="R270"/>
 <rectangle x1="89.535" y1="42.926" x2="89.916" y2="43.815" layer="1" rot="R270"/>
 <rectangle x1="89.7255" y1="40.8305" x2="90.4875" y2="41.9735" layer="1" rot="R270"/>
@@ -392,11 +392,6 @@
 <rectangle x1="75.946" y1="59.055" x2="76.454" y2="59.436" layer="1"/>
 <rectangle x1="66.421" y1="52.324" x2="67.691" y2="52.959" layer="1"/>
 <rectangle x1="55.88" y1="70.358" x2="63.246" y2="72.009" layer="1"/>
-<rectangle x1="89.154" y1="43.307" x2="89.916" y2="44.069" layer="1"/>
-<rectangle x1="32.893" y1="36.068" x2="33.147" y2="37.338" layer="1"/>
-<rectangle x1="32.258" y1="36.449" x2="33.147" y2="37.846" layer="1"/>
-<rectangle x1="33.909" y1="34.798" x2="35.433" y2="35.306" layer="1"/>
-<rectangle x1="34.036" y1="34.671" x2="35.306" y2="34.925" layer="1"/>
 </plain>
 <libraries>
 <library name="cirrus-dar">
@@ -1653,18 +1648,6 @@ for trimmer refence see : &lt;u&gt;www.electrospec-inc.com/cross_references/trim
 <rectangle x1="0.9517" y1="-0.8491" x2="1.7018" y2="0.8509" layer="51"/>
 <rectangle x1="-0.1999" y1="-0.4001" x2="0.1999" y2="0.4001" layer="35"/>
 </package>
-<package name="C1812K">
-<description>&lt;b&gt;Ceramic Chip Capacitor KEMET 1812 reflow solder&lt;/b&gt;&lt;p&gt;
-Metric Code Size 4532</description>
-<wire x1="-2.175" y1="1.525" x2="2.175" y2="1.525" width="0.1016" layer="51"/>
-<wire x1="2.175" y1="-1.525" x2="-2.175" y2="-1.525" width="0.1016" layer="51"/>
-<smd name="1" x="-2.05" y="0" dx="1.8" dy="3.7" layer="1"/>
-<smd name="2" x="2.05" y="0" dx="1.8" dy="3.7" layer="1"/>
-<text x="-2.25" y="1.95" size="1.016" layer="25">&gt;NAME</text>
-<text x="-2.25" y="-2.975" size="1.016" layer="27">&gt;VALUE</text>
-<rectangle x1="-2.25" y1="-1.6" x2="-1.65" y2="1.6" layer="51"/>
-<rectangle x1="1.65" y1="-1.6" x2="2.25" y2="1.6" layer="51"/>
-</package>
 <package name="C1210">
 <description>&lt;b&gt;CAPACITOR&lt;/b&gt;</description>
 <wire x1="-2.473" y1="1.483" x2="2.473" y2="1.483" width="0.0508" layer="39"/>
@@ -2290,7 +2273,7 @@ design rules under a new name.</description>
 <element name="C6" library="resistor" package="C1210" value="2n2" x="77.089" y="35.433"/>
 <element name="C7" library="resistor" package="C1210" value="2u2" x="88.519" y="40.005"/>
 <element name="C8" library="resistor" package="C1210" value="2u2" x="78.486" y="50.165" rot="R180"/>
-<element name="C9" library="resistor" package="C1210" value="2u2" x="92.964" y="41.529" rot="R270"/>
+<element name="C9" library="resistor" package="C1210" value="2u2" x="92.71" y="41.529" rot="R270"/>
 <element name="C10" library="resistor" package="C1210" value=".1" x="87.249" y="35.433" rot="R90"/>
 <element name="C11" library="resistor" package="C1210" value=".1" x="92.71" y="48.006" rot="R90"/>
 <element name="R9" library="resistor" package="R1206" value="47k" x="56.642" y="37.084" rot="R90"/>
@@ -2327,16 +2310,17 @@ design rules under a new name.</description>
 <element name="C20" library="resistor" package="C0805" value=".1" x="70.612" y="31.369" rot="R135"/>
 <element name="C21" library="resistor" package="C0805" value=".1" x="31.242" y="45.72"/>
 <element name="R21" library="resistor" package="R1206" value="FB" x="102.743" y="35.052" rot="R270"/>
-<element name="IC2" library="linear-technology" package="SOT223" value="MIC5209-5" x="92.202" y="29.972" rot="R90">
+<element name="IC2" library="linear-technology" package="SOT223" value="LT1129-5" x="92.202" y="29.972" rot="R90">
 <attribute name="OC_FARNELL" value="1663375" x="92.202" y="29.972" size="1.778" layer="27" rot="R90" display="off"/>
 <attribute name="MPN" value="LT1129CST-5#PBF" x="92.202" y="29.972" size="1.778" layer="27" rot="R90" display="off"/>
 <attribute name="OC_NEWARK" value="57M2069" x="92.202" y="29.972" size="1.778" layer="27" rot="R90" display="off"/>
 <attribute name="MF" value="" x="92.202" y="29.972" size="1.778" layer="27" rot="R90" display="off"/>
 </element>
 <element name="R23" library="resistor" package="R1206" value="FB" x="92.075" y="36.957"/>
+<element name="C22" library="resistor" package="C1210" value="10u" x="97.282" y="34.925" rot="R180"/>
 <element name="C23" library="resistor" package="C1210" value=".1" x="100.33" y="29.083" rot="R270"/>
 <element name="R24" library="resistor" package="0204/7" value="0" x="95.123" y="24.384" rot="R224.6"/>
-<element name="IC3" library="linear-technology" package="SOT223" value="MIC5209-5" x="61.214" y="26.035" rot="R90">
+<element name="IC3" library="linear-technology" package="SOT223" value="LT1129-5" x="61.214" y="26.035" rot="R90">
 <attribute name="OC_FARNELL" value="1663375" x="61.214" y="26.035" size="1.778" layer="27" rot="R90" display="off"/>
 <attribute name="MPN" value="LT1129CST-5#PBF" x="61.214" y="26.035" size="1.778" layer="27" rot="R90" display="off"/>
 <attribute name="OC_NEWARK" value="57M2069" x="61.214" y="26.035" size="1.778" layer="27" rot="R90" display="off"/>
@@ -2361,13 +2345,11 @@ design rules under a new name.</description>
 <attribute name="OC_NEWARK" value="25C3832" x="68.834" y="14.732" size="1.778" layer="27" display="off"/>
 <attribute name="MF" value="MOLEX" x="68.834" y="14.732" size="1.778" layer="27" display="off"/>
 </element>
-<element name="R26" library="resistor" package="0309/12" value="100uH" x="67.691" y="20.066" rot="R180"/>
+<element name="R26" library="resistor" package="0309/12" value="10R" x="67.691" y="20.066" rot="R180"/>
 <element name="C28" library="resistor" package="E2,5-7" value="100uF" x="55.88" y="19.558" rot="R223.8"/>
 <element name="C29" library="resistor" package="E2,5-7" value="100uF" x="61.976" y="14.986" rot="R180"/>
 <element name="D3" library="diode" package="DO204-10" value="8V5-TVS" x="44.831" y="16.51" rot="R304.7"/>
 <element name="D4" library="diode" package="DO41-10" value="1N4007" x="50.546" y="16.891" rot="R270"/>
-<element name="C30" library="resistor" package="C1812K" value="100uF" x="97.917" y="35.941" rot="R180"/>
-<element name="C22" library="resistor" package="C1210" value="10u" x="32.639" y="35.052" rot="R225"/>
 </elements>
 <signals>
 <signal name="GND">
@@ -2439,6 +2421,7 @@ design rules under a new name.</description>
 <via x="95.885" y="45.339" extent="1-16" drill="0.6" shape="square"/>
 <contactref element="IC2" pad="4"/>
 <contactref element="IC2" pad="2"/>
+<contactref element="C22" pad="1"/>
 <contactref element="C23" pad="1"/>
 <contactref element="IC3" pad="4"/>
 <contactref element="IC3" pad="2"/>
@@ -2459,8 +2442,6 @@ design rules under a new name.</description>
 <via x="54.991" y="30.988" extent="1-16" drill="0.6" shape="square"/>
 <contactref element="D3" pad="A"/>
 <contactref element="D4" pad="A"/>
-<contactref element="C30" pad="1"/>
-<contactref element="C22" pad="2"/>
 </signal>
 <signal name="N$1">
 <contactref element="IC1" pad="1"/>
@@ -2666,7 +2647,7 @@ design rules under a new name.</description>
 <signal name="N$22">
 <contactref element="U$2" pad="14"/>
 <contactref element="C9" pad="1"/>
-<wire x1="90.615" y1="42.929" x2="92.964" y2="42.929" width="0.6096" layer="1"/>
+<wire x1="90.615" y1="42.929" x2="92.71" y2="42.929" width="0.6096" layer="1"/>
 <wire x1="90.615" y1="42.929" x2="90.612" y2="42.926" width="0.6096" layer="1"/>
 <wire x1="90.612" y1="42.926" x2="89.662" y2="42.926" width="0.6096" layer="1"/>
 <wire x1="89.662" y1="42.926" x2="89.281" y2="43.307" width="0.6096" layer="1"/>
@@ -2930,8 +2911,7 @@ design rules under a new name.</description>
 <wire x1="39.878" y1="29.718" x2="35.814" y2="29.718" width="0.8128" layer="1"/>
 <wire x1="35.814" y1="29.718" x2="35.306" y2="30.226" width="0.8128" layer="1"/>
 <wire x1="35.306" y1="30.226" x2="35.306" y2="35.179" width="0.8128" layer="1"/>
-<wire x1="35.306" y1="35.179" x2="35.306" y2="36.195" width="0.8128" layer="1"/>
-<wire x1="35.306" y1="36.195" x2="35.306" y2="37.846" width="0.8128" layer="1"/>
+<wire x1="35.306" y1="35.179" x2="35.306" y2="37.846" width="0.8128" layer="1"/>
 <wire x1="30.34733125" y1="48.506990625" x2="29.337" y2="47.496659375" width="0.6096" layer="1"/>
 <wire x1="29.337" y1="47.496659375" x2="29.337" y2="45.593" width="0.6096" layer="1"/>
 <wire x1="29.337" y1="45.593" x2="29.464" y2="45.72" width="0.6096" layer="1"/>
@@ -2978,21 +2958,16 @@ design rules under a new name.</description>
 <wire x1="35.306" y1="37.846" x2="36.322" y2="38.862" width="0.8128" layer="1"/>
 <wire x1="36.322" y1="38.862" x2="36.957" y2="38.862" width="0.8128" layer="1"/>
 <wire x1="36.957" y1="38.862" x2="36.576" y2="38.481" width="0.8128" layer="1"/>
-<contactref element="C22" pad="1"/>
-<wire x1="33.628946875" y1="36.041946875" x2="35.306" y2="36.041946875" width="0.4064" layer="1"/>
-<wire x1="35.306" y1="36.041946875" x2="35.306" y2="36.195" width="0.4064" layer="1"/>
 </signal>
 <signal name="N$32">
 <contactref element="IC2" pad="3"/>
 <contactref element="R23" pad="2"/>
+<contactref element="C22" pad="2"/>
 <wire x1="95.3008" y1="32.2834" x2="93.497" y2="34.0872" width="0.8128" layer="1"/>
 <wire x1="93.497" y1="34.0872" x2="93.497" y2="34.417" width="0.8128" layer="1"/>
 <wire x1="93.497" y1="34.417" x2="93.497" y2="36.957" width="0.8128" layer="1"/>
-<wire x1="95.374" y1="34.417" x2="93.98" y2="34.417" width="0.8128" layer="1"/>
-<contactref element="C30" pad="2"/>
-<wire x1="93.98" y1="34.417" x2="93.497" y2="34.417" width="0.8128" layer="1"/>
-<wire x1="95.867" y1="35.941" x2="93.98" y2="35.433" width="0.4064" layer="1"/>
-<wire x1="93.98" y1="35.433" x2="93.98" y2="34.417" width="0.4064" layer="1"/>
+<wire x1="95.882" y1="34.925" x2="95.374" y2="34.417" width="0.8128" layer="1"/>
+<wire x1="95.374" y1="34.417" x2="93.497" y2="34.417" width="0.8128" layer="1"/>
 </signal>
 <signal name="N$43">
 <contactref element="IC2" pad="1"/>
